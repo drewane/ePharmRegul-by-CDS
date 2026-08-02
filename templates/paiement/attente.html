@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Confirmation en attente — SIREPH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card text-center">
+      <div class="card-header">
+        <i class="bi {{ fournisseur.icone if fournisseur else 'bi-phone' }} me-1"></i>
+        {{ fournisseur.libelle if fournisseur else 'Mobile money' }}
+      </div>
+      <div class="card-body">
+        <div class="spinner-border text-primary my-3" role="status" id="attente-spinner">
+          <span class="visually-hidden">Attente de confirmation…</span>
+        </div>
+
+        <h2 class="h5">Confirmez le paiement sur votre téléphone</h2>
+        <p class="text-muted">
+          Une demande de <strong>{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
+          {{ paiement.devise }}</strong> vient d'être envoyée.
+          Validez-la avec votre code confidentiel — il ne transite jamais par SIREPH.
+        </p>
+
+        <p class="small text-muted">
+          Référence : <code>{{ paiement.reference_marchande }}</code>
+        </p>
+
+        <div id="resultat" class="alert d-none" role="status"></div>
+
+        {% if fournisseur and not fournisseur.configure() %}
+        <hr>
+        <p class="small text-muted mb-2">
+          <strong>Mode démonstration :</strong> aucun message n'est réellement envoyé.
+          Simulez l'issue ci-dessous — le serveur produit alors une notification
+          signée, traitée comme celle d'un opérateur réel.
+        </p>
+        <form method="post" action="{{ url_for('paiement.simuler') }}" class="d-grid gap-2">
+          <input type="hidden" name="paiement_id" value="{{ paiement.id }}">
+          <button class="btn btn-success btn-sm" name="resultat" value="succes">
+            Simuler une confirmation</button>
+          <button class="btn btn-outline-danger btn-sm" name="resultat" value="echec">
+            Simuler un refus</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <p class="text-center mt-3">
+      <a href="{{ url_for('profils.mon_espace') }}">Revenir plus tard</a>
+    </p>
+  </div>
+</div>
+
+<script>
+// Interrogation périodique du statut : le paiement peut être confirmé par
+// l'opérateur sans que l'usager revienne sur cette page.
+(function () {
+  const url = "{{ url_for('paiement.statut', paiement_id=paiement.id) }}";
+  const zone = document.getElementById('resultat');
+  const spinner = document.getElementById('attente-spinner');
+  let restant = 60;                       // ~5 min à 5 s d'intervalle
+
+  function afficher(classe, texte) {
+    zone.className = 'alert alert-' + classe;
+    zone.textContent = texte;
+    spinner.style.display = 'none';
+  }
+
+  const minuteur = setInterval(async function () {
+    if (restant-- <= 0) { clearInterval(minuteur); spinner.style.display = 'none'; return; }
+    try {
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.statut === 'confirme') {
+        clearInterval(minuteur);
+        afficher('success', 'Paiement confirmé. Redirection…');
+        setTimeout(function () { location.href = d.redirection || '/mon-espace'; }, 1500);
+      } else if (d.statut === 'echoue' || d.statut === 'expire') {
+        clearInterval(minuteur);
+        afficher('danger', 'Le paiement n’a pas abouti. Vous pouvez relancer l’opération.');
+      }
+    } catch (e) { /* réseau instable : on retentera au prochain cycle */ }
+  }, 5000);
+})();
+</script>
+{% endblock %}

@@ -7,46 +7,62 @@
 
 <div class="row g-3">
   <div class="col-lg-7">
-    <div class="card">
-      <div class="card-header">Choisir un moyen de paiement</div>
-      <div class="card-body">
+    <form method="post">
+      <div class="card">
+        <div class="card-header">Choisir un moyen de paiement</div>
+        <div class="card-body">
 
-        {% if not mode_reel %}
-        <div class="alert alert-warning d-flex align-items-start" role="alert">
-          <i class="bi bi-exclamation-triangle-fill me-2"></i>
-          <div>
-            <strong>Mode démonstration.</strong> Aucun prestataire de paiement réel
-            n'est raccordé : <em>aucun fonds ne sera débité</em>. Le protocole
-            (initiation, notification signée, contrôle du montant) est néanmoins
-            celui de production.
+          {% if paiement.statut in ('echoue', 'expire', 'rejete') %}
+          <div class="alert alert-danger">
+            Tentative précédente : <strong>{{ paiement.statut }}</strong>.
+            {{ paiement.detail_echec or '' }} Vous pouvez relancer l'opération.
           </div>
-        </div>
-        {% endif %}
+          {% endif %}
 
-        {% if paiement.statut == 'echoue' or paiement.statut == 'expire' %}
-        <div class="alert alert-danger">
-          Tentative précédente : <strong>{{ paiement.statut }}</strong>.
-          {{ paiement.detail_echec or '' }} Vous pouvez relancer l'opération.
-        </div>
-        {% endif %}
+          {% for f in fournisseurs %}
+          <div class="border rounded p-3 mb-2 moyen-paiement">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="fournisseur"
+                     id="f-{{ f.code }}" value="{{ f.code }}"
+                     data-flux="{{ f.flux }}" {{ 'checked' if loop.first }}>
+              <label class="form-check-label w-100" for="f-{{ f.code }}">
+                <i class="bi {{ f.icone }} me-1"></i>
+                <strong>{{ f.libelle }}</strong>
+                {% if f.configure() %}
+                  <span class="badge bg-success ms-1">raccordé</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark ms-1">simulation</span>
+                {% endif %}
+                {% if f.frais_pour_mille %}
+                <span class="text-muted small ms-1">
+                  · frais opérateur ≈ {{ "{:,}".format(f.frais(paiement.montant)).replace(',', ' ') }} XAF
+                </span>
+                {% endif %}
+              </label>
+            </div>
 
-        <form method="post">
-          {% for code, libelle in fournisseurs.items() %}
-          <div class="form-check border rounded p-3 mb-2">
-            <input class="form-check-input" type="radio" name="fournisseur"
-                   id="f-{{ code }}" value="{{ code }}" {{ 'checked' if loop.first }}>
-            <label class="form-check-label w-100" for="f-{{ code }}">
-              <strong>{{ libelle }}</strong>
-            </label>
+            {% if f.famille == 'mobile' %}
+            <div class="mt-2 ps-4 champ-mobile" data-pour="{{ f.code }}" hidden>
+              <label class="form-label small mb-1" for="num-{{ f.code }}">
+                Numéro {{ f.libelle }} à débiter</label>
+              <input class="form-control form-control-sm" id="num-{{ f.code }}"
+                     name="numero_payeur" placeholder="6XX XX XX XX" autocomplete="tel">
+              <div class="form-text">Une demande de confirmation sera envoyée sur ce téléphone.</div>
+            </div>
+            {% elif f.flux == 'hors_ligne' %}
+            <p class="small text-muted mb-0 ps-4 mt-1">
+              Les coordonnées bancaires et la référence à rappeler vous seront
+              communiquées à l'étape suivante.</p>
+            {% endif %}
           </div>
           {% endfor %}
+
           <button class="btn btn-primary mt-2" type="submit">
-            <i class="bi bi-shield-lock me-1"></i> Procéder au paiement sécurisé
+            <i class="bi bi-shield-lock me-1"></i> Continuer
           </button>
-          <a class="btn btn-link" href="{{ retour or url_for('dashboard') }}">Annuler</a>
-        </form>
+        </div>
       </div>
-    </div>
+    </form>
   </div>
 
   <div class="col-lg-5">
@@ -69,9 +85,9 @@
       <div class="card-body small text-muted">
         <ul class="mb-0 ps-3">
           <li>SIREPH ne stocke <strong>aucune donnée de carte</strong> ni de compte
-              mobile money : la saisie a lieu chez le prestataire agréé.</li>
+              mobile money : la saisie a lieu chez l'opérateur.</li>
           <li>La confirmation provient d'une <strong>notification signée</strong>
-              (HMAC-SHA256), vérifiée côté serveur.</li>
+              (HMAC-SHA256) vérifiée côté serveur, jamais du retour navigateur.</li>
           <li>Le montant notifié est comparé au montant attendu ; toute divergence
               est refusée et tracée.</li>
           <li>Un paiement déjà réglé ne peut pas être encaissé deux fois.</li>
@@ -80,4 +96,23 @@
     </div>
   </div>
 </div>
+
+<script>
+// Affiche le champ « numéro » du seul opérateur mobile sélectionné.
+(function () {
+  const radios = document.querySelectorAll('input[name=fournisseur]');
+  function majuscule() {
+    document.querySelectorAll('.champ-mobile').forEach(function (bloc) {
+      const choisi = document.querySelector('input[name=fournisseur]:checked');
+      const actif = choisi && bloc.dataset.pour === choisi.value;
+      bloc.hidden = !actif;
+      // Un champ masqué ne doit pas être soumis : il porterait un numéro vide
+      // pour un autre opérateur.
+      bloc.querySelectorAll('input').forEach(function (i) { i.disabled = !actif; });
+    });
+  }
+  radios.forEach(function (r) { r.addEventListener('change', majuscule); });
+  majuscule();
+})();
+</script>
 {% endblock %}

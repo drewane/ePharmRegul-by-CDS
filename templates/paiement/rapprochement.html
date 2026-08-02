@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Rapprochement bancaire — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Rapprochement bancaire</h1>
+<p class="text-muted">
+  Constatez l'encaissement d'un virement en saisissant la référence portée sur
+  le relevé. Le montant est contrôlé strictement : un virement partiel n'acquitte
+  pas la créance.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Saisir une ligne de relevé</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="reference">
+              Référence portée au libellé <span class="text-danger">*</span></label>
+            <input class="form-control" id="reference" name="reference" required
+                   placeholder="VIR-20260802-…">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="montant">
+              Montant crédité (XAF) <span class="text-danger">*</span></label>
+            <input class="form-control" type="number" id="montant" name="montant" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="date">Date de valeur</label>
+            <input class="form-control" type="date" id="date" name="date">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="reference_bancaire">Référence bancaire</label>
+            <input class="form-control" id="reference_bancaire" name="reference_bancaire"
+                   placeholder="N° d'opération de la banque">
+          </div>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-check2-square me-1"></i> Rapprocher</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        Virements attendus
+        <span class="badge bg-secondary ms-1">{{ attendus|length }}</span>
+      </div>
+      {% if attendus %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Créance</th><th>Objet</th><th>Référence attendue</th>
+            <th class="text-end">Montant</th>
+          </tr></thead>
+          <tbody>
+          {% for p in attendus %}
+            <tr>
+              <td><code>{{ p.numero }}</code></td>
+              <td class="small">{{ libelle_objet.get(p.entite_type, p.entite_type) }}</td>
+              <td><code class="small">{{ p.reference_marchande or '—' }}</code></td>
+              <td class="text-end">
+                {{ "{:,}".format(p.montant).replace(',', ' ') }} {{ p.devise }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucun virement en attente de rapprochement.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

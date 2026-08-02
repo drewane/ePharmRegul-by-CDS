@@ -7,24 +7,31 @@
 
     <div class="alert alert-warning">
       <strong><i class="bi bi-cone-striped me-1"></i> Page de démonstration.</strong>
-      En production, cette étape se déroule <em>chez le prestataire agréé</em> :
-      vos identifiants de paiement ne transitent jamais par SIREPH.
+      En production, cette étape se déroule <em>chez {{ fournisseur.libelle }}</em> —
+      page 3-D Secure pour une carte, application ou USSD pour le mobile money.
+      Vos identifiants de paiement ne transitent jamais par SIREPH.
     </div>
 
     <div class="card">
-      <div class="card-header d-flex justify-content-between">
-        <span>{{ fournisseur }}</span>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi {{ fournisseur.icone }} me-1"></i> {{ fournisseur.libelle }}</span>
         <span class="text-muted small">{{ paiement.reference_marchande }}</span>
       </div>
       <div class="card-body text-center">
-        <p class="text-muted mb-1">Montant à régler</p>
-        <p class="display-5">{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
+        <p class="text-muted mb-1">{{ objet }}</p>
+        <p class="display-5 mb-1">{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
           <small class="fs-6 text-muted">{{ paiement.devise }}</small></p>
+
+        {% if fournisseur.frais_pour_mille %}
+        <p class="small text-muted">
+          Frais opérateur estimés :
+          {{ "{:,}".format(fournisseur.frais(paiement.montant)).replace(',', ' ') }}
+          {{ paiement.devise }}</p>
+        {% endif %}
 
         {% if paiement.date_expiration %}
         <p class="small text-muted">
-          Session valable jusqu'à {{ paiement.date_expiration.strftime('%H:%M') }} UTC
-        </p>
+          Session valable jusqu'à {{ paiement.date_expiration.strftime('%d/%m %H:%M') }} UTC</p>
         {% endif %}
 
         <hr>
@@ -35,7 +42,7 @@
         </p>
 
         <form method="post" action="{{ url_for('paiement.simuler') }}" class="d-grid gap-2">
-          <input type="hidden" name="ref" value="{{ paiement.reference_marchande }}">
+          <input type="hidden" name="paiement_id" value="{{ paiement.id }}">
           <button class="btn btn-success" name="resultat" value="succes" type="submit">
             <i class="bi bi-check-circle me-1"></i> Simuler un paiement réussi
           </button>

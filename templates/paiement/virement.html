@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Virement {{ paiement.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Avis de paiement par virement</h1>
+<p class="text-muted">{{ objet }} — créance <strong>{{ paiement.numero }}</strong></p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card border-primary">
+      <div class="card-header bg-primary-subtle">
+        <i class="bi bi-bank me-1"></i> Coordonnées du compte de recette
+      </div>
+      <div class="card-body">
+        {% if not fournisseur.configure() %}
+        <div class="alert alert-warning small">
+          <strong>Coordonnées de démonstration.</strong> Les coordonnées bancaires
+          officielles s'affichent dès que la DPML les renseigne
+          (<code>SIREPH_BANQUE_*</code>).
+        </div>
+        {% endif %}
+
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Banque</dt>
+          <dd class="col-sm-8">{{ coordonnees.banque }}</dd>
+          <dt class="col-sm-4">Titulaire</dt>
+          <dd class="col-sm-8">{{ coordonnees.titulaire }}</dd>
+          <dt class="col-sm-4">IBAN</dt>
+          <dd class="col-sm-8"><code>{{ coordonnees.iban }}</code></dd>
+          <dt class="col-sm-4">BIC / SWIFT</dt>
+          <dd class="col-sm-8"><code>{{ coordonnees.bic }}</code></dd>
+          <dt class="col-sm-4">Montant</dt>
+          <dd class="col-sm-8">
+            <strong>{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
+              {{ paiement.devise }}</strong></dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mt-3 border-danger">
+      <div class="card-header bg-danger-subtle">
+        <i class="bi bi-exclamation-triangle me-1"></i> Référence à rappeler
+        <strong>obligatoirement</strong>
+      </div>
+      <div class="card-body text-center">
+        <p class="fs-4 mb-1"><code>{{ paiement.reference_marchande }}</code></p>
+        <p class="small text-muted mb-0">
+          Reportez cette référence <strong>à l'identique</strong> dans le libellé du
+          virement. Sans elle, le rapprochement automatique est impossible et le
+          traitement de votre dossier sera retardé.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Suite de la procédure</div>
+      <div class="card-body small">
+        <ol class="ps-3 mb-0">
+          <li class="mb-2">Effectuez le virement depuis votre banque, en rappelant
+              la référence ci-contre.</li>
+          <li class="mb-2">La DPML rapproche le virement de votre créance dès
+              réception du relevé bancaire.</li>
+          <li class="mb-2">Vous recevez une notification dans SIREPH lorsque le
+              paiement est constaté ; votre dossier reprend alors son cours.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">État de la créance</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-6">État</dt>
+          <dd class="col-6"><span class="badge bg-secondary">{{ paiement.statut }}</span></dd>
+          <dt class="col-6">Valable jusqu'au</dt>
+          <dd class="col-6">
+            {{ paiement.date_expiration.strftime('%d/%m/%Y') if paiement.date_expiration else '—' }}
+          </dd>
+        </dl>
+      </div>
+    </div>
+
+    <a class="btn btn-outline-secondary mt-3 w-100"
+       href="{{ url_for('profils.mon_espace') }}">Retour à mon espace</a>
+  </div>
+</div>
+{% endblock %}

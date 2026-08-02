@@ -5,15 +5,18 @@ montant tiré du paramètre configurable frais_dossier_xaf du module concerné)
 money) via deposer_preuve() → un agent DPML confirme() ou rejette() → le
 demandeur est notifié dans les deux cas.
 
-DEUX VOIES DE RÈGLEMENT
------------------------
-1. **Paiement en ligne** (voie principale) — via paiement_gateway.py : session
-   chez un prestataire agréé, notification signée en HMAC, idempotence,
-   contrôle du montant. SIREPH ne stocke AUCUNE donnée de carte ni de mobile
-   money : seules des références opaques transitent.
-2. **Preuve manuelle** (voie de repli) — virement/dépôt : le demandeur
-   téléverse un justificatif, un agent DPML confirme ou rejette. Conservée
-   car tous les opérateurs n'ont pas accès au paiement en ligne.
+MOYENS DE RÈGLEMENT (plateforme multi-fournisseurs, paquet `paiement/`)
+----------------------------------------------------------------------
+1. **Mobile money** (MTN MoMo, Orange Money) — demande poussée sur le
+   téléphone du payeur, confirmée par notification ou interrogation de statut.
+2. **Carte bancaire** — page hébergée du prestataire avec 3-D Secure ; seul le
+   webhook signé fait foi, jamais le retour navigateur.
+3. **Virement bancaire** — avis de paiement portant une référence unique, puis
+   rapprochement sur relevé bancaire (automatique ou par un agent habilité).
+4. **Preuve manuelle** (repli) — justificatif téléversé, confirmé par un agent.
+
+Dans tous les cas SIREPH ne stocke AUCUNE donnée de carte ni de compte mobile :
+seules des références opaques transitent.
 
 Faits générateurs couverts (barème centralisé dans bareme.py) : homologation,
 licence d'établissement, analyse de laboratoire, autorisation d'essai clinique,
@@ -24,7 +27,7 @@ n'est alors créé.
 from datetime import datetime
 
 import bareme
-import paiement_gateway as passerelle
+import paiement as plateforme
 from models import (db, Paiement, DossierAMM, DemandeLicence, Echantillon,
                     Personne)
 from audit import enregistrer_audit
@@ -193,41 +196,54 @@ def paiements_du_redevable(personne):
 # ---------------------------------------------------------------------------
 # Paiement en ligne sécurisé
 # ---------------------------------------------------------------------------
-def initier_en_ligne(paiement, fournisseur, retour_url, acteur):
-    """Ouvre une session de paiement chez le prestataire agréé."""
+def initier_en_ligne(paiement, code_fournisseur, contexte, acteur):
+    """Ouvre une session de paiement auprès du moyen choisi.
+
+    `contexte` porte les URL de retour/notification et, pour le mobile money,
+    le numéro du payeur. Renvoie une `Initiation` (cf. paiement/base.py).
+    """
     if paiement.statut == "confirme":
         raise ErreurWorkflow("Ce paiement a déjà été réglé.")
+    fournisseur = plateforme.obtenir(code_fournisseur)
+    if not paiement.reference_marchande:
+        paiement.reference_marchande = plateforme.nouvelle_reference(
+            getattr(fournisseur, "prefixe_ref", "MRC"))
     try:
-        session = passerelle.initier(paiement, fournisseur, retour_url)
-    except passerelle.ErreurPaiement as e:
+        initiation = fournisseur.initier(paiement, contexte)
+    except plateforme.ErreurPaiement as e:
         raise ErreurWorkflow(str(e))
-    enregistrer_audit(paiement, f"Paiement en ligne initié ({passerelle.FOURNISSEURS[fournisseur]})",
+
+    paiement.mode = "en_ligne" if fournisseur.flux != "hors_ligne" else "virement"
+    paiement.fournisseur = fournisseur.code
+    paiement.reference_marchande = initiation.reference_marchande
+    paiement.statut = "initie"
+    paiement.date_initiation = datetime.utcnow()
+    paiement.date_expiration = initiation.expire_le
+    paiement.detail_echec = None
+    enregistrer_audit(paiement, f"Paiement initié — {fournisseur.libelle}",
                       acteur, nouveau_statut="initie")
-    return session
+    return initiation
 
 
-def traiter_notification(paiement, payload, acteur=None):
-    """Applique une notification de paiement signée (webhook / retour prestataire).
-
-    Toute notification invalide (signature, montant, rejeu) est refusée ET tracée :
-    une tentative de fraude laisse une trace exploitable.
-    """
+def _appliquer_resultat(paiement, resultat, acteur, origine):
+    """Applique une issue de paiement (notification, interrogation, rapprochement)."""
     ancien = paiement.statut
-    try:
-        resultat = passerelle.traiter_notification(payload, paiement)
-    except passerelle.ErreurPaiement as e:
-        enregistrer_audit(paiement, f"Notification de paiement REFUSÉE : {e}", acteur)
-        db.session.commit()
-        raise ErreurWorkflow(str(e))
+    if resultat.etat == "deja_confirme":
+        return paiement                      # idempotence : aucun double encaissement
+    if resultat.etat == "en_cours":
+        return paiement
 
-    if resultat == "deja_confirme":
-        return paiement  # idempotence : aucun double encaissement
+    fournisseur = plateforme.FOURNISSEURS.get(paiement.fournisseur)
+    libelle_f = fournisseur.libelle if fournisseur else (paiement.fournisseur or "—")
 
-    if resultat == "confirme":
+    if resultat.etat == "confirme":
+        paiement.statut = "confirme"
+        paiement.date_confirmation = datetime.utcnow()
+        paiement.reference_transaction = resultat.reference_transaction
         enregistrer_audit(
             paiement,
-            f"Paiement confirmé en ligne ({paiement.fournisseur}, "
-            f"transaction {paiement.reference_transaction})",
+            f"Paiement confirmé — {libelle_f} ({origine}, transaction "
+            f"{paiement.reference_transaction})",
             acteur, ancien_statut=ancien, nouveau_statut="confirme")
         demandeur = _demandeur(paiement)
         if demandeur:
@@ -235,7 +251,9 @@ def traiter_notification(paiement, payload, acteur=None):
                      f"Votre paiement {paiement.numero} de {paiement.montant} "
                      f"{paiement.devise} a été confirmé.", lien=_lien_entite(paiement))
     else:
-        enregistrer_audit(paiement, f"Paiement en ligne échoué : {paiement.detail_echec}",
+        paiement.statut = "echoue"
+        paiement.detail_echec = resultat.detail or "Paiement non abouti."
+        enregistrer_audit(paiement, f"Paiement échoué — {libelle_f} : {paiement.detail_echec}",
                           acteur, ancien_statut=ancien, nouveau_statut="echoue")
         demandeur = _demandeur(paiement)
         if demandeur:
@@ -245,11 +263,60 @@ def traiter_notification(paiement, payload, acteur=None):
     return paiement
 
 
+def traiter_notification(paiement, payload, acteur=None):
+    """Applique une notification signée (webhook prestataire).
+
+    Toute notification invalide (signature, montant, rejeu) est refusée ET
+    tracée : une tentative de fraude laisse une trace exploitable.
+    """
+    fournisseur = plateforme.FOURNISSEURS.get(paiement.fournisseur)
+    if fournisseur is None:
+        raise ErreurWorkflow("Aucun moyen de paiement engagé pour cette créance.")
+    try:
+        resultat = fournisseur.traiter_notification(payload, paiement)
+    except plateforme.ErreurPaiement as e:
+        enregistrer_audit(paiement, f"Notification de paiement REFUSÉE : {e}", acteur)
+        db.session.commit()
+        raise ErreurWorkflow(str(e))
+    if resultat.etat == "confirme":
+        paiement.signature_notification = str(payload.get("signature", ""))[:120]
+    return _appliquer_resultat(paiement, resultat, acteur, "notification")
+
+
+def interroger_statut(paiement, acteur=None):
+    """Interroge le prestataire (mobile money : le payeur a-t-il validé ?)."""
+    fournisseur = plateforme.FOURNISSEURS.get(paiement.fournisseur)
+    if fournisseur is None or paiement.statut not in ("initie",):
+        return paiement
+    try:
+        resultat = fournisseur.interroger(paiement)
+    except plateforme.ErreurPaiement as e:
+        enregistrer_audit(paiement, f"Interrogation de statut refusée : {e}", acteur)
+        db.session.commit()
+        raise ErreurWorkflow(str(e))
+    return _appliquer_resultat(paiement, resultat, acteur, "interrogation")
+
+
+def rapprocher_virement(paiement, ligne_releve, acteur):
+    """Rapproche un virement bancaire avec la créance (contrôle strict du montant)."""
+    fournisseur = plateforme.obtenir("virement")
+    try:
+        resultat = fournisseur.rapprocher(paiement, ligne_releve)
+    except plateforme.ErreurPaiement as e:
+        enregistrer_audit(paiement, f"Rapprochement bancaire REFUSÉ : {e}", acteur)
+        db.session.commit()
+        raise ErreurWorkflow(str(e))
+    return _appliquer_resultat(paiement, resultat, acteur, "rapprochement bancaire")
+
+
 def purger_sessions_expirees():
     """Passe à `expire` les sessions de paiement non abouties. Idempotent."""
     n = 0
+    maintenant = datetime.utcnow()
     for p in Paiement.query.filter_by(statut="initie").all():
-        if passerelle.expirer_si_besoin(p):
+        if p.date_expiration and maintenant > p.date_expiration:
+            p.statut = "expire"
+            p.detail_echec = "Session de paiement expirée sans confirmation."
             enregistrer_audit(p, "Session de paiement expirée", None,
                               ancien_statut="initie", nouveau_statut="expire")
             n += 1
