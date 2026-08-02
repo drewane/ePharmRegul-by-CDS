@@ -15,25 +15,26 @@ DEUX VOIES DE RÈGLEMENT
    téléverse un justificatif, un agent DPML confirme ou rejette. Conservée
    car tous les opérateurs n'ont pas accès au paiement en ligne.
 
-Faits générateurs couverts : homologation (DossierAMM), licences
-(DemandeLicence) et analyses de laboratoire (Echantillon).
+Faits générateurs couverts (barème centralisé dans bareme.py) : homologation,
+licence d'établissement, analyse de laboratoire, autorisation d'essai clinique,
+inspection réglementaire et libération de lot. Le montant de chacun est
+paramétrable ; un montant à 0 signifie « acte gratuit » et aucun paiement
+n'est alors créé.
 """
 from datetime import datetime
 
+import bareme
 import paiement_gateway as passerelle
-from models import db, Paiement, DossierAMM, DemandeLicence, Echantillon, Personne
+from models import (db, Paiement, DossierAMM, DemandeLicence, Echantillon,
+                    Personne)
 from audit import enregistrer_audit
 from notifications import notifier, notifier_tous
 from erreurs import ErreurWorkflow
 from numerotation import generer_numero
 from pieces import enregistrer_piece
 
-# Libellé lisible du fait générateur, par type d'entité
-LIBELLE_OBJET = {
-    "DossierAMM": "Homologation (AMM)",
-    "DemandeLicence": "Licence d'établissement",
-    "Echantillon": "Analyse de laboratoire",
-}
+# Libellé lisible du fait générateur, par type d'entité (dérivé du barème)
+LIBELLE_OBJET = {ent: lib for _c, (ent, _m, _k, _d, lib) in bareme.BAREME.items()}
 
 
 def _demandeur(paiement):
@@ -47,9 +48,53 @@ def _demandeur(paiement):
         return Personne.query.filter_by(
             etablissement_rattachement_id=demande.etablissement_id, role_systeme="demandeur_externe").first()
     if paiement.entite_type == "Echantillon":
-        ech = Echantillon.query.get(paiement.entite_id)
+        ech = db.session.get(Echantillon, paiement.entite_id)
         return getattr(ech, "demandeur", None) if ech else None
+    if paiement.entite_type == "ProtocoleEssaiClinique":
+        from models import ProtocoleEssaiClinique
+        p = db.session.get(ProtocoleEssaiClinique, paiement.entite_id)
+        return p.promoteur if p else None
+    if paiement.entite_type in ("Inspection", "LiberationLot"):
+        # Le redevable est l'établissement concerné : on notifie son représentant.
+        from models import Inspection, LiberationLot
+        modele = Inspection if paiement.entite_type == "Inspection" else LiberationLot
+        obj = db.session.get(modele, paiement.entite_id)
+        etab_id = getattr(obj, "etablissement_id", None) if obj else None
+        if not etab_id:
+            return None
+        return _representant_etablissement(etab_id)
     return None
+
+
+# Profils externes habilités à représenter un établissement pour un paiement.
+_PROFILS_REPRESENTANTS = ("demandeur_externe", "grossiste", "pharmacien",
+                          "laboratoire_prive", "promoteur_essai")
+
+
+def _representant_etablissement(etablissement_id):
+    """Interlocuteur externe rattaché à l'établissement, quel que soit son profil."""
+    return (Personne.query
+            .filter(Personne.etablissement_rattachement_id == etablissement_id,
+                    Personne.role_systeme.in_(_PROFILS_REPRESENTANTS),
+                    Personne.statut_compte == "actif")
+            .first())
+
+
+def creer_paiement_bareme(entite, devise="XAF"):
+    """Crée le paiement exigible pour une entité, montant tiré du barème.
+
+    Renvoie None si l'acte n'est pas facturé (montant 0) ou si un paiement non
+    annulé existe déjà — appelable sans risque depuis un workflow.
+    """
+    montant = bareme.montant_pour(entite)
+    if montant <= 0:
+        return None
+    existant = (Paiement.query
+                .filter_by(entite_type=entite.__class__.__name__, entite_id=entite.id)
+                .filter(Paiement.statut != "rejete").first())
+    if existant:
+        return existant
+    return creer_paiement(entite, montant, devise)
 
 
 def creer_paiement(entite, montant, devise="XAF"):
@@ -123,7 +168,26 @@ def _lien_entite(paiement):
         return f"/licences/{paiement.entite_id}"
     if paiement.entite_type == "Echantillon":
         return f"/laboratoire/echantillons/{paiement.entite_id}"
+    if paiement.entite_type == "ProtocoleEssaiClinique":
+        return f"/essais-cliniques/{paiement.entite_id}"
+    if paiement.entite_type == "Inspection":
+        return f"/inspections/{paiement.entite_id}"
+    if paiement.entite_type == "LiberationLot":
+        return f"/liberations/{paiement.entite_id}"
     return None
+
+
+def paiements_du_redevable(personne):
+    """Tous les paiements dont cette personne est redevable, tous modules confondus.
+
+    Alimente l'espace « Mes paiements » des profils externes.
+    """
+    resultat = []
+    for p in Paiement.query.order_by(Paiement.date_creation.desc()).all():
+        d = _demandeur(p)
+        if d and d.id == personne.id:
+            resultat.append(p)
+    return resultat
 
 
 # ---------------------------------------------------------------------------

@@ -58,6 +58,17 @@
           <a class="nav-link {{ 'active' if request.path == '/' }}" href="{{ url_for('dashboard') }}">
             <i class="bi bi-speedometer2"></i> Tableau de bord</a>
         </li>
+        {% if current_user.est_externe %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/mon-espace' }}"
+             href="{{ url_for('profils.mon_espace') }}">
+            <i class="bi bi-person-badge"></i> Mon espace
+            {%- if paiements_dus %}
+            <span class="badge bg-danger ms-1">{{ paiements_dus }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        {% endif %}
         {% if current_user.role_systeme != "demandeur_externe" or demandeur_a_amm %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if '/dossiers' in request.path }}" href="{{ url_for('dossiers_registre') }}">

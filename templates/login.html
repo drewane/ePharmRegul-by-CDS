@@ -23,6 +23,18 @@
   </div>
 
   <div class="col-md-5">
+    <div class="card shadow-sm border-success mb-3">
+      <div class="card-body p-4 d-flex flex-column">
+        <h5 class="mb-2"><i class="bi bi-person-plus"></i> Créer un compte</h5>
+        <p class="text-muted small">Usager, laboratoire, grossiste, pharmacien d'officine,
+          promoteur d'essai clinique ou industriel : chaque profil dispose de son
+          propre espace et de ses propres démarches.</p>
+        <a href="{{ url_for('profils.inscription_choix') }}" class="btn btn-success mt-auto">
+          Choisir mon profil
+        </a>
+      </div>
+    </div>
+
     <div class="card shadow-sm border-primary">
       <div class="card-body p-4 d-flex flex-column">
         <h5 class="mb-2"><i class="bi bi-journal-plus"></i> Vous êtes un laboratoire ?</h5>

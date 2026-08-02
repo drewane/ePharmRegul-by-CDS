@@ -97,6 +97,9 @@ def initialiser_parametres_defaut():
             if not ParametreModule.query.filter_by(module=module, cle=cle).first():
                 db.session.add(ParametreModule(module=module, cle=cle, valeur=valeur, description=description))
     db.session.commit()
+    # Frais des autres faits générateurs (analyses, essais, inspections, libérations)
+    from bareme import initialiser_parametres_bareme
+    initialiser_parametres_bareme()
 
 
 def executer_verifications_delais():

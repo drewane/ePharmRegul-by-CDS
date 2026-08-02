@@ -66,6 +66,7 @@ from routes_pieces import pieces_bp  # noqa: E402
 from routes_derogation import derogation_bp  # noqa: E402
 from routes_visas import visas_bp  # noqa: E402
 from routes_paiement import bp as paiement_bp  # noqa: E402
+from routes_profils import bp as profils_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -77,6 +78,7 @@ app.register_blueprint(pieces_bp)
 app.register_blueprint(derogation_bp)
 app.register_blueprint(visas_bp)
 app.register_blueprint(paiement_bp)
+app.register_blueprint(profils_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
@@ -103,7 +105,15 @@ def inject_globals():
         if u.etablissement_rattachement_id:
             demandeur_a_licences = db.session.query(DemandeLicence.id).filter_by(
                 etablissement_id=u.etablissement_rattachement_id).first() is not None
-    return dict(current_user=u, ROLES=ROLES, wf=wf, STATUTS=wf.STATUTS,
+    # Compteur de paiements restant à régler, pour la pastille « Mon espace ».
+    paiements_dus = 0
+    if u is not None and u.est_externe:
+        from paiements import paiements_du_redevable
+        paiements_dus = sum(
+            1 for p in paiements_du_redevable(u)
+            if p.statut in ("en_attente", "initie", "rejete", "echoue", "expire"))
+    return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
+                wf=wf, STATUTS=wf.STATUTS,
                 TYPES_PROCEDURE=wf.TYPES_PROCEDURE, wfvl=wfvl, STATUTS_VL=wfvl.STATUTS,
                 TYPES_MESURE=wfvl.TYPES_MESURE, wfri=wfri, STATUTS_RI=wfri.STATUTS,
                 TYPES_RI=wfri.TYPES, wfli=wfli, STATUTS_LI=wfli.STATUTS_DEMANDE,

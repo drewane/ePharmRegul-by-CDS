@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Inscription — {{ libelle }} — SIREPH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <nav aria-label="fil d'ariane" class="mb-2">
+      <a class="small" href="{{ url_for('profils.inscription_choix') }}">
+        <i class="bi bi-arrow-left"></i> Changer de profil</a>
+    </nav>
+
+    <div class="card">
+      <div class="card-header">
+        <strong>{{ libelle }}</strong>
+      </div>
+      <div class="card-body">
+        <p class="text-muted small">{{ description }}</p>
+
+        {% if etab_requis %}
+        <div class="alert alert-info small">
+          Ce profil engage des démarches réglementaires : votre compte sera activé
+          après validation par la DPML.
+        </div>
+        {% endif %}
+
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label class="form-label" for="nom_complet">Nom complet <span class="text-danger">*</span></label>
+            <input class="form-control" id="nom_complet" name="nom_complet" required
+                   value="{{ valeurs.nom_complet }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="email">Adresse e-mail <span class="text-danger">*</span></label>
+            <input class="form-control" type="email" id="email" name="email" required
+                   value="{{ valeurs.email }}">
+            <div class="form-text">Elle servira d'identifiant de connexion.</div>
+          </div>
+
+          {% if etab_requis %}
+          <div class="mb-3">
+            <label class="form-label" for="raison_sociale">
+              Nom de l'établissement <span class="text-danger">*</span></label>
+            <input class="form-control" id="raison_sociale" name="raison_sociale" required
+                   value="{{ valeurs.raison_sociale }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="adresse">Adresse de l'établissement</label>
+            <input class="form-control" id="adresse" name="adresse" value="{{ valeurs.adresse }}">
+          </div>
+          {% endif %}
+
+          <div class="mb-3">
+            <label class="form-label" for="contact">Téléphone</label>
+            <input class="form-control" id="contact" name="contact" value="{{ valeurs.contact }}">
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label" for="password">Mot de passe <span class="text-danger">*</span></label>
+              <input class="form-control" type="password" id="password" name="password" required>
+              <div class="form-text">8 caractères minimum.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="password_confirm">Confirmation <span class="text-danger">*</span></label>
+              <input class="form-control" type="password" id="password_confirm"
+                     name="password_confirm" required>
+            </div>
+          </div>
+
+          <button class="btn btn-primary mt-3" type="submit">Créer mon compte</button>
+          <a class="btn btn-link mt-3" href="{{ url_for('login') }}">J'ai déjà un compte</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
