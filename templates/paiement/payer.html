@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Règlement {{ paiement.numero }} — SIREPH{% endblock %}
+
+{% block contenu %}
+<h1 class="h4 mb-1">Règlement des frais</h1>
+<p class="text-muted">{{ objet }} — paiement <strong>{{ paiement.numero }}</strong></p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Choisir un moyen de paiement</div>
+      <div class="card-body">
+
+        {% if not mode_reel %}
+        <div class="alert alert-warning d-flex align-items-start" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <div>
+            <strong>Mode démonstration.</strong> Aucun prestataire de paiement réel
+            n'est raccordé : <em>aucun fonds ne sera débité</em>. Le protocole
+            (initiation, notification signée, contrôle du montant) est néanmoins
+            celui de production.
+          </div>
+        </div>
+        {% endif %}
+
+        {% if paiement.statut == 'echoue' or paiement.statut == 'expire' %}
+        <div class="alert alert-danger">
+          Tentative précédente : <strong>{{ paiement.statut }}</strong>.
+          {{ paiement.detail_echec or '' }} Vous pouvez relancer l'opération.
+        </div>
+        {% endif %}
+
+        <form method="post">
+          {% for code, libelle in fournisseurs.items() %}
+          <div class="form-check border rounded p-3 mb-2">
+            <input class="form-check-input" type="radio" name="fournisseur"
+                   id="f-{{ code }}" value="{{ code }}" {{ 'checked' if loop.first }}>
+            <label class="form-check-label w-100" for="f-{{ code }}">
+              <strong>{{ libelle }}</strong>
+            </label>
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary mt-2" type="submit">
+            <i class="bi bi-shield-lock me-1"></i> Procéder au paiement sécurisé
+          </button>
+          <a class="btn btn-link" href="{{ retour or url_for('dashboard') }}">Annuler</a>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Montant dû</div>
+      <div class="card-body">
+        <p class="display-6 mb-0">{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
+          <small class="text-muted fs-6">{{ paiement.devise }}</small></p>
+        <hr>
+        <dl class="row small mb-0">
+          <dt class="col-5">Référence</dt><dd class="col-7">{{ paiement.numero }}</dd>
+          <dt class="col-5">Objet</dt><dd class="col-7">{{ objet }}</dd>
+          <dt class="col-5">État</dt><dd class="col-7">{{ paiement.statut }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-shield-check me-1"></i> Sécurité</div>
+      <div class="card-body small text-muted">
+        <ul class="mb-0 ps-3">
+          <li>SIREPH ne stocke <strong>aucune donnée de carte</strong> ni de compte
+              mobile money : la saisie a lieu chez le prestataire agréé.</li>
+          <li>La confirmation provient d'une <strong>notification signée</strong>
+              (HMAC-SHA256), vérifiée côté serveur.</li>
+          <li>Le montant notifié est comparé au montant attendu ; toute divergence
+              est refusée et tracée.</li>
+          <li>Un paiement déjà réglé ne peut pas être encaissé deux fois.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

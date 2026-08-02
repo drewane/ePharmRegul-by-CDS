@@ -5,21 +5,35 @@ montant tiré du paramètre configurable frais_dossier_xaf du module concerné)
 money) via deposer_preuve() → un agent DPML confirme() ou rejette() → le
 demandeur est notifié dans les deux cas.
 
-NOTE IMPORTANTE (contrainte assumée, cf. README) : SIREPH ne traite, ne
-stocke ni ne transmet aucune donnée de carte bancaire ou de mobile money —
-il n'y a pas de passerelle de paiement en ligne dans ce prototype. L'ajout
-d'un agrégateur de paiement réel (ex. Orange Money, MTN MoMo, carte
-bancaire via un prestataire agréé) est une phase ultérieure distincte,
-nécessitant des identifiants fournis par un prestataire agréé.
+DEUX VOIES DE RÈGLEMENT
+-----------------------
+1. **Paiement en ligne** (voie principale) — via paiement_gateway.py : session
+   chez un prestataire agréé, notification signée en HMAC, idempotence,
+   contrôle du montant. SIREPH ne stocke AUCUNE donnée de carte ni de mobile
+   money : seules des références opaques transitent.
+2. **Preuve manuelle** (voie de repli) — virement/dépôt : le demandeur
+   téléverse un justificatif, un agent DPML confirme ou rejette. Conservée
+   car tous les opérateurs n'ont pas accès au paiement en ligne.
+
+Faits générateurs couverts : homologation (DossierAMM), licences
+(DemandeLicence) et analyses de laboratoire (Echantillon).
 """
 from datetime import datetime
 
-from models import db, Paiement, DossierAMM, DemandeLicence, Personne
+import paiement_gateway as passerelle
+from models import db, Paiement, DossierAMM, DemandeLicence, Echantillon, Personne
 from audit import enregistrer_audit
 from notifications import notifier, notifier_tous
 from erreurs import ErreurWorkflow
 from numerotation import generer_numero
 from pieces import enregistrer_piece
+
+# Libellé lisible du fait générateur, par type d'entité
+LIBELLE_OBJET = {
+    "DossierAMM": "Homologation (AMM)",
+    "DemandeLicence": "Licence d'établissement",
+    "Echantillon": "Analyse de laboratoire",
+}
 
 
 def _demandeur(paiement):
@@ -32,6 +46,9 @@ def _demandeur(paiement):
             return None
         return Personne.query.filter_by(
             etablissement_rattachement_id=demande.etablissement_id, role_systeme="demandeur_externe").first()
+    if paiement.entite_type == "Echantillon":
+        ech = Echantillon.query.get(paiement.entite_id)
+        return getattr(ech, "demandeur", None) if ech else None
     return None
 
 
@@ -104,7 +121,77 @@ def _lien_entite(paiement):
         return f"/dossiers/{paiement.entite_id}"
     if paiement.entite_type == "DemandeLicence":
         return f"/licences/{paiement.entite_id}"
+    if paiement.entite_type == "Echantillon":
+        return f"/laboratoire/echantillons/{paiement.entite_id}"
     return None
+
+
+# ---------------------------------------------------------------------------
+# Paiement en ligne sécurisé
+# ---------------------------------------------------------------------------
+def initier_en_ligne(paiement, fournisseur, retour_url, acteur):
+    """Ouvre une session de paiement chez le prestataire agréé."""
+    if paiement.statut == "confirme":
+        raise ErreurWorkflow("Ce paiement a déjà été réglé.")
+    try:
+        session = passerelle.initier(paiement, fournisseur, retour_url)
+    except passerelle.ErreurPaiement as e:
+        raise ErreurWorkflow(str(e))
+    enregistrer_audit(paiement, f"Paiement en ligne initié ({passerelle.FOURNISSEURS[fournisseur]})",
+                      acteur, nouveau_statut="initie")
+    return session
+
+
+def traiter_notification(paiement, payload, acteur=None):
+    """Applique une notification de paiement signée (webhook / retour prestataire).
+
+    Toute notification invalide (signature, montant, rejeu) est refusée ET tracée :
+    une tentative de fraude laisse une trace exploitable.
+    """
+    ancien = paiement.statut
+    try:
+        resultat = passerelle.traiter_notification(payload, paiement)
+    except passerelle.ErreurPaiement as e:
+        enregistrer_audit(paiement, f"Notification de paiement REFUSÉE : {e}", acteur)
+        db.session.commit()
+        raise ErreurWorkflow(str(e))
+
+    if resultat == "deja_confirme":
+        return paiement  # idempotence : aucun double encaissement
+
+    if resultat == "confirme":
+        enregistrer_audit(
+            paiement,
+            f"Paiement confirmé en ligne ({paiement.fournisseur}, "
+            f"transaction {paiement.reference_transaction})",
+            acteur, ancien_statut=ancien, nouveau_statut="confirme")
+        demandeur = _demandeur(paiement)
+        if demandeur:
+            notifier(demandeur, "paiement_confirme",
+                     f"Votre paiement {paiement.numero} de {paiement.montant} "
+                     f"{paiement.devise} a été confirmé.", lien=_lien_entite(paiement))
+    else:
+        enregistrer_audit(paiement, f"Paiement en ligne échoué : {paiement.detail_echec}",
+                          acteur, ancien_statut=ancien, nouveau_statut="echoue")
+        demandeur = _demandeur(paiement)
+        if demandeur:
+            notifier(demandeur, "paiement_echoue",
+                     f"Votre paiement {paiement.numero} n'a pas abouti. "
+                     "Vous pouvez relancer l'opération.", lien=_lien_entite(paiement))
+    return paiement
+
+
+def purger_sessions_expirees():
+    """Passe à `expire` les sessions de paiement non abouties. Idempotent."""
+    n = 0
+    for p in Paiement.query.filter_by(statut="initie").all():
+        if passerelle.expirer_si_besoin(p):
+            enregistrer_audit(p, "Session de paiement expirée", None,
+                              ancien_statut="initie", nouveau_statut="expire")
+            n += 1
+    if n:
+        db.session.commit()
+    return n
 
 
 def lister_paiements(entite):

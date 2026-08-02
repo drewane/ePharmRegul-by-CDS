@@ -1,57 +1,168 @@
 """
-Rôles système et permissions transversales (02-regles-transversales.md, section 1).
+Rôles système, profils d'accès et permissions transversales.
 
-DÉCISION ASSUMÉE (documentée dans README.md) : la matrice est centralisée ici, en
-code Python, plutôt que dans une table configurable en base — jugé disproportionné
-pour ce périmètre. Point d'extension identifié pour une future livraison : une table
-RolePermission éditable par administrateur_dpml sans redéploiement.
+ORGANISATION EN DEUX FAMILLES
+-----------------------------
+1. Acteurs EXTERNES (hors administration) — un profil par métier, car les droits
+   et les parcours diffèrent réellement : un grossiste ne dépose pas d'essai
+   clinique, un laboratoire privé ne demande pas d'AMM. Le rôle historique
+   `demandeur_externe` est conservé (comptes existants) et reste le profil
+   « industriel/titulaire » générique.
+
+2. Acteurs RÉGULATEUR (DPML/IGSPL) — chaque rôle porte un NIVEAU DE
+   RESPONSABILITÉ (1 à 4). Le niveau conditionne les actions engageantes
+   (validation finale, signature, suspension, dérogation) indépendamment du
+   métier : voir NIVEAU_PAR_ROLE et exige_niveau().
+
+     niveau 1 — agent instructeur (instruit, propose)
+     niveau 2 — responsable/chef de service (valide techniquement)
+     niveau 3 — direction (décide, signe, suspend)
+     niveau 4 — administrateur système (paramètre, gère les comptes)
+
+DÉCISION ASSUMÉE : la matrice reste centralisée ici, en code Python, plutôt
+qu'en table configurable. Point d'extension identifié : table RolePermission
+éditable par administrateur_dpml sans redéploiement.
 
 La correspondance statut → action → rôle spécifique au circuit MA reste dans
-workflow_ma.py (colocalisée avec la machine à états, seule source de vérité pour ce
-sujet). Ce module ne contient que les rôles et les permissions "transverses"
-(hors machine à états).
+workflow_ma.py (colocalisée avec la machine à états).
 """
 
-# Rôles actifs dans cette livraison (modules MA + VL + RI + LI + LT + administration ;
-# agent_surveillance_marche et agent_dros sont activés par anticipation des modules
-# MC et CT, livrés dans la foulée dans cette même session).
-ROLES_ACTIFS = {
-    "administrateur_dpml": "Administrateur DPML",
+# ---------------------------------------------------------------------------
+# 1. Profils EXTERNES (usagers du service public de la régulation)
+# ---------------------------------------------------------------------------
+ROLES_EXTERNES = {
+    "usager": "Usager (citoyen / professionnel de santé)",
+    "demandeur_externe": "Industriel / Titulaire d'AMM",
+    "laboratoire_prive": "Laboratoire (demandeur d'analyses)",
+    "grossiste": "Grossiste-répartiteur",
+    "pharmacien": "Pharmacien d'officine",
+    "promoteur_essai": "Promoteur d'essai clinique",
+}
+
+# ---------------------------------------------------------------------------
+# 2. Profils RÉGULATEUR (DPML / IGSPL), avec niveau de responsabilité
+# ---------------------------------------------------------------------------
+ROLES_REGULATEUR = {
     "evaluateur_amm": "Évaluateur AMM",
-    "directeur_dpml": "Directeur DPML",
-    "demandeur_externe": "Demandeur externe",
     "agent_vigilance": "Agent de pharmacovigilance",
     "inspecteur_igspl": "Inspecteur IGSPL",
     "agent_licences": "Agent Licences",
-    "agent_laboratoire": "Agent Laboratoire de contrôle",
-    "responsable_qualite_labo": "Responsable Qualité Laboratoire",
+    "agent_laboratoire": "Agent Laboratoire national de contrôle",
     "agent_surveillance_marche": "Agent Surveillance du marché",
-    "agent_dros": "Agent DROS",
+    "agent_dros": "Agent DROS (essais cliniques)",
+    "responsable_qualite_labo": "Responsable Qualité Laboratoire",
+    "chef_service_amm": "Chef de service Homologation",
+    "directeur_dpml": "Directeur DPML",
+    "administrateur_dpml": "Administrateur DPML",
 }
 
-# Plus aucun rôle du cahier des charges n'est inerte à ce stade de la livraison —
-# dictionnaire conservé pour la structure (et pour un futur rôle éventuel).
-ROLES_INERTES = {}
+NIVEAU_PAR_ROLE = {
+    # Externes : aucun pouvoir d'instruction
+    "usager": 0,
+    "demandeur_externe": 0,
+    "laboratoire_prive": 0,
+    "grossiste": 0,
+    "pharmacien": 0,
+    "promoteur_essai": 0,
+    # Niveau 1 — instruction
+    "evaluateur_amm": 1,
+    "agent_vigilance": 1,
+    "inspecteur_igspl": 1,
+    "agent_licences": 1,
+    "agent_laboratoire": 1,
+    "agent_surveillance_marche": 1,
+    "agent_dros": 1,
+    # Niveau 2 — validation technique
+    "responsable_qualite_labo": 2,
+    "chef_service_amm": 2,
+    # Niveau 3 — décision / signature
+    "directeur_dpml": 3,
+    # Niveau 4 — administration du système
+    "administrateur_dpml": 4,
+}
 
+LIBELLE_NIVEAU = {
+    0: "Externe",
+    1: "Agent instructeur",
+    2: "Responsable de service",
+    3: "Direction",
+    4: "Administration système",
+}
+
+ROLES_ACTIFS = {**ROLES_EXTERNES, **ROLES_REGULATEUR}
+ROLES_INERTES = {}
 ROLES = {**ROLES_ACTIFS, **ROLES_INERTES}
+
+
+def est_externe(role):
+    return role in ROLES_EXTERNES
+
+
+def est_regulateur(role):
+    return role in ROLES_REGULATEUR
+
+
+def niveau(user_ou_role):
+    """Niveau de responsabilité (0 = externe). Accepte un utilisateur ou un code rôle."""
+    if user_ou_role is None:
+        return 0
+    role = getattr(user_ou_role, "role_systeme", user_ou_role)
+    return NIVEAU_PAR_ROLE.get(role, 0)
+
+
+def a_niveau(user, minimum):
+    """L'utilisateur dispose-t-il au moins du niveau de responsabilité requis ?"""
+    return niveau(user) >= minimum
+
+
+# ---------------------------------------------------------------------------
+# 3. Permissions transverses (hors machine à états)
+# ---------------------------------------------------------------------------
+# Profils externes autorisés à déposer une demande d'AMM : les industriels et
+# titulaires. Un grossiste, un pharmacien ou un usager n'en déposent pas.
+_DEPOSANTS_AMM = ["demandeur_externe", "administrateur_dpml"]
 
 PERMISSIONS_TRANSVERSES = {
     "gerer_utilisateurs": ["administrateur_dpml"],
     "gerer_referentiels": ["administrateur_dpml"],
-    "creer_dossier_ma": ["demandeur_externe", "administrateur_dpml"],
-    "voir_tous_dossiers_ma": ["administrateur_dpml", "evaluateur_amm", "directeur_dpml"],
+    "creer_dossier_ma": _DEPOSANTS_AMM,
+    "voir_tous_dossiers_ma": ["administrateur_dpml", "evaluateur_amm", "chef_service_amm",
+                              "directeur_dpml"],
     "voir_tous_cas_vigilance": ["administrateur_dpml", "agent_vigilance", "directeur_dpml"],
     "traiter_cas_vigilance": ["agent_vigilance"],
+    # Tout professionnel de santé et tout usager peut notifier un effet indésirable :
+    # c'est un objectif de santé publique, pas un privilège administratif.
+    "declarer_effet_indesirable": ["usager", "pharmacien", "grossiste", "laboratoire_prive",
+                                   "demandeur_externe", "promoteur_essai",
+                                   "agent_vigilance", "administrateur_dpml"],
     "planifier_inspection": ["administrateur_dpml"],
     "voir_toutes_inspections": ["administrateur_dpml", "inspecteur_igspl", "directeur_dpml"],
     "suspendre_etablissement": ["directeur_dpml"],
     "voir_toutes_licences": ["administrateur_dpml", "agent_licences", "directeur_dpml"],
     "instruire_licence": ["agent_licences"],
-    "voir_tous_echantillons": ["administrateur_dpml", "agent_laboratoire", "responsable_qualite_labo"],
-    "voir_tous_signalements": ["administrateur_dpml", "agent_surveillance_marche", "directeur_dpml"],
+    # Une demande de licence est déposée par l'établissement concerné.
+    "demander_licence": ["demandeur_externe", "grossiste", "pharmacien", "laboratoire_prive",
+                         "administrateur_dpml"],
+    "voir_tous_echantillons": ["administrateur_dpml", "agent_laboratoire",
+                               "responsable_qualite_labo"],
+    # Une analyse de laboratoire peut être sollicitée par un opérateur privé.
+    "demander_analyse": ["laboratoire_prive", "demandeur_externe", "grossiste", "pharmacien",
+                         "administrateur_dpml"],
+    "voir_tous_signalements": ["administrateur_dpml", "agent_surveillance_marche",
+                               "directeur_dpml"],
+    # Signaler un produit suspect est ouvert largement (marché, officine, public).
+    "signaler_produit": ["usager", "pharmacien", "grossiste", "laboratoire_prive",
+                         "demandeur_externe", "agent_surveillance_marche", "administrateur_dpml"],
     "voir_tous_protocoles": ["administrateur_dpml", "agent_dros", "directeur_dpml"],
-    "voir_toutes_liberations": ["administrateur_dpml", "agent_laboratoire", "responsable_qualite_labo",
-                                 "directeur_dpml"],
+    "deposer_essai_clinique": ["promoteur_essai", "administrateur_dpml"],
+    "voir_toutes_liberations": ["administrateur_dpml", "agent_laboratoire",
+                                "responsable_qualite_labo", "directeur_dpml"],
+    # Paiements : confirmation réservée à l'administration (niveau ≥ 1 métier finances)
+    "confirmer_paiement": ["administrateur_dpml", "directeur_dpml"],
+    # Reliance régionale CEEAC
+    "consulter_reliance": ["administrateur_dpml", "evaluateur_amm", "chef_service_amm",
+                           "directeur_dpml", "agent_vigilance", "agent_surveillance_marche"],
+    "gerer_reliance": ["administrateur_dpml", "directeur_dpml", "chef_service_amm"],
 }
 
 

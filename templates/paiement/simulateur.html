@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Paiement {{ paiement.reference_marchande }} — SIREPH{% endblock %}
+
+{% block contenu %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+
+    <div class="alert alert-warning">
+      <strong><i class="bi bi-cone-striped me-1"></i> Page de démonstration.</strong>
+      En production, cette étape se déroule <em>chez le prestataire agréé</em> :
+      vos identifiants de paiement ne transitent jamais par SIREPH.
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span>{{ fournisseur }}</span>
+        <span class="text-muted small">{{ paiement.reference_marchande }}</span>
+      </div>
+      <div class="card-body text-center">
+        <p class="text-muted mb-1">Montant à régler</p>
+        <p class="display-5">{{ "{:,}".format(paiement.montant).replace(',', ' ') }}
+          <small class="fs-6 text-muted">{{ paiement.devise }}</small></p>
+
+        {% if paiement.date_expiration %}
+        <p class="small text-muted">
+          Session valable jusqu'à {{ paiement.date_expiration.strftime('%H:%M') }} UTC
+        </p>
+        {% endif %}
+
+        <hr>
+        <p class="small text-muted">
+          Choisissez l'issue à simuler. Dans les deux cas, le serveur produit une
+          <strong>notification signée</strong> traitée exactement comme celle d'un
+          prestataire réel.
+        </p>
+
+        <form method="post" action="{{ url_for('paiement.simuler') }}" class="d-grid gap-2">
+          <input type="hidden" name="ref" value="{{ paiement.reference_marchande }}">
+          <button class="btn btn-success" name="resultat" value="succes" type="submit">
+            <i class="bi bi-check-circle me-1"></i> Simuler un paiement réussi
+          </button>
+          <button class="btn btn-outline-danger" name="resultat" value="echec" type="submit">
+            <i class="bi bi-x-circle me-1"></i> Simuler un échec
+          </button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

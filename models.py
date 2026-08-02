@@ -44,6 +44,22 @@ class Personne(db.Model):
         from permissions import ROLES
         return ROLES.get(self.role_systeme, self.role_systeme)
 
+    @property
+    def niveau(self):
+        """Niveau de responsabilité (0 externe → 4 administration système)."""
+        from permissions import niveau
+        return niveau(self)
+
+    @property
+    def niveau_label(self):
+        from permissions import LIBELLE_NIVEAU
+        return LIBELLE_NIVEAU.get(self.niveau, "")
+
+    @property
+    def est_externe(self):
+        from permissions import est_externe
+        return est_externe(self.role_systeme)
+
 
 # ---------------------------------------------------------------------------
 # Établissement
@@ -514,17 +530,35 @@ class PieceJointe(db.Model):
 class Paiement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.String(30), unique=True, nullable=False)  # PAY-{annee}-{seq4}
-    entite_type = db.Column(db.String(60), nullable=False, index=True)  # DossierAMM | DemandeLicence
+    # DossierAMM (homologation) | DemandeLicence | Echantillon (analyse de laboratoire)
+    entite_type = db.Column(db.String(60), nullable=False, index=True)
     entite_id = db.Column(db.Integer, nullable=False, index=True)
     montant = db.Column(db.Integer, nullable=False)  # en XAF (entier, pas de sous-unité)
     devise = db.Column(db.String(5), nullable=False, default="XAF")
     statut = db.Column(db.String(20), nullable=False, default="en_attente")
-    # en_attente | preuve_deposee | confirme | rejete
+    # en_attente | initie | preuve_deposee | confirme | rejete | echoue | expire
     piece_jointe_id = db.Column(db.Integer, db.ForeignKey("piece_jointe.id"), nullable=True)
     motif_rejet = db.Column(db.Text, nullable=True)
     date_creation = db.Column(db.DateTime, default=datetime.utcnow)
     date_confirmation = db.Column(db.DateTime, nullable=True)
     confirme_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+
+    # --- Paiement en ligne sécurisé (cf. paiement_gateway.py) ---------------
+    # AUCUNE donnée de carte ni de compte mobile money n'est stockée ici : seules
+    # des références opaques fournies par le prestataire agréé transitent.
+    mode = db.Column(db.String(20), nullable=False, default="preuve_manuelle")
+    # preuve_manuelle | en_ligne
+    fournisseur = db.Column(db.String(30), nullable=True)   # mtn_momo | orange_money | carte
+    reference_marchande = db.Column(db.String(64), unique=True, nullable=True)  # clé d'idempotence
+    reference_transaction = db.Column(db.String(80), nullable=True)   # identifiant prestataire
+    date_initiation = db.Column(db.DateTime, nullable=True)
+    date_expiration = db.Column(db.DateTime, nullable=True)
+    signature_notification = db.Column(db.String(120), nullable=True)  # HMAC vérifié du callback
+    detail_echec = db.Column(db.Text, nullable=True)
+
+    @property
+    def est_regle(self):
+        return self.statut == "confirme"
 
     piece_jointe = db.relationship("PieceJointe", foreign_keys=[piece_jointe_id])
     confirme_par = db.relationship("Personne", foreign_keys=[confirme_par_id])

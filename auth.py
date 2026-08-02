@@ -36,3 +36,35 @@ def roles_required(*roles):
             return view(*a, **kw)
         return wrapped
     return deco
+
+
+def niveau_requis(minimum):
+    """Réserve une vue aux agents dont le NIVEAU DE RESPONSABILITÉ atteint le seuil.
+
+    Complète roles_required : au lieu d'énumérer des rôles, on exprime l'exigence
+    hiérarchique (2 = responsable de service, 3 = direction, 4 = administration).
+    Ajouter un nouveau rôle régulateur ne demande alors aucune modification ici.
+    """
+    def deco(view):
+        @wraps(view)
+        def wrapped(*a, **kw):
+            from permissions import a_niveau
+            u = current_user()
+            if not u or not a_niveau(u, minimum):
+                abort(403)
+            return view(*a, **kw)
+        return wrapped
+    return deco
+
+
+def permission_requise(cle):
+    """Réserve une vue aux titulaires d'une permission transverse (permissions.py)."""
+    def deco(view):
+        @wraps(view)
+        def wrapped(*a, **kw):
+            from permissions import a_permission
+            if not a_permission(current_user(), cle):
+                abort(403)
+            return view(*a, **kw)
+        return wrapped
+    return deco

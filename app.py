@@ -65,6 +65,7 @@ from routes_lr import lr_bp  # noqa: E402
 from routes_pieces import pieces_bp  # noqa: E402
 from routes_derogation import derogation_bp  # noqa: E402
 from routes_visas import visas_bp  # noqa: E402
+from routes_paiement import bp as paiement_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -75,6 +76,7 @@ app.register_blueprint(lr_bp)
 app.register_blueprint(pieces_bp)
 app.register_blueprint(derogation_bp)
 app.register_blueprint(visas_bp)
+app.register_blueprint(paiement_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
