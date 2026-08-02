@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Planifier une inspection{% endblock %}
+{% block content %}
+<h4 class="mb-3">Planifier une inspection</h4>
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="etablissement_id" class="form-label">Établissement <span class="text-danger">*</span></label>
+            <select class="form-select" id="etablissement_id" name="etablissement_id" required>
+              {% for e in etablissements %}
+              <option value="{{ e.id }}">{{ e.raison_sociale }} ({{ e.type }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="inspecteur_id" class="form-label">Inspecteur affecté <span class="text-danger">*</span></label>
+            <select class="form-select" id="inspecteur_id" name="inspecteur_id" required>
+              {% for insp in inspecteurs %}
+              <option value="{{ insp.id }}">{{ insp.nom_complet }}</option>
+              {% else %}
+              <option value="" disabled>Aucun inspecteur actif — créez un compte via Administration &gt; Utilisateurs</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="type" class="form-label">Type</label>
+              <select class="form-select" id="type" name="type">
+                {% for code, label in TYPES_RI.items() %}
+                <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="date_planifiee" class="form-label">Date prévue</label>
+              <input type="date" class="form-control" id="date_planifiee" name="date_planifiee">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Planifier</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

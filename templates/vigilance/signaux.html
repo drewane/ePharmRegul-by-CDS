@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Tableau de signaux — Pharmacovigilance{% endblock %}
+{% block content %}
+<h4 class="mb-1">Tableau de signaux</h4>
+<p class="text-muted">Regroupement des cas par produit, pour repérer une accumulation de cas pouvant constituer
+  un signal. <span class="small">(Le regroupement fin par type d'effet en texte libre n'est pas encore fiabilisé
+  dans cette livraison — voir README.)</span></p>
+
+<div class="row g-3">
+  {% for g in groupes %}
+  <div class="col-md-6">
+    <div class="card {{ 'border-danger' if g.graves else '' }}">
+      <div class="card-header d-flex justify-content-between">
+        <span>{{ g.produit.libelle if g.produit else "Produit inconnu" }}</span>
+        <span class="badge bg-primary">{{ g.total }} cas</span>
+      </div>
+      <div class="card-body">
+        {% if g.graves %}<div class="small text-danger mb-2">{{ g.graves }} cas grave(s)/fatal(aux)</div>{% endif %}
+        {% for cas in g.cas[:5] %}
+        <div class="d-flex justify-content-between small border-bottom py-1">
+          <a href="{{ url_for('vl.fiche', id=cas.id) }}">{{ cas.numero }}</a>
+          <span>{{ cas.date_notification.strftime('%d/%m/%Y') }} · {{ cas.gravite_label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-muted">Aucun cas rattaché à un produit identifié pour le moment.</p>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle demande de dérogation spéciale{% endblock %}
+{% block content %}
+<h4 class="mb-1">Nouvelle demande de dérogation spéciale</h4>
+<p class="text-muted">Sollicitez une exception motivée à une exigence réglementaire standard (délai, pièce
+  justificative...), éventuellement rattachée à un dossier d'AMM en cours.</p>
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="dossier_amm_id" class="form-label">Dossier d'AMM concerné (facultatif)</label>
+            <select class="form-select" id="dossier_amm_id" name="dossier_amm_id">
+              <option value="">— Aucun dossier lié —</option>
+              {% for d in dossiers %}
+              <option value="{{ d.id }}">{{ d.numero or ("Brouillon #" ~ d.id) }} — {{ d.produit.libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="objet" class="form-label">Objet de la dérogation <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="objet" name="objet" required
+                   placeholder="ex. Délai de dépôt du bulletin de contrôle des matières premières">
+          </div>
+          <div class="mb-3">
+            <label for="motif" class="form-label">Motif détaillé <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="motif" name="motif" rows="5" required
+                      placeholder="Justifiez la demande d'exception (contexte, circonstances, impact)"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Déposer la demande</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

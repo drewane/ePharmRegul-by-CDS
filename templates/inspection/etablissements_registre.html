@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Registre des établissements{% endblock %}
+{% block content %}
+<h4 class="mb-1">Registre des établissements</h4>
+{% if vue_publique %}
+<p class="text-muted">Consultation libre, sans authentification. Seuls les établissements agréés (licence active) sont listés.</p>
+{% endif %}
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="q" class="visually-hidden">Recherche</label>
+    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Rechercher une raison sociale">
+  </div>
+  <div class="col-md-3">
+    <label for="type" class="visually-hidden">Type</label>
+    <select class="form-select" id="type" name="type">
+      <option value="">Tous les types</option>
+      {% for t in ("fabricant","grossiste_repartiteur","officine","depot","importateur_exportateur","laboratoire_controle") %}
+      <option value="{{ t }}" {{ "selected" if type_etab == t }}>{{ t.replace('_',' ') }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if not vue_publique %}
+  <div class="col-md-3">
+    <label for="statut" class="visually-hidden">Statut de licence</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for s, label in STATUTS_LICENCE.items() %}
+      <option value="{{ s }}" {{ "selected" if statut == s }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Raison sociale</th><th>Type</th><th>Statut de licence</th></tr></thead>
+      <tbody>
+        {% for e in etablissements %}
+        <tr>
+          <td>{% if vue_publique %}{{ e.raison_sociale }}{% else %}<a href="{{ url_for('ri.etablissement_fiche', id=e.id) }}">{{ e.raison_sociale }}</a>{% endif %}</td>
+          <td>{{ e.type.replace('_',' ') }}</td>
+          <td><span class="badge {{ 'bg-success' if e.statut_licence == 'active' else ('bg-danger' if e.statut_licence in ('suspendue','revoquee') else 'bg-secondary') }}">{{ STATUTS_LICENCE.get(e.statut_licence, e.statut_licence) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Signalement enregistré{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="alert alert-success">
+      <h4 class="alert-heading"><i class="bi bi-check-circle"></i> Signalement enregistré</h4>
+      <p>Votre signalement sera instruit par l'équipe de surveillance du marché de la DPML.</p>
+      <p class="mb-0">Numéro de suivi : <strong>{{ sig.numero }}</strong></p>
+    </div>
+    <a href="{{ url_for('mc.public') }}" class="btn btn-outline-primary">Signaler un autre défaut</a>
+  </div>
+</div>
+{% endblock %}

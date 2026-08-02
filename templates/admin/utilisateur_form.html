@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ "Modifier" if personne else "Nouveau" }} compte utilisateur{% endblock %}
+{% block content %}
+<h4 class="mb-3">{{ "Modifier le compte" if personne else "Nouveau compte utilisateur" }}</h4>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="nom_complet" class="form-label">Nom complet <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="nom_complet" name="nom_complet" required
+                   value="{{ personne.nom_complet if personne else '' }}">
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label">E-mail <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="email" name="email" required
+                   value="{{ personne.email if personne else '' }}" {{ "readonly" if personne }}>
+          </div>
+          <div class="mb-3">
+            <label for="role_systeme" class="form-label">Rôle système</label>
+            <select class="form-select" id="role_systeme" name="role_systeme">
+              {% for code, label in roles_actifs.items() %}
+              <option value="{{ code }}" {{ "selected" if personne and personne.role_systeme == code }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="etablissement_id" class="form-label">Établissement de rattachement</label>
+            <select class="form-select" id="etablissement_id" name="etablissement_id">
+              <option value="">— Aucun —</option>
+              {% for e in etablissements %}
+              <option value="{{ e.id }}" {{ "selected" if personne and personne.etablissement_rattachement_id == e.id }}>{{ e.raison_sociale }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="contact" class="form-label">Contact</label>
+            <input type="text" class="form-control" id="contact" name="contact" value="{{ personne.contact if personne else '' }}">
+          </div>
+          {% if not personne %}
+          <p class="small text-muted">Mot de passe par défaut attribué à la création : <code>demo1234</code></p>
+          {% endif %}
+          <button type="submit" class="btn btn-primary">{{ "Enregistrer" if personne else "Créer le compte" }}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

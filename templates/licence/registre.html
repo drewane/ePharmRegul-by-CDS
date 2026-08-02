@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Registre des demandes de licence{% endblock %}
+{% block content %}
+<h4 class="mb-3">Registre des demandes de licence</h4>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for code, label in STATUTS_LI.items() %}
+      <option value="{{ code }}" {{ "selected" if statut == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Numéro</th><th>Établissement</th><th>Type</th><th>Date de dépôt</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for d in demandes %}
+        <tr>
+          <td><a href="{{ url_for('li.fiche', id=d.id) }}">{{ d.numero }}</a></td>
+          <td>{{ d.etablissement.raison_sociale }}</td>
+          <td>{{ TYPES_LI.get(d.type_demande, d.type_demande) }}</td>
+          <td>{{ d.date_creation.strftime('%d/%m/%Y') }}</td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS_LI.get(d.statut, d.statut) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Libération {{ l.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">{{ l.numero }}</h4>
+    <div class="text-muted">{{ l.produit.libelle }} · Lot {{ l.lot.numero_lot }}</div>
+  </div>
+  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_LR.get(l.statut, l.statut) }}</span>
+</div>
+
+{% if l.motif_rejet %}<div class="alert alert-danger">Motif de rejet : {{ l.motif_rejet }}</div>{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-3">
+      <div class="card-header">Statut de l'AMM du produit (lecture seule, module MA)</div>
+      <div class="card-body">
+        <span class="badge {{ 'bg-success' if l.produit.statut_amm_courant == 'active' else 'bg-danger' }}">
+          {{ l.produit.statut_amm_courant }}
+        </span>
+        {% if l.produit.statut_amm_courant != "active" %}
+        <p class="small text-danger mt-2 mb-0">Ce produit n'a pas d'AMM active : la libération est bloquée tant
+          que ce n'est pas corrigé.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Documentation du fabricant</div>
+      <div class="card-body"><p class="mb-0">{{ l.dossier_fabricant or "Aucune documentation fournie." }}</p></div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Contrôle de laboratoire (module LT)</div>
+      <div class="card-body">
+        {% if l.echantillon_lt %}
+        <p>
+          <a href="{{ url_for('lt.fiche', id=l.echantillon_lt.id) }}">{{ l.echantillon_lt.numero }}</a> —
+          <span class="badge bg-secondary">{{ STATUTS_LT.get(l.echantillon_lt.statut, l.echantillon_lt.statut) }}</span>
+          {% if l.echantillon_lt.conclusion %}
+          <span class="badge {{ 'bg-success' if l.echantillon_lt.conclusion == 'conforme' else 'bg-danger' }}">
+            {{ "Conforme" if l.echantillon_lt.conclusion == "conforme" else "Non conforme" }}</span>
+          {% endif %}
+        </p>
+        {% else %}
+        <p class="text-muted mb-0">Aucun contrôle de laboratoire lancé pour le moment.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Historique de vigilance récent (lecture seule, module VL, à titre d'information)</div>
+      <div class="card-body">
+        {% for c in vigilance_recente %}
+        <div class="d-flex justify-content-between border-bottom py-1 small">
+          <span>{{ c.numero }} — {{ c.description_effet[:60] }}</span>
+          <span class="badge {{ 'bg-danger' if c.gravite in ('grave','fatal') else 'bg-secondary' }}">{{ c.gravite_label }}</span>
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">Aucun cas de pharmacovigilance récent pour ce produit.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-lg-4">
+
+    {% if l.statut == "recu" and current_user.role_systeme in ("agent_laboratoire", "administrateur_dpml") %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Contrôle documentaire</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('lr.action_controle_documentaire', id=l.id) }}">
+          <textarea class="form-control mb-2" name="motif" rows="2" placeholder="Motif (obligatoire si incohérence)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="valide" class="btn btn-success btn-sm">Valider le contrôle documentaire</button>
+            <button name="decision" value="rejete" class="btn btn-danger btn-sm">Rejeter (incohérence)</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if l.statut == "controle_documentaire" and current_user.role_systeme in ("agent_laboratoire", "administrateur_dpml") %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Contrôle de laboratoire</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('lr.action_controle_laboratoire', id=l.id) }}">
+          <button class="btn btn-primary btn-sm w-100">Lancer le contrôle de laboratoire</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if l.statut == "controle_laboratoire" and current_user.role_systeme == "directeur_dpml" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Décision de libération</div>
+      <div class="card-body">
+        {% set pret = l.echantillon_lt and l.echantillon_lt.statut == "certificat_emis" and l.echantillon_lt.conclusion == "conforme" %}
+        {% if not pret %}
+        <p class="small text-warning">La libération exige un résultat de laboratoire conforme ET validé (certificat émis).</p>
+        {% endif %}
+        <form method="post" action="{{ url_for('lr.action_decision', id=l.id) }}">
+          <textarea class="form-control mb-2" name="motif" rows="2" placeholder="Motif (obligatoire si rejet)"></textarea>
+          <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="deja_distribue" name="deja_distribue" value="1">
+            <label class="form-check-label small" for="deja_distribue">Le lot a déjà été partiellement distribué</label>
+          </div>
+          <div class="d-grid gap-2">
+            <button name="decision" value="libere" class="btn btn-success btn-sm" {{ "disabled" if not pret }}>Libérer le lot</button>
+            <button name="decision" value="rejete" class="btn btn-danger btn-sm">Rejeter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

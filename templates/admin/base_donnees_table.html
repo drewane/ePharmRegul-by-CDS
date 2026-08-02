@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Table {{ nom_table }} — Base de données{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-1"><code>{{ nom_table }}</code></h4>
+    <p class="text-muted small mb-0">{{ nb_total }} ligne(s) au total — 50 lignes les plus récentes affichées ci-dessous.</p>
+  </div>
+  <a href="{{ url_for('admin_base_donnees') }}" class="btn btn-sm btn-outline-secondary">Retour aux tables</a>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle mb-0">
+      <thead>
+        <tr>{% for c in colonnes %}<th>{{ c }}</th>{% endfor %}</tr>
+      </thead>
+      <tbody>
+        {% for ligne in lignes %}
+        <tr>
+          {% for c in colonnes %}<td class="text-nowrap" style="max-width: 320px; overflow: hidden; text-overflow: ellipsis;">{{ ligne[c] if ligne[c] is not none else "—" }}</td>{% endfor %}
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ colonnes|length }}" class="text-center text-muted py-4">Table vide.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

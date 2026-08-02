@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Signalement {{ sig.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Signalement {{ sig.numero }}</h4>
+    <div class="text-muted">{{ sig.produit.libelle }} · Origine : {{ ORIGINES_MC.get(sig.origine, sig.origine) }}</div>
+  </div>
+  <div class="text-end">
+    {% if sig.niveau_risque %}<span class="badge bg-danger mb-1">Niveau {{ sig.niveau_risque }}</span><br>{% endif %}
+    <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_MC.get(sig.statut, sig.statut) }}</span>
+  </div>
+</div>
+
+{% if sig.motif_decision %}<div class="alert alert-secondary">{{ sig.motif_decision }}</div>{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-3">
+      <div class="card-header">Description</div>
+      <div class="card-body">
+        <p class="mb-2">{{ sig.description }}</p>
+        <p class="small text-muted mb-0">Lots concernés :
+          {% for l in sig.lots_concernes %}{{ l.numero_lot }}{% if not loop.last %}, {% endif %}{% else %}aucun lot spécifique identifié{% endfor %}
+        </p>
+      </div>
+    </div>
+
+    {% if sig.statut in ("rappel_engage", "notifie", "suivi", "cloture") %}
+    <div class="card">
+      <div class="card-header">Établissements notifiés (liste dérivée automatiquement des lots concernés)</div>
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Établissement</th><th>Statut</th><th></th></tr></thead>
+          <tbody>
+            {% for r in sig.statuts_etablissements %}
+            <tr>
+              <td>{{ r.etablissement.raison_sociale }}</td>
+              <td><span class="badge {{ 'bg-success' if r.statut == 'confirme_retrait' else 'bg-warning text-dark' }}">
+                {{ "Retrait confirmé" if r.statut == "confirme_retrait" else "Notifié" }}</span></td>
+              <td>
+                {% if r.statut == "notifie" and current_user.role_systeme == "agent_surveillance_marche" %}
+                <form method="post" action="{{ url_for('mc.action_confirmer', id=r.id) }}">
+                  <button class="btn btn-sm btn-outline-success">Confirmer le retrait</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col-lg-4">
+
+    {% if sig.statut == "signale" and current_user.role_systeme == "agent_surveillance_marche" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Évaluation</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('mc.action_evaluer', id=sig.id) }}">
+          <select class="form-select mb-2" name="niveau_risque">
+            <option value="III">Niveau III — mineur</option>
+            <option value="II">Niveau II — modéré</option>
+            <option value="I">Niveau I — élevé / vital</option>
+          </select>
+          <button class="btn btn-primary btn-sm w-100">Classer le risque</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if sig.statut in ("evalue", "quarantaine") %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Décision</div>
+      <div class="card-body d-grid gap-2">
+        {% if sig.niveau_risque == "I" and current_user.role_systeme != "directeur_dpml" %}
+        <button class="btn btn-danger btn-sm" disabled title="Validation du directeur requise pour un rappel de niveau I">
+          Engager le rappel
+        </button>
+        <p class="small text-muted mb-0">Validation du directeur requise pour un rappel de niveau I.</p>
+        {% elif current_user.role_systeme in ("agent_surveillance_marche", "directeur_dpml") %}
+        <form method="post" action="{{ url_for('mc.action_rappel', id=sig.id) }}">
+          <button class="btn btn-danger btn-sm w-100">Engager le rappel</button>
+        </form>
+        {% endif %}
+        {% if sig.statut == "evalue" and current_user.role_systeme == "agent_surveillance_marche" %}
+        <form method="post" action="{{ url_for('mc.action_quarantaine', id=sig.id) }}">
+          <button class="btn btn-outline-warning btn-sm w-100">Mettre en quarantaine</button>
+        </form>
+        {% endif %}
+        {% if current_user.role_systeme == "agent_surveillance_marche" %}
+        <form method="post" action="{{ url_for('mc.action_sans_suite', id=sig.id) }}">
+          <textarea class="form-control form-control-sm mb-2" name="motif" rows="2" placeholder="Motif (obligatoire)" required></textarea>
+          <button class="btn btn-outline-secondary btn-sm w-100">Classer sans suite</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if sig.statut in ("notifie", "suivi") and current_user.role_systeme == "agent_surveillance_marche" %}
+    <div class="card mb-3">
+      <div class="card-header">Suivi</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('mc.action_cloturer', id=sig.id) }}">
+          <button class="btn btn-success btn-sm w-100">Clôturer (retrait vérifié)</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système / signalement externe" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

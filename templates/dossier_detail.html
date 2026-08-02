@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% block title %}Dossier {{ d.numero or "brouillon" }}{% endblock %}
+{% block content %}
+{% set ctd_titres = {1: "Module 1 : Informations administratives", 2: "Module 2 : Résumés qualité / non clinique / clinique",
+                      3: "Module 3 : Qualité", 4: "Module 4 : Données non cliniques", 5: "Module 5 : Données cliniques"} %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">{{ d.produit.libelle }}</h4>
+    <div class="text-muted">
+      N° {{ d.numero or "(non soumis)" }} · DCI : {{ d.produit.denomination_commune_internationale }} ·
+      {{ TYPES_PROCEDURE.get(d.type_procedure, d.type_procedure) }} · Demandeur : {{ d.demandeur.nom_complet }}
+    </div>
+  </div>
+  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS.get(d.statut, d.statut) }}</span>
+</div>
+
+{% if d.statut in ("approuve", "rejete") %}
+<div class="alert {{ 'alert-success' if d.statut == 'approuve' else 'alert-danger' }} d-flex justify-content-between align-items-center">
+  <div>
+    <i class="bi bi-patch-check-fill"></i>
+    <strong>Décision scellée</strong> — {{ STATUTS[d.statut] }} le {{ d.date_decision.strftime('%d/%m/%Y') if d.date_decision else "—" }}
+    {% if d.date_validite_amm %} · Valide jusqu'au {{ d.date_validite_amm.strftime('%d/%m/%Y') }}{% endif %}
+    {% if d.date_limite_retrait_document %}
+    <div class="small mt-1"><i class="bi bi-box-arrow-in-down"></i> Document physique (certificat) à retirer à la
+      DPML avant le <strong>{{ d.date_limite_retrait_document.strftime('%d/%m/%Y') }}</strong>.</div>
+    {% endif %}
+    {% if d.motif_decision %}<div class="small mt-1">Motif : {{ d.motif_decision }}</div>{% endif %}
+  </div>
+  {% if d.statut == "approuve" %}
+  <a href="{{ url_for('dossier_certificat', id=d.id) }}" target="_blank" class="btn btn-sm btn-success">
+    <i class="bi bi-download"></i> Télécharger le certificat
+  </a>
+  {% endif %}
+</div>
+{% elif d.motif_decision %}
+<div class="alert alert-warning"><strong>Motif :</strong> {{ d.motif_decision }}</div>
+{% endif %}
+
+<!-- Suivi d'étapes (voyants) -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="sireph-suivi-etapes">
+      {% for e in etapes_suivi %}
+      <div class="sireph-suivi-etape sireph-suivi-etape--{{ e.etat }}">
+        <div class="sireph-suivi-voyant" title="{{ e.detail or e.libelle }}">
+          {% if e.etat == "valide" %}<i class="bi bi-check-lg"></i>
+          {% elif e.etat == "probleme" %}<i class="bi bi-exclamation-lg"></i>
+          {% elif e.etat == "en_cours" %}<i class="bi bi-hourglass-split"></i>
+          {% else %}<i class="bi bi-circle"></i>{% endif %}
+        </div>
+        <div class="sireph-suivi-libelle">
+          {{ e.libelle }}
+          {% if e.detail %}<div class="small">{{ e.detail }}</div>{% endif %}
+        </div>
+      </div>
+      {% if not loop.last %}<div class="sireph-suivi-trait sireph-suivi-trait--{{ 'valide' if e.etat == 'valide' else 'a_venir' }}"></div>{% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <!-- Informations produit -->
+    <div class="card mb-3">
+      <div class="card-header">Informations produit</div>
+      <div class="card-body">
+        {% if d.statut == "brouillon" and current_user.id == d.demandeur_id %}
+        <form method="post" action="{{ url_for('dossier_modifier_produit', id=d.id) }}">
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label small">Nom commercial</label>
+              <input type="text" class="form-control" name="nom_commercial" value="{{ d.produit.nom_commercial }}"></div>
+            <div class="col-md-6"><label class="form-label small">DCI</label>
+              <input type="text" class="form-control" name="dci" value="{{ d.produit.denomination_commune_internationale }}" required></div>
+            <div class="col-md-4"><label class="form-label small">Forme pharmaceutique</label>
+              <input type="text" class="form-control" name="forme_pharmaceutique" value="{{ d.produit.forme_pharmaceutique }}"></div>
+            <div class="col-md-4"><label class="form-label small">Dosage</label>
+              <input type="text" class="form-control" name="dosage" value="{{ d.produit.dosage or '' }}"></div>
+            <div class="col-md-4"><label class="form-label small">Pays d'origine</label>
+              <input type="text" class="form-control" name="pays_origine" value="{{ d.produit.pays_origine or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small">Classe(s) thérapeutique(s)</label>
+              <input type="text" class="form-control" name="classe_therapeutique" value="{{ d.produit.classe_therapeutique or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small">Voie d'administration</label>
+              <input type="text" class="form-control" name="voie_administration" value="{{ d.produit.voie_administration or '' }}"></div>
+            <div class="col-12"><label class="form-label small">Composition intégrale</label>
+              <textarea class="form-control" name="composition_integrale" rows="2">{{ d.produit.composition_integrale or '' }}</textarea></div>
+            <div class="col-12"><label class="form-label small">Indications thérapeutiques</label>
+              <textarea class="form-control" name="indications_therapeutiques" rows="2">{{ d.produit.indications_therapeutiques or '' }}</textarea></div>
+            <div class="col-md-6"><label class="form-label small">Durée de stabilité (péremption)</label>
+              <input type="text" class="form-control" name="duree_stabilite" value="{{ d.produit.duree_stabilite or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small">Prix Grossiste Hors Taxe — PGHT (XAF)</label>
+              <input type="number" min="0" class="form-control" name="prix_grossiste_ht" value="{{ d.produit.prix_grossiste_ht or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small">Représentant local (pharmacien interlocuteur)</label>
+              <input type="text" class="form-control" name="representant_local_nom" value="{{ d.representant_local_nom or '' }}"></div>
+            <div class="col-md-6"><label class="form-label small">Contact du représentant local</label>
+              <input type="text" class="form-control" name="representant_local_contact" value="{{ d.representant_local_contact or '' }}"></div>
+          </div>
+          <button class="btn btn-sm btn-outline-primary mt-2">Enregistrer</button>
+        </form>
+        {% else %}
+        <div class="row">
+          <div class="col-md-6 mb-2"><div class="small text-muted">Nom commercial</div><div>{{ d.produit.nom_commercial or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">DCI</div><div>{{ d.produit.denomination_commune_internationale }}</div></div>
+          <div class="col-md-4 mb-2"><div class="small text-muted">Forme pharmaceutique</div><div>{{ d.produit.forme_pharmaceutique or "—" }}</div></div>
+          <div class="col-md-4 mb-2"><div class="small text-muted">Dosage</div><div>{{ d.produit.dosage or "—" }}</div></div>
+          <div class="col-md-4 mb-2"><div class="small text-muted">Pays d'origine</div><div>{{ d.produit.pays_origine or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Fabricant</div><div>{{ d.produit.fabricant.raison_sociale if d.produit.fabricant else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Titulaire de l'AMM</div><div>{{ d.produit.titulaire_amm.raison_sociale if d.produit.titulaire_amm else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Classe(s) thérapeutique(s)</div><div>{{ d.produit.classe_therapeutique or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Voie d'administration</div><div>{{ d.produit.voie_administration or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Durée de stabilité</div><div>{{ d.produit.duree_stabilite or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">PGHT</div><div>{{ "{:,}".format(d.produit.prix_grossiste_ht).replace(',', ' ') ~ " XAF" if d.produit.prix_grossiste_ht else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Représentant local</div><div>{{ d.representant_local_nom or "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Contact du représentant local</div><div>{{ d.representant_local_contact or "—" }}</div></div>
+          <div class="col-12 mb-2"><div class="small text-muted">Composition intégrale</div><div style="white-space: pre-wrap;">{{ d.produit.composition_integrale or "—" }}</div></div>
+          <div class="col-12 mb-2"><div class="small text-muted">Indications thérapeutiques</div><div style="white-space: pre-wrap;">{{ d.produit.indications_therapeutiques or "—" }}</div></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Dossier technique CTD -->
+    <div class="card mb-3">
+      <div class="card-header">Dossier technique (CTD)</div>
+      <div class="card-body">
+        <ul class="nav nav-tabs" role="tablist">
+          {% for n, titre in ctd_titres.items() %}
+          <li class="nav-item" role="presentation">
+            <button class="nav-link {{ 'active' if n == 1 }}" id="tab-m{{ n }}-btn" data-bs-toggle="tab"
+                    data-bs-target="#tab-m{{ n }}" type="button" role="tab" aria-controls="tab-m{{ n }}">
+              Module {{ n }}
+            </button>
+          </li>
+          {% endfor %}
+        </ul>
+        {% set peut_modifier_ctd = d.est_editable_par_demandeur and current_user.id == d.demandeur_id %}
+        <form method="post" action="{{ url_for('dossier_repondre_complement', id=d.id) if d.statut == 'complement_requis' else url_for('dossier_modifier_ctd', id=d.id) }}">
+          <div class="tab-content border border-top-0 p-3">
+            {% for n, titre in ctd_titres.items() %}
+            <div class="tab-pane fade {{ 'show active' if n == 1 }}" id="tab-m{{ n }}" role="tabpanel">
+              <label for="module_ctd_{{ n }}" class="form-label small">{{ titre }}</label>
+              {% if peut_modifier_ctd %}
+              <textarea class="form-control" id="module_ctd_{{ n }}" name="module_ctd_{{ n }}" rows="6">{{ d["module_ctd_" ~ n] }}</textarea>
+              {% else %}
+              <div class="border rounded p-2 bg-light" style="min-height: 8rem; white-space: pre-wrap;">{{ d["module_ctd_" ~ n] or "(non renseigné)" }}</div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% if peut_modifier_ctd %}
+          <button class="btn btn-sm btn-outline-primary mt-2">
+            {{ "Enregistrer et répondre au complément" if d.statut == "complement_requis" else "Enregistrer le dossier technique" }}
+          </button>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="card mb-3">
+      <div class="card-header">Documents</div>
+      <div class="card-body">
+        {% if pieces %}
+        <ul class="list-group list-group-flush mb-3">
+          {% for p in pieces %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <div>
+              <i class="bi bi-file-earmark-arrow-down"></i>
+              <a href="{{ url_for('pieces.telecharger', piece_id=p.id) }}">{{ p.nom_fichier }}</a>
+              {% if p.type_document %}<span class="badge bg-light text-dark border">{{ p.type_document }}</span>{% endif %}
+              <div class="small text-muted">Déposé le {{ p.date_televersement.strftime('%d/%m/%Y %H:%M') }}
+                {% if p.televerse_par %}par {{ p.televerse_par.nom_complet }}{% endif %}</div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">Aucun document téléversé pour l'instant.</p>
+        {% endif %}
+        {% if current_user.role_systeme == "administrateur_dpml" or current_user.id == d.demandeur_id %}
+        <form method="post" action="{{ url_for('dossier_televerser_document', id=d.id) }}" enctype="multipart/form-data" class="row g-2">
+          <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm" name="type_document" placeholder="Type de document (ex. CPP, certificat GMP)">
+          </div>
+          <div class="col-md-5">
+            <input type="file" class="form-control form-control-sm" name="fichier" required>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-sm btn-outline-primary w-100">Téléverser</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Paiement des frais -->
+    {% if paiements %}
+    {% set statuts_paiement = {"en_attente": "En attente de règlement", "preuve_deposee": "Preuve déposée — en vérification",
+                                "confirme": "Confirmé", "rejete": "Rejeté"} %}
+    {% set couleurs_paiement = {"en_attente": "warning", "preuve_deposee": "info", "confirme": "success", "rejete": "danger"} %}
+    <div class="card mb-3">
+      <div class="card-header">Paiement des frais</div>
+      <div class="card-body">
+        {% for p in paiements %}
+        <div class="d-flex justify-content-between align-items-start {{ 'mb-3 pb-3 border-bottom' if not loop.last }}">
+          <div>
+            <div><strong>{{ p.numero }}</strong> — {{ "{:,}".format(p.montant).replace(',', ' ') }} {{ p.devise }}
+              <span class="badge bg-{{ couleurs_paiement.get(p.statut, 'secondary') }}">{{ statuts_paiement.get(p.statut, p.statut) }}</span>
+            </div>
+            {% if p.motif_rejet %}<div class="small text-danger mt-1">Motif du rejet : {{ p.motif_rejet }}</div>{% endif %}
+            {% if p.piece_jointe %}
+            <div class="small mt-1">
+              <i class="bi bi-file-earmark-arrow-down"></i>
+              <a href="{{ url_for('pieces.telecharger', piece_id=p.piece_jointe.id) }}">{{ p.piece_jointe.nom_fichier }}</a>
+              (preuve déposée le {{ p.piece_jointe.date_televersement.strftime('%d/%m/%Y %H:%M') }})
+            </div>
+            {% endif %}
+            {% if p.statut == "confirme" %}
+            <div class="small text-muted mt-1">Confirmé le {{ p.date_confirmation.strftime('%d/%m/%Y %H:%M') }}
+              {% if p.confirme_par %}par {{ p.confirme_par.nom_complet }}{% endif %}</div>
+            {% endif %}
+
+            {% if p.statut in ("en_attente", "rejete") and (current_user.role_systeme == "administrateur_dpml" or current_user.id == d.demandeur_id) %}
+            <form method="post" action="{{ url_for('dossier_paiement_preuve', id=d.id, paiement_id=p.id) }}"
+                  enctype="multipart/form-data" class="d-flex gap-2 mt-2">
+              <input type="file" class="form-control form-control-sm" name="fichier" required>
+              <button class="btn btn-sm btn-outline-primary text-nowrap">Déposer la preuve</button>
+            </form>
+            {% endif %}
+
+            {% if p.statut == "preuve_deposee" and current_user.role_systeme == "administrateur_dpml" %}
+            <div class="d-flex gap-2 mt-2">
+              <form method="post" action="{{ url_for('dossier_paiement_confirmer', id=d.id, paiement_id=p.id) }}">
+                <button class="btn btn-sm btn-success">Confirmer le paiement</button>
+              </form>
+              <form method="post" action="{{ url_for('dossier_paiement_rejeter', id=d.id, paiement_id=p.id) }}" class="d-flex gap-1">
+                <input type="text" class="form-control form-control-sm" name="motif" placeholder="Motif du rejet" required>
+                <button class="btn btn-sm btn-outline-danger text-nowrap">Rejeter</button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Avis d'évaluation -->
+    {% if d.statut not in ("brouillon", "soumis", "recevable", "irrecevable") %}
+    <div class="card mb-3">
+      <div class="card-header">Avis d'évaluation</div>
+      <div class="card-body">
+        {% for a in avis %}
+        <div class="border-bottom py-2">
+          <div class="d-flex justify-content-between">
+            <strong>{{ a.module_concerne }}</strong>
+            {% if a.valeur == "favorable" %}<span class="badge bg-success">Favorable</span>
+            {% elif a.valeur == "complement_requis" %}<span class="badge bg-warning text-dark">Complément requis</span>
+            {% else %}<span class="badge bg-danger">Recommandation de rejet</span>{% endif %}
+          </div>
+          <div class="small text-muted">{{ a.evaluateur.nom_complet }} — {{ a.date_creation.strftime('%d/%m/%Y %H:%M') }}</div>
+          {% if a.commentaire %}<div class="small">{{ a.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun avis déposé pour le moment.</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Échantillons de laboratoire liés (module LT) -->
+    {% if echantillons_lies %}
+    <div class="card mb-3">
+      <div class="card-header">Analyses de laboratoire</div>
+      <div class="card-body">
+        {% for e in echantillons_lies %}
+        <div class="d-flex justify-content-between border-bottom py-1">
+          <a href="{{ url_for('lt.fiche', id=e.id) }}">{{ e.numero }}</a>
+          <span>
+            {% if e.conclusion %}<span class="badge {{ 'bg-success' if e.conclusion == 'conforme' else 'bg-danger' }} me-1">{{ "Conforme" if e.conclusion == "conforme" else "Non conforme" }}</span>{% endif %}
+            <span class="badge bg-secondary">{{ STATUTS_LT.get(e.statut, e.statut) }}</span>
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Dossiers liés (historique du produit) -->
+    {% if dossiers_lies %}
+    <div class="card">
+      <div class="card-header">Autres dossiers liés à ce produit</div>
+      <div class="card-body">
+        {% for dl in dossiers_lies %}
+        <div class="d-flex justify-content-between border-bottom py-1">
+          <a href="{{ url_for('dossier_detail', id=dl.id) }}">{{ dl.numero or "(brouillon #" ~ dl.id ~ ")" }} — {{ TYPES_PROCEDURE.get(dl.type_procedure, dl.type_procedure) }}</a>
+          <span class="badge bg-secondary">{{ STATUTS.get(dl.statut, dl.statut) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col-lg-4">
+
+    <!-- Soumission (demandeur, brouillon) -->
+    {% if d.statut == "brouillon" and current_user.id == d.demandeur_id %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Soumission</div>
+      <div class="card-body">
+        <p class="small">Une fois soumis, le dossier n'est plus modifiable jusqu'à une éventuelle demande de complément.</p>
+        <button type="button" class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modal-paiement-soumission">
+          <i class="bi bi-send"></i> Soumettre le dossier
+        </button>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modal-paiement-soumission" tabindex="-1" aria-labelledby="modal-paiement-soumission-titre" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modal-paiement-soumission-titre"><i class="bi bi-cash-coin"></i> Frais de dossier à régler</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body">
+            {% if montant_frais_soumission %}
+            <p>La soumission de ce dossier (<strong>{{ TYPES_PROCEDURE.get(d.type_procedure, d.type_procedure) }}</strong>)
+              entraîne des frais de :</p>
+            <p class="fs-3 text-center fw-bold">{{ "{:,}".format(montant_frais_soumission).replace(',', ' ') }} XAF</p>
+            <p class="small text-muted">Après soumission, vous pourrez déposer votre preuve de paiement (virement,
+              dépôt mobile money...) directement depuis la fiche du dossier. La DPML confirmera la réception du
+              paiement ; vous serez notifié dans les deux cas.</p>
+            {% else %}
+            <p>Cette procédure ({{ TYPES_PROCEDURE.get(d.type_procedure, d.type_procedure) }}) ne donne pas lieu à
+              des frais de dossier.</p>
+            {% endif %}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+            <form method="post" action="{{ url_for('dossier_soumettre', id=d.id) }}">
+              <button class="btn btn-primary"><i class="bi bi-send"></i> Confirmer et soumettre</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recevabilité (administrateur_dpml, soumis) -->
+    {% if d.statut == "soumis" and current_user.role_systeme == "administrateur_dpml" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Contrôle de recevabilité</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('dossier_recevabilite', id=d.id) }}">
+          <textarea name="motif" class="form-control mb-2" rows="2" placeholder="Motif (obligatoire si irrecevable)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="recevable" class="btn btn-success btn-sm">Marquer recevable</button>
+            <button name="decision" value="irrecevable" class="btn btn-danger btn-sm">Marquer irrecevable</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Avis évaluateur (evaluateur_amm, evaluation_en_cours) -->
+    {% if d.statut == "evaluation_en_cours" and current_user.role_systeme == "evaluateur_amm" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Votre avis d'évaluation</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('dossier_avis', id=d.id) }}">
+          <label for="module_concerne" class="form-label small">Module concerné</label>
+          <select class="form-select mb-2" id="module_concerne" name="module_concerne">
+            <option value="global">Ensemble du dossier</option>
+            <option value="module3">Module 3 : Qualité</option>
+            <option value="module4">Module 4 : Non clinique</option>
+            <option value="module5">Module 5 : Clinique</option>
+          </select>
+          <textarea name="commentaire" class="form-control mb-2" rows="2" placeholder="Commentaire (obligatoire si complément demandé)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="valeur" value="favorable" class="btn btn-success btn-sm">Avis favorable</button>
+            <button name="valeur" value="complement_requis" class="btn btn-warning btn-sm">Demander un complément</button>
+            <button name="valeur" value="recommandation_rejet" class="btn btn-danger btn-sm">Recommander le rejet</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Décision directeur (directeur_dpml, evaluation_en_cours) -->
+    {% if d.statut == "evaluation_en_cours" and current_user.role_systeme == "directeur_dpml" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary"><i class="bi bi-award"></i> Décision</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('dossier_decision', id=d.id) }}"
+              onsubmit="return confirm('Cette décision est irréversible. Confirmer ?');">
+          <textarea name="motif" class="form-control mb-2" rows="2" placeholder="Motif (obligatoire si rejet)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="approuve" class="btn btn-success">Approuver</button>
+            <button name="decision" value="rejete" class="btn btn-danger btn-sm">Rejeter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Complément requis : rappel du délai -->
+    {% if d.statut == "complement_requis" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Complément requis</div>
+      <div class="card-body">
+        <p class="small mb-1">Motif : {{ d.motif_decision or "voir avis d'évaluation ci-contre" }}</p>
+        {% if d.date_limite_reponse_complement %}
+        <p class="small text-muted">Réponse attendue avant le {{ d.date_limite_reponse_complement.strftime('%d/%m/%Y') }}
+          (au-delà, le dossier est clôturé automatiquement).</p>
+        {% endif %}
+        {% if current_user.id != d.demandeur_id %}
+        <p class="small text-muted mb-0">En attente de la réponse du demandeur.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Procédures liées (approuve) -->
+    {% if d.statut == "approuve" and d.type_procedure != "retrait" %}
+    {% set peut_initier = current_user.role_systeme == "administrateur_dpml" or (current_user.role_systeme == "demandeur_externe" and current_user.etablissement_rattachement_id == d.produit.titulaire_amm_id) %}
+    {% if peut_initier %}
+    <div class="card mb-3">
+      <div class="card-header">Procédures liées</div>
+      <div class="card-body d-grid gap-2">
+        <form method="post" action="{{ url_for('dossier_procedure_liee', produit_id=d.produit_id, type_procedure='renouvellement') }}">
+          <button class="btn btn-outline-primary btn-sm w-100">Initier un renouvellement</button>
+        </form>
+        <form method="post" action="{{ url_for('dossier_procedure_liee', produit_id=d.produit_id, type_procedure='variation') }}">
+          <button class="btn btn-outline-primary btn-sm w-100">Initier une variation</button>
+        </form>
+        <form method="post" action="{{ url_for('dossier_procedure_liee', produit_id=d.produit_id, type_procedure='retrait') }}"
+              onsubmit="return confirm('Confirmer la demande de retrait de ce produit du marché ?');">
+          <button class="btn btn-outline-danger btn-sm w-100">Initier un retrait</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Piste d'audit -->
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}{% if e.nouveau_statut and e.nouveau_statut != e.ancien_statut %} → <em>{{ STATUTS.get(e.nouveau_statut, e.nouveau_statut) }}</em>{% endif %}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

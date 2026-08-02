@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Nouveau dossier de lot{% endblock %}
+{% block content %}
+<h4 class="mb-3">Nouveau dossier de lot (vaccins / produits sanguins)</h4>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+            <select class="form-select" id="produit_id" name="produit_id" required>
+              {% for p in produits %}
+              <option value="{{ p.id }}">{{ p.libelle }} ({{ p.categorie }})</option>
+              {% else %}
+              <option value="" disabled>Aucun produit vaccin/produit sanguin enregistré</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="numero_lot" class="form-label">Numéro de lot <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="numero_lot" name="numero_lot" required>
+          </div>
+          <div class="mb-3">
+            <label for="dossier_fabricant" class="form-label">Documentation du fabricant (certificat d'analyse, résumé de production)</label>
+            <textarea class="form-control" id="dossier_fabricant" name="dossier_fabricant" rows="3"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Enregistrer la réception</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

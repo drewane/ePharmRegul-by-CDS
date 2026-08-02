@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Registre des dérogations spéciales{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Registre des demandes de dérogation spéciale</h4>
+  {% if current_user.role_systeme == "demandeur_externe" %}
+  <a href="{{ url_for('derogation.nouvelle') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nouvelle demande</a>
+  {% endif %}
+</div>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for code, label in STATUTS_DEROGATION.items() %}
+      <option value="{{ code }}" {{ "selected" if statut == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Numéro</th><th>Objet</th><th>Dossier lié</th><th>Date de dépôt</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for d in demandes %}
+        <tr>
+          <td><a href="{{ url_for('derogation.fiche', id=d.id) }}">{{ d.numero }}</a></td>
+          <td>{{ d.objet }}</td>
+          <td>{% if d.dossier_amm %}<a href="{{ url_for('dossier_detail', id=d.dossier_amm_id) }}">{{ d.dossier_amm.numero or "brouillon" }}</a>{% else %}—{% endif %}</td>
+          <td>{{ d.date_creation.strftime('%d/%m/%Y') }}</td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS_DEROGATION.get(d.statut, d.statut) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

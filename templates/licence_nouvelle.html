@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle demande de licence{% endblock %}
+{% block content %}
+<h4 class="mb-1">Nouvelle demande de licence — société grossiste-répartiteur</h4>
+{% if not current_user %}
+<p class="text-muted">Accès libre, sans compte — décrivez votre société ; une dernière étape vous permettra de
+  créer votre compte pour finaliser le dépôt.</p>
+{% endif %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="raison_sociale" class="form-label">Nom de la société <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="raison_sociale" name="raison_sociale" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label d-block">Catégorie d'activité <span class="text-danger">*</span></label>
+            {% for valeur, libelle in categories.items() %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="categorie_activite" id="cat-{{ valeur }}"
+                     value="{{ valeur }}" required>
+              <label class="form-check-label" for="cat-{{ valeur }}">{{ libelle }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="mb-3">
+            <label for="adresse" class="form-label">Adresse</label>
+            <input type="text" class="form-control" id="adresse" name="adresse" placeholder="Ville, quartier">
+          </div>
+          <button type="submit" class="btn btn-primary">
+            {{ "Continuer — créer mon compte" if not current_user else "Déposer la demande de licence" }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

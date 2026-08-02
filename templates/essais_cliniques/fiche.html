@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Protocole {{ p.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">{{ p.titre }}</h4>
+    <div class="text-muted">{{ p.numero }} · Promoteur : {{ p.promoteur.nom_complet }}
+      {% if p.produit_etudie %} · Produit étudié : {{ p.produit_etudie.libelle }}{% endif %}</div>
+  </div>
+  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_CT.get(p.statut, p.statut) }}</span>
+</div>
+
+{% if p.motif_decision %}<div class="alert alert-warning">Motif : {{ p.motif_decision }}</div>{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        Avis du comité d'éthique (externe)
+        {% if p.statut_avis_ethique == "en_attente" %}<span class="badge bg-warning text-dark">En attente</span>
+        {% elif p.statut_avis_ethique == "favorable" %}<span class="badge bg-success">Favorable</span>
+        {% else %}<span class="badge bg-danger">Défavorable</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <p class="small mb-2">Référence : {{ p.reference_comite_ethique or "non renseignée" }}</p>
+        {% if current_user.role_systeme in ("agent_dros", "administrateur_dpml") %}
+        <form method="post" action="{{ url_for('ct.action_avis_ethique', id=p.id) }}" class="row g-2">
+          <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm" name="reference_comite_ethique"
+                   placeholder="Référence de l'avis" value="{{ p.reference_comite_ethique or '' }}">
+          </div>
+          <div class="col-md-5">
+            <select class="form-select form-select-sm" name="statut_avis_ethique">
+              <option value="en_attente" {{ "selected" if p.statut_avis_ethique == "en_attente" }}>En attente</option>
+              <option value="favorable" {{ "selected" if p.statut_avis_ethique == "favorable" }}>Favorable</option>
+              <option value="defavorable" {{ "selected" if p.statut_avis_ethique == "defavorable" }}>Défavorable</option>
+            </select>
+          </div>
+          <div class="col-md-2"><button class="btn btn-outline-primary btn-sm w-100">Enregistrer</button></div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if p.amendements %}
+    <div class="card mb-3">
+      <div class="card-header">Amendements</div>
+      <div class="card-body">
+        {% for a in p.amendements %}
+        <div class="border-bottom py-2">
+          <div class="d-flex justify-content-between">
+            <strong>{{ a.date[:10] }}</strong>
+            <span class="badge {{ 'bg-success' if a.statut == 'approuve' else ('bg-danger' if a.statut == 'rejete' else 'bg-warning text-dark') }}">{{ a.statut }}</span>
+          </div>
+          <div class="small">{{ a.description }}</div>
+          {% if a.motif %}<div class="small text-muted">{{ a.motif }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if p.rapports_etape %}
+    <div class="card">
+      <div class="card-header">Rapports d'étape</div>
+      <div class="card-body">
+        {% for r in p.rapports_etape %}
+        <div class="d-flex justify-content-between border-bottom py-2">
+          <span>{{ r.titre }} — échéance {{ r.echeance }}</span>
+          {% if r.statut == "recu" %}<span class="badge bg-success">Reçu</span>
+          {% else %}<span class="badge bg-warning text-dark">Attendu</span>{% endif %}
+        </div>
+        {% endfor %}
+        {% if current_user.role_systeme == "demandeur_externe" and current_user.id == p.promoteur_id %}
+        <form method="post" action="{{ url_for('ct.action_rapport_etape', id=p.id) }}" class="mt-2 d-flex gap-2">
+          <select class="form-select form-select-sm" name="titre">
+            {% for r in p.rapports_etape if r.statut == "attendu" %}<option value="{{ r.titre }}">{{ r.titre }}</option>{% endfor %}
+          </select>
+          <button class="btn btn-sm btn-outline-primary">Déposer ce rapport</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col-lg-4">
+
+    {% if p.statut == "depose" and current_user.role_systeme == "agent_dros" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Contrôle de recevabilité</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('ct.action_recevabilite', id=p.id) }}">
+          <textarea class="form-control mb-2" name="motif" rows="2" placeholder="Motif (obligatoire si irrecevable)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="recevable" class="btn btn-success btn-sm">Marquer recevable</button>
+            <button name="decision" value="irrecevable" class="btn btn-danger btn-sm">Marquer irrecevable</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if p.statut == "evaluation_en_cours" %}
+      {% if current_user.role_systeme == "agent_dros" %}
+      <div class="card mb-3 border-primary">
+        <div class="card-header text-primary">Avis scientifique</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('ct.action_avis', id=p.id) }}">
+            <textarea class="form-control mb-2" name="commentaire" rows="2" placeholder="Commentaire" required></textarea>
+            <button class="btn btn-outline-primary btn-sm w-100">Consigner l'avis</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+      {% if current_user.role_systeme == "directeur_dpml" %}
+      <div class="card mb-3 border-warning">
+        <div class="card-header text-primary">Décision</div>
+        <div class="card-body">
+          {% if p.statut_avis_ethique != "favorable" %}
+          <div class="alert alert-warning small">L'autorisation ne peut être finalisée sans avis favorable du
+            comité d'éthique (statut actuel : {{ p.statut_avis_ethique }}).</div>
+          {% endif %}
+          <form method="post" action="{{ url_for('ct.action_decision', id=p.id) }}">
+            <textarea class="form-control mb-2" name="motif" rows="2" placeholder="Motif (obligatoire si rejet/complément)"></textarea>
+            <p class="small text-muted mb-1">Rapports d'étape attendus (si autorisation) :</p>
+            {% for i in range(1, 3) %}
+            <div class="row g-1 mb-1">
+              <div class="col-7"><input type="text" class="form-control form-control-sm" name="rapport_titre_{{ i }}" placeholder="Titre du rapport"></div>
+              <div class="col-5"><input type="date" class="form-control form-control-sm" name="rapport_echeance_{{ i }}"></div>
+            </div>
+            {% endfor %}
+            <div class="d-grid gap-2 mt-2">
+              <button name="decision" value="autorise" class="btn btn-success btn-sm" {{ "disabled" if p.statut_avis_ethique != "favorable" }}>Autoriser</button>
+              <button name="decision" value="complement_requis" class="btn btn-warning btn-sm">Demander un complément</button>
+              <button name="decision" value="rejete" class="btn btn-danger btn-sm">Rejeter</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if p.statut == "complement_requis" and current_user.role_systeme == "demandeur_externe" and current_user.id == p.promoteur_id %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Réponse au complément</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('ct.action_repondre_complement', id=p.id) }}">
+          <button class="btn btn-primary btn-sm w-100">Confirmer le dépôt de la réponse</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if p.statut == "autorise" %}
+      {% if current_user.role_systeme == "demandeur_externe" and current_user.id == p.promoteur_id %}
+      <div class="card mb-3">
+        <div class="card-header text-primary">Amendement</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('ct.action_amendement', id=p.id) }}">
+            <textarea class="form-control mb-2" name="description" rows="2" placeholder="Description de l'amendement" required></textarea>
+            <button class="btn btn-outline-primary btn-sm w-100">Soumettre l'amendement</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+      {% if current_user.role_systeme in ("agent_dros", "directeur_dpml") %}
+      <div class="card mb-3">
+        <div class="card-header text-primary">Clôture</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('ct.action_cloturer', id=p.id) }}">
+            <button class="btn btn-success btn-sm w-100">Clôturer (rapport final reçu)</button>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if p.statut == "amendement_en_cours" and current_user.role_systeme in ("agent_dros", "directeur_dpml") %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Décision sur l'amendement</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('ct.action_amendement_decision', id=p.id) }}">
+          <textarea class="form-control mb-2" name="motif" rows="2" placeholder="Motif (optionnel)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="approuve" class="btn btn-success btn-sm">Approuver</button>
+            <button name="decision" value="rejete" class="btn btn-danger btn-sm">Rejeter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

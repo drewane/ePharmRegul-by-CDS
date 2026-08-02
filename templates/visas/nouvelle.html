@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle demande de visa technique{% endblock %}
+{% block content %}
+<h4 class="mb-1">Nouvelle demande de visa technique</h4>
+<p class="text-muted">Le visa technique autorise une opération d'importation précise d'un produit déjà titulaire
+  d'une AMM active — il ne remplace pas l'AMM elle-même.</p>
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        {% if not produits %}
+        <p class="text-muted mb-0">Aucun produit avec une AMM active n'est associé à votre compte. Un visa
+          technique ne peut être demandé que pour un produit déjà titulaire d'une AMM active.</p>
+        {% else %}
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+            <select class="form-select" id="produit_id" name="produit_id" required>
+              <option value="">— Sélectionner —</option>
+              {% for p in produits %}
+              <option value="{{ p.id }}">{{ p.libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="description" class="form-label">Description de l'opération</label>
+            <textarea class="form-control" id="description" name="description" rows="3"
+                      placeholder="Quantité, provenance, destination, échéance souhaitée..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Déposer la demande</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Mes inspections — terrain{% endblock %}
+{% block content %}
+<h4 class="mb-1">Mes inspections</h4>
+<p class="text-muted small">Une fois une inspection démarrée et sa grille ouverte, la saisie fonctionne sans
+  connexion — elle est conservée sur cet appareil et se synchronise automatiquement au retour du réseau.</p>
+
+<div id="etat-connexion" class="alert small mb-3"></div>
+
+<div class="list-group">
+  {% for i in inspections %}
+  <div class="list-group-item">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <div class="fw-semibold">{{ i.etablissement.raison_sociale }}</div>
+        <div class="small text-muted">{{ i.numero }} · {{ TYPES_RI.get(i.type, i.type) }} ·
+          Prévue le {{ i.date_planifiee.strftime('%d/%m/%Y') if i.date_planifiee else "—" }}</div>
+        <div class="small" data-sync-indicator="{{ i.id }}"></div>
+      </div>
+      <div>
+        {% if i.statut == "planifiee" %}
+        <form method="post" action="{{ url_for('ri.action_demarrer', id=i.id) }}">
+          <button class="btn btn-sm btn-primary">Démarrer</button>
+        </form>
+        {% else %}
+        <a href="{{ url_for('ri.grille', id=i.id) }}" class="btn btn-sm btn-outline-primary">Continuer la saisie</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="text-muted">Aucune inspection planifiée ou en cours ne vous est affectée.</p>
+  {% endfor %}
+</div>
+
+<script>
+(function() {
+  const bandeau = document.getElementById('etat-connexion');
+  function majBandeau() {
+    if (navigator.onLine) {
+      bandeau.className = 'alert alert-success small mb-3';
+      bandeau.textContent = 'Connecté — les données déjà saisies hors connexion se synchronisent automatiquement.';
+    } else {
+      bandeau.className = 'alert alert-warning small mb-3';
+      bandeau.textContent = 'Hors connexion — vous pouvez tout de même consulter et poursuivre une grille déjà ouverte.';
+    }
+  }
+  window.addEventListener('online', majBandeau);
+  window.addEventListener('offline', majBandeau);
+  majBandeau();
+
+  document.querySelectorAll('[data-sync-indicator]').forEach(function(el) {
+    const id = el.getAttribute('data-sync-indicator');
+    const brouillon = localStorage.getItem('sireph_grille_' + id);
+    if (brouillon) {
+      const data = JSON.parse(brouillon);
+      el.innerHTML = data.synchronise
+        ? '<span class="badge bg-success">À jour</span>'
+        : '<span class="badge bg-warning text-dark">Modifications en attente d\'envoi</span>';
+    }
+  });
+})();
+</script>
+{% endblock %}

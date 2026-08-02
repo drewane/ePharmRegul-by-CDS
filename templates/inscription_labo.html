@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Créer votre compte{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <h4 class="mb-1">Créez votre compte {{ "grossiste-répartiteur" if draft_licence else "laboratoire" }}</h4>
+    {% if draft_licence %}
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle"></i> Dernière étape avant le dépôt de votre demande de licence pour
+      <strong>{{ draft_licence.raison_sociale }}</strong>
+      ({{ categories.get(draft_licence.categorie_activite, draft_licence.categorie_activite) }}).
+      Vos informations sont conservées — créez votre compte pour finaliser.
+    </div>
+    {% elif draft %}
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle"></i> Dernière étape avant le dépôt de votre demande pour
+      <strong>{{ draft.nom_commercial }}</strong> ({{ draft.dci }}). Vos informations produit sont conservées —
+      créez votre compte pour finaliser.
+    </div>
+    {% else %}
+    <p class="text-muted">Réservé aux laboratoires / titulaires souhaitant déposer des dossiers auprès de la DPML.</p>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="raison_sociale" class="form-label">Nom du laboratoire / établissement <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="raison_sociale" name="raison_sociale"
+                   value="{{ valeurs.raison_sociale }}" required>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="nom_complet" class="form-label">Votre nom complet <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nom_complet" name="nom_complet"
+                     value="{{ valeurs.nom_complet }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="contact" class="form-label">Téléphone (facultatif)</label>
+              <input type="text" class="form-control" id="contact" name="contact" value="{{ valeurs.contact }}">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="email" class="form-label">Adresse e-mail (identifiant de connexion) <span class="text-danger">*</span></label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ valeurs.email }}" required>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="password" class="form-label">Mot de passe <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="password" name="password" minlength="8" required>
+              <div class="form-text">8 caractères minimum.</div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="password_confirm" class="form-label">Confirmer le mot de passe <span class="text-danger">*</span></label>
+              <input type="password" class="form-control" id="password_confirm" name="password_confirm" minlength="8" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            {{ "Créer mon compte et déposer la demande" if draft else "Créer mon compte" }}
+          </button>
+          <a href="{{ url_for('login') }}" class="btn btn-link">J'ai déjà un compte</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

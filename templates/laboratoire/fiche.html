@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Échantillon {{ ech.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Échantillon {{ ech.numero }}</h4>
+    <div class="text-muted">
+      {{ ech.produit.libelle }}{% if ech.lot %} · Lot {{ ech.lot.numero_lot }}{% endif %} ·
+      Origine : {{ ORIGINES_LT.get(ech.origine, ech.origine) }} ·
+      Reçu le {{ ech.date_reception.strftime('%d/%m/%Y') }}
+    </div>
+  </div>
+  <div class="text-end">
+    {% if ech.conclusion %}
+    <span class="badge {{ 'bg-success' if ech.conclusion == 'conforme' else 'bg-danger' }} mb-1">
+      {{ "Conforme" if ech.conclusion == "conforme" else "Non conforme" }}
+    </span><br>
+    {% endif %}
+    <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_LT.get(ech.statut, ech.statut) }}</span>
+  </div>
+</div>
+
+{% if ech.statut == "certificat_emis" %}
+<div class="alert alert-success d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-patch-check-fill"></i> Certificat émis.</span>
+  <a href="{{ url_for('lt.telecharger_certificat', id=ech.id) }}" target="_blank" class="btn btn-sm btn-success">
+    <i class="bi bi-download"></i> Télécharger le certificat
+  </a>
+</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-3">
+      <div class="card-header">Résultats par paramètre</div>
+      <div class="card-body">
+        {% if ech.resultats %}
+        <table class="table table-sm">
+          <thead><tr><th>Paramètre</th><th>Méthode</th><th>Résultat mesuré</th><th>Spécification</th><th>Conformité</th></tr></thead>
+          <tbody>
+            {% for r in ech.resultats %}
+            <tr>
+              <td>{{ r.parametre }}</td>
+              <td>{{ r.methode or "—" }}</td>
+              <td>{{ r.resultat_mesure }}</td>
+              <td>{{ r.specification }}</td>
+              <td><span class="badge {{ 'bg-success' if r.conformite == 'conforme' else 'bg-danger' }}">{{ "Conforme" if r.conformite == "conforme" else "Non conforme" }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted mb-0">Aucun résultat saisi pour le moment.</p>
+        {% endif %}
+        {% if ech.observation_rejet %}
+        <div class="alert alert-warning small mb-0">Observation du responsable qualité : {{ ech.observation_rejet }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if ech.statut == "en_analyse" and current_user.role_systeme == "agent_laboratoire" and current_user.id == ech.analyste_id %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Saisie des résultats</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('lt.action_resultats', id=ech.id) }}">
+          <table class="table table-sm">
+            <thead><tr><th>Paramètre</th><th>Méthode</th><th>Résultat mesuré</th><th>Spécification</th></tr></thead>
+            <tbody>
+              {% for i in range(1, 6) %}
+              <tr>
+                <td><input type="text" class="form-control form-control-sm" name="parametre_{{ i }}"></td>
+                <td><input type="text" class="form-control form-control-sm" name="methode_{{ i }}"></td>
+                <td><input type="text" class="form-control form-control-sm" name="resultat_{{ i }}"></td>
+                <td><input type="text" class="form-control form-control-sm" name="specification_{{ i }}" placeholder="ex. 18-22, &lt;=5, =Blanc"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="small text-muted">La conformité de chaque paramètre est calculée automatiquement par comparaison au format de spécification saisi.</p>
+          <button class="btn btn-primary btn-sm">Enregistrer les résultats</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col-lg-4">
+
+    {% if ech.statut == "recu" and current_user.role_systeme == "agent_laboratoire" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Prise en charge</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('lt.action_prendre_en_charge', id=ech.id) }}">
+          <button class="btn btn-primary w-100">Prendre en charge</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if ech.statut == "resultat_saisi" %}
+      {% if current_user.role_systeme == "responsable_qualite_labo" and current_user.id != ech.analyste_id %}
+      <div class="card mb-3 border-warning">
+        <div class="card-header text-primary">Validation</div>
+        <div class="card-body">
+          <form method="post" action="{{ url_for('lt.action_valider', id=ech.id) }}" class="mb-3">
+            <label class="form-label small">Conclusion de conformité globale</label>
+            <select class="form-select form-select-sm mb-2" name="conclusion">
+              <option value="conforme">Conforme</option>
+              <option value="non_conforme">Non conforme</option>
+            </select>
+            <input type="hidden" name="decision" value="valide">
+            <button class="btn btn-success btn-sm w-100">Valider les résultats</button>
+          </form>
+          <form method="post" action="{{ url_for('lt.action_valider', id=ech.id) }}">
+            <input type="hidden" name="decision" value="rejet">
+            <textarea class="form-control form-control-sm mb-2" name="observation" rows="2" placeholder="Observation (obligatoire)" required></textarea>
+            <button class="btn btn-outline-danger btn-sm w-100">Rejeter la saisie</button>
+          </form>
+        </div>
+      </div>
+      {% elif current_user.role_systeme == "responsable_qualite_labo" and current_user.id == ech.analyste_id %}
+      <div class="alert alert-warning small">
+        Double validation obligatoire : vous avez saisi ces résultats, vous ne pouvez pas les valider vous-même.
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if ech.statut == "valide" and current_user.role_systeme == "responsable_qualite_labo" %}
+    <div class="card mb-3 border-success">
+      <div class="card-header text-primary">Émission du certificat</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('lt.action_certificat', id=ech.id) }}">
+          <button class="btn btn-success w-100">Émettre le certificat</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

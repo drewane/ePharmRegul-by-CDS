@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Registre des dossiers AMM{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Registre des dossiers AMM</h4>
+  {% if current_user.role_systeme in ("demandeur_externe", "administrateur_dpml") %}
+  <a href="{{ url_for('dossier_nouveau') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nouvelle demande</a>
+  {% endif %}
+</div>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="q" class="visually-hidden">Recherche</label>
+    <input type="text" class="form-control" id="q" name="q" value="{{ q }}"
+           placeholder="Rechercher (produit, DCI, demandeur, numéro)">
+  </div>
+  <div class="col-md-3">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for code, label in STATUTS.items() %}
+      <option value="{{ code }}" {{ "selected" if statut == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="type_procedure" class="visually-hidden">Type de procédure</label>
+    <select class="form-select" id="type_procedure" name="type_procedure">
+      <option value="">Toutes les procédures</option>
+      {% for code, label in TYPES_PROCEDURE.items() %}
+      <option value="{{ code }}" {{ "selected" if type_procedure == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-outline-secondary w-100">Filtrer</button>
+  </div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Numéro</th><th>Produit</th><th>Demandeur</th><th>Type</th><th>Date de dépôt</th><th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in dossiers %}
+        <tr>
+          <td><a href="{{ url_for('dossier_detail', id=d.id) }}">{{ d.numero or "(brouillon #" ~ d.id ~ ")" }}</a></td>
+          <td>{{ d.produit.libelle }}</td>
+          <td>{{ d.demandeur.nom_complet }}</td>
+          <td>{{ TYPES_PROCEDURE.get(d.type_procedure, d.type_procedure) }}</td>
+          <td>{{ d.date_depot.strftime('%d/%m/%Y') if d.date_depot else "—" }}</td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS.get(d.statut, d.statut) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if pages > 1 %}
+<nav class="mt-3" aria-label="Pagination du registre des dossiers">
+  <ul class="pagination">
+    {% for p in range(1, pages + 1) %}
+    <li class="page-item {{ 'active' if p == page }}">
+      <a class="page-link" href="{{ url_for('dossiers_registre', q=q, statut=statut, type_procedure=type_procedure, page=p) }}">{{ p }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
+{% endif %}
+<p class="text-muted small">{{ total }} dossier(s) au total.</p>
+{% endblock %}

@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — SIREPH{% endblock %}
+{% block content %}
+<h4 class="mb-4">Tableau de bord</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <div class="display-6">{{ total_actifs }}</div>
+        <div class="text-muted small">Dossiers AMM en cours</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <div class="display-6">{{ total_dossiers }}</div>
+        <div class="text-muted small">Dossiers AMM au total</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <div class="display-6">{{ delai_moyen if delai_moyen is not none else "—" }}</div>
+        <div class="text-muted small">Délai moyen de traitement (jours)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <div class="display-6">{{ notifications_non_lues|length }}</div>
+        <div class="text-muted small">Alertes non lues</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header">Dossiers AMM par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('dossiers_registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Cas de pharmacovigilance par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_VL.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('vl.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_vl.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% if nb_cas_en_retard %}
+        <div class="alert alert-danger mt-3 mb-0 small">
+          <i class="bi bi-exclamation-triangle"></i> {{ nb_cas_en_retard }} cas grave(s)/fatal(aux) non traité(s)
+          au-delà du délai réglementaire. <a href="{{ url_for('vl.registre', statut='recue') }}">Voir le registre</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Inspections par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_RI.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('ri.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_ri.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% if nb_plans_en_retard %}
+        <div class="alert alert-danger mt-3 mb-0 small">
+          <i class="bi bi-exclamation-triangle"></i> {{ nb_plans_en_retard }} plan(s) d'action en retard d'échéance.
+          <a href="{{ url_for('ri.plans_action') }}">Voir le suivi</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Demandes de licence par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_LI.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('li.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_li.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% if nb_etablissements_suspendus %}
+        <div class="alert alert-danger mt-3 mb-0 small">
+          <i class="bi bi-exclamation-triangle"></i> {{ nb_etablissements_suspendus }} établissement(s) sous
+          licence suspendue. <a href="{{ url_for('ri.etablissements_registre', statut='suspendue') }}">Voir le registre</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Échantillons de laboratoire par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_LT.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('lt.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_lt.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Signalements de marché par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_MC.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('mc.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_mc.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% if nb_niveau_i_attente %}
+        <div class="alert alert-danger mt-3 mb-0 small">
+          <i class="bi bi-exclamation-triangle"></i> {{ nb_niveau_i_attente }} signalement(s) de niveau I en
+          attente de validation du directeur. <a href="{{ url_for('mc.registre', niveau='I') }}">Voir</a>.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Protocoles d'essais cliniques par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_CT.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('ct.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_ct.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">Libérations de lots par statut</div>
+      <div class="card-body">
+        <div class="row">
+          {% for statut, label in STATUTS_LR.items() %}
+          <div class="col-md-6 d-flex justify-content-between border-bottom py-1">
+            <span>{{ label }}</span>
+            <a href="{{ url_for('lr.registre', statut=statut) }}" class="badge bg-secondary text-decoration-none">
+              {{ par_statut_lr.get(statut, 0) }}
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Progression par fonction réglementaire (Global Benchmarking Tool OMS)</div>
+      <div class="card-body">
+        {% for f in progression %}
+        <div class="mb-3 {{ 'module-grise' if not f.implemente else '' }}">
+          <div class="d-flex justify-content-between small">
+            <span><strong>{{ f.code }}</strong> — {{ f.nom }}</span>
+            <span>{% if f.implemente %}{{ f.valeur }}%{% else %}Non implémenté dans cette livraison{% endif %}</span>
+          </div>
+          <div class="progress progress-fonction">
+            <div class="progress-bar {{ 'bg-success' if f.implemente else 'bg-secondary' }}" role="progressbar"
+                 style="width: {{ f.valeur if f.implemente and f.valeur is not none else 0 }}%"
+                 aria-valuenow="{{ f.valeur if f.implemente and f.valeur is not none else 0 }}" aria-valuemin="0" aria-valuemax="100"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        Alertes récentes
+        <a href="{{ url_for('notifications_liste') }}" class="small">Tout voir</a>
+      </div>
+      <div class="card-body">
+        {% for n in notifications_non_lues %}
+          <div class="border-bottom py-2">
+            <div class="small text-muted">{{ n.date_creation.strftime('%d/%m/%Y %H:%M') }}</div>
+            <div>{{ n.contenu }}</div>
+            {% if n.lien %}<a href="{{ n.lien }}" class="small">Ouvrir</a>{% endif %}
+          </div>
+        {% else %}
+          <div class="text-muted small">Aucune alerte non lue.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Flux d'activité récente (tous modules)</div>
+      <div class="card-body">
+        {% for e in activite_recente %}
+          <div class="timeline-item">
+            <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} —
+              {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+            <div>{{ e.entite_type }} #{{ e.entite_id }} — {{ e.action }}</div>
+          </div>
+        {% else %}
+          <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

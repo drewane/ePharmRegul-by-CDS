@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Registre public des AMM — SIREPH{% endblock %}
+{% block content %}
+<h4 class="mb-1">Registre public des Autorisations de Mise sur le Marché</h4>
+<p class="text-muted">Consultation libre, sans authentification. Seules les AMM actives sont listées.</p>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-6">
+    <label for="q" class="visually-hidden">Recherche</label>
+    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Rechercher un produit ou une DCI">
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Rechercher</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr><th>DCI</th><th>Nom commercial</th><th>Forme</th><th>Titulaire</th><th>N° AMM</th><th>Date de délivrance</th><th>Valide jusqu'au</th></tr>
+      </thead>
+      <tbody>
+        {% for p, dossier in infos %}
+        <tr>
+          <td>{{ p.denomination_commune_internationale }}</td>
+          <td>{{ p.nom_commercial }}</td>
+          <td>{{ p.forme_pharmaceutique or "—" }}</td>
+          <td>{{ p.titulaire_amm.raison_sociale if p.titulaire_amm else "—" }}</td>
+          <td>{% if dossier %}<a href="{{ url_for('verifier', numero=dossier.numero) }}">{{ dossier.numero }}</a>{% else %}—{% endif %}</td>
+          <td>{{ dossier.date_decision.strftime('%d/%m/%Y') if dossier and dossier.date_decision else "—" }}</td>
+          <td>{{ dossier.date_validite_amm.strftime('%d/%m/%Y') if dossier and dossier.date_validite_amm else "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

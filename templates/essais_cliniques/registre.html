@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Registre des protocoles d'essais cliniques{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Registre des protocoles d'essais cliniques</h4>
+  {% if current_user.role_systeme in ("demandeur_externe", "administrateur_dpml") %}
+  <a href="{{ url_for('ct.nouveau') }}" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Nouveau protocole</a>
+  {% endif %}
+</div>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for code, label in STATUTS_CT.items() %}
+      <option value="{{ code }}" {{ "selected" if statut == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Numéro</th><th>Titre</th><th>Promoteur</th><th>Avis éthique</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for p in protocoles %}
+        <tr>
+          <td><a href="{{ url_for('ct.fiche', id=p.id) }}">{{ p.numero }}</a></td>
+          <td>{{ p.titre }}</td>
+          <td>{{ p.promoteur.nom_complet }}</td>
+          <td><span class="badge {{ 'bg-success' if p.statut_avis_ethique == 'favorable' else ('bg-danger' if p.statut_avis_ethique == 'defavorable' else 'bg-warning text-dark') }}">
+            {{ p.statut_avis_ethique }}</span></td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS_CT.get(p.statut, p.statut) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

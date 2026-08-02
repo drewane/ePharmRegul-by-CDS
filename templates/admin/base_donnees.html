@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Base de données — Administration{% endblock %}
+{% block content %}
+<h4 class="mb-1">Explorateur de base de données</h4>
+<p class="text-muted small">Toutes les données de SIREPH sont stockées dans un unique fichier SQLite local, sur ce
+  serveur — aucune donnée n'est envoyée à un service externe. Vue en lecture seule, réservée à l'administrateur.</p>
+
+<div class="alert alert-secondary small">
+  <i class="bi bi-hdd"></i> Fichier de base de données : <code>{{ chemin_fichier }}</code>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Table</th><th>Colonnes</th><th>Lignes</th><th></th></tr></thead>
+      <tbody>
+        {% for t in tables %}
+        <tr>
+          <td><code>{{ t.nom }}</code></td>
+          <td>{{ t.nb_colonnes }}</td>
+          <td>{{ t.nb_lignes }}</td>
+          <td class="text-end">
+            <a href="{{ url_for('admin_base_donnees_table', nom_table=t.nom) }}" class="btn btn-sm btn-outline-secondary">
+              Voir le contenu
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

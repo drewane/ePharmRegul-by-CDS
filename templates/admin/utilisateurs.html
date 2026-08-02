@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs — Administration{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4 class="mb-0">Gestion des utilisateurs et rôles</h4>
+  <a href="{{ url_for('admin_utilisateur_nouveau') }}" class="btn btn-primary"><i class="bi bi-person-plus"></i> Nouveau compte</a>
+</div>
+
+{% if nb_en_attente_validation and statut != "en_attente_validation" %}
+<div class="alert alert-warning d-flex justify-content-between align-items-center">
+  <span><i class="bi bi-person-exclamation"></i> {{ nb_en_attente_validation }} inscription(s) en attente de validation.</span>
+  <a href="{{ url_for('admin_utilisateurs', statut='en_attente_validation') }}" class="btn btn-sm btn-warning">Voir</a>
+</div>
+{% endif %}
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-4">
+    <label for="q" class="visually-hidden">Recherche</label>
+    <input type="text" class="form-control" id="q" name="q" value="{{ q }}" placeholder="Rechercher (nom, e-mail)">
+  </div>
+  <div class="col-md-3">
+    <label for="role" class="visually-hidden">Rôle</label>
+    <select class="form-select" id="role" name="role">
+      <option value="">Tous les rôles</option>
+      {% for code, label in roles_actifs.items() %}
+      <option value="{{ code }}" {{ "selected" if role == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      <option value="actif" {{ "selected" if statut == "actif" }}>Actif</option>
+      <option value="en_attente_validation" {{ "selected" if statut == "en_attente_validation" }}>En attente de validation</option>
+      <option value="suspendu" {{ "selected" if statut == "suspendu" }}>Suspendu</option>
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Établissement</th><th>Statut</th><th></th></tr></thead>
+      <tbody>
+        {% for p in personnes %}
+        <tr>
+          <td>{{ p.nom_complet }}</td>
+          <td>{{ p.email }}</td>
+          <td>{{ p.role_label }}</td>
+          <td>{{ p.etablissement.raison_sociale if p.etablissement else "—" }}</td>
+          <td>
+            {% set couleurs_statut = {"actif": "bg-success", "en_attente_validation": "bg-warning text-dark", "suspendu": "bg-secondary"} %}
+            {% set libelles_statut = {"actif": "Actif", "en_attente_validation": "En attente de validation", "suspendu": "Suspendu"} %}
+            <span class="badge {{ couleurs_statut.get(p.statut_compte, 'bg-secondary') }}">{{ libelles_statut.get(p.statut_compte, p.statut_compte) }}</span>
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('admin_utilisateur_modifier', id=p.id) }}" class="btn btn-sm btn-outline-secondary">Modifier</a>
+            {% if p.statut_compte == "en_attente_validation" %}
+            <form method="post" action="{{ url_for('admin_utilisateur_valider', id=p.id) }}" class="d-inline">
+              <button class="btn btn-sm btn-success">Valider</button>
+            </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('admin_utilisateur_suspendre', id=p.id) }}" class="d-inline">
+              <button class="btn btn-sm {{ 'btn-outline-success' if p.statut_compte == 'suspendu' else 'btn-outline-danger' }}">
+                {{ "Réactiver" if p.statut_compte == "suspendu" else "Suspendre" }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

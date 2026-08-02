@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Nouveau protocole d'essai clinique{% endblock %}
+{% block content %}
+<h4 class="mb-3">Nouveau protocole d'essai clinique</h4>
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% if current_user.role_systeme == "administrateur_dpml" %}
+          <div class="mb-3">
+            <label for="promoteur_id" class="form-label">Promoteur</label>
+            <select class="form-select" id="promoteur_id" name="promoteur_id">
+              {% for d in demandeurs %}<option value="{{ d.id }}">{{ d.nom_complet }}</option>{% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="mb-3">
+            <label for="titre" class="form-label">Titre du protocole <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="titre" name="titre" required>
+          </div>
+          <div class="mb-3">
+            <label for="produit_etudie_id" class="form-label">Produit étudié (facultatif)</label>
+            <select class="form-select" id="produit_etudie_id" name="produit_etudie_id">
+              <option value="">Non applicable</option>
+              {% for p in produits %}<option value="{{ p.id }}">{{ p.libelle }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="sites" class="form-label">Sites d'investigation</label>
+            <select class="form-select" id="sites" name="sites" multiple size="4">
+              {% for e in etablissements %}<option value="{{ e.id }}">{{ e.raison_sociale }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="reference_comite_ethique" class="form-label">Référence de l'avis du comité d'éthique (si déjà obtenu)</label>
+            <input type="text" class="form-control" id="reference_comite_ethique" name="reference_comite_ethique">
+          </div>
+          <button type="submit" class="btn btn-primary">Déposer le protocole</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

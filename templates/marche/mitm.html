@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Suivi de disponibilité — MITM{% endblock %}
+{% block content %}
+<h4 class="mb-1">Médicaments d'Intérêt Thérapeutique Majeur (MITM)</h4>
+<p class="text-muted">Marquage et suivi de disponibilité.</p>
+
+<div class="card mb-3">
+  <div class="card-header">Produits marqués MITM</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0">
+      <thead><tr><th>Produit</th><th>Disponibilité déclarée</th>{% if current_user.role_systeme == "demandeur_externe" %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+        {% for p in mitm_produits %}
+        <tr class="{{ 'table-danger' if p.disponibilite_declaree == 'rupture' }}">
+          <td>{{ p.libelle }}</td>
+          <td>
+            {% if p.disponibilite_declaree == "rupture" %}<span class="badge bg-danger">Rupture</span>
+            {% elif p.disponibilite_declaree == "disponible" %}<span class="badge bg-success">Disponible</span>
+            {% else %}<span class="badge bg-secondary">Non déclarée</span>{% endif %}
+          </td>
+          {% if current_user.role_systeme == "demandeur_externe" and current_user.etablissement_rattachement_id == p.titulaire_amm_id %}
+          <td>
+            <form method="post" class="d-flex gap-1">
+              <input type="hidden" name="produit_id" value="{{ p.id }}">
+              <input type="hidden" name="action" value="declarer">
+              <select name="disponibilite" class="form-select form-select-sm">
+                <option value="disponible">Disponible</option>
+                <option value="rupture">Rupture</option>
+              </select>
+              <button class="btn btn-sm btn-outline-primary">Déclarer</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-center text-muted py-4">Aucun produit marqué MITM.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if current_user.role_systeme == "administrateur_dpml" %}
+<div class="card">
+  <div class="card-header">Marquer/démarquer un produit MITM</div>
+  <div class="card-body">
+    {% for p in produits %}
+    <form method="post" class="d-flex justify-content-between align-items-center border-bottom py-2">
+      <input type="hidden" name="produit_id" value="{{ p.id }}">
+      <input type="hidden" name="action" value="marquer">
+      <span>{{ p.libelle }}</span>
+      <button class="btn btn-sm {{ 'btn-danger' if p.est_mitm else 'btn-outline-primary' }}">
+        {{ "Retirer du MITM" if p.est_mitm else "Marquer MITM" }}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

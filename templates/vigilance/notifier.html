@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Signaler un effet indésirable — SIREPH{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <h4 class="mb-1">Signaler un effet indésirable</h4>
+    <p class="text-muted">Formulaire ouvert à tout notificateur (professionnel de santé, patient, industriel),
+      sans compte utilisateur. Aucune donnée directement identifiante du patient n'est demandée.</p>
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <fieldset class="mb-3">
+            <legend class="fs-6">Produit concerné</legend>
+            <label for="produit_id" class="form-label small">Produit</label>
+            <select class="form-select mb-2" id="produit_id" name="produit_id">
+              <option value="">Produit inconnu / à préciser</option>
+              {% for p in produits %}
+              <option value="{{ p.id }}">{{ p.libelle }} — {{ p.denomination_commune_internationale }}</option>
+              {% endfor %}
+            </select>
+            <label for="numero_lot" class="form-label small">Numéro de lot (si connu)</label>
+            <input type="text" class="form-control" id="numero_lot" name="numero_lot">
+          </fieldset>
+
+          <fieldset class="mb-3">
+            <legend class="fs-6">Effet observé</legend>
+            <label for="description_effet" class="form-label small">Description de l'effet <span class="text-danger">*</span></label>
+            <textarea class="form-control mb-2" id="description_effet" name="description_effet" rows="3" required></textarea>
+            <label for="gravite" class="form-label small">Gravité <span class="text-danger">*</span></label>
+            <select class="form-select" id="gravite" name="gravite" required>
+              <option value="non_grave">Non grave</option>
+              <option value="grave">Grave</option>
+              <option value="fatal">Fatal</option>
+            </select>
+          </fieldset>
+
+          <fieldset class="mb-3">
+            <legend class="fs-6">Patient (anonymisé — jamais de nom ni de coordonnées)</legend>
+            <div class="row">
+              <div class="col-md-6">
+                <label for="patient_age" class="form-label small">Âge</label>
+                <input type="number" min="0" max="130" class="form-control" id="patient_age" name="patient_age">
+              </div>
+              <div class="col-md-6">
+                <label for="patient_sexe" class="form-label small">Sexe</label>
+                <select class="form-select" id="patient_sexe" name="patient_sexe">
+                  <option value="">Non précisé</option>
+                  <option value="M">Masculin</option>
+                  <option value="F">Féminin</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="mb-3">
+            <legend class="fs-6">Vous (notificateur)</legend>
+            <label for="source" class="form-label small">Vous êtes <span class="text-danger">*</span></label>
+            <select class="form-select mb-2" id="source" name="source" required>
+              <option value="professionnel_sante">Professionnel de santé</option>
+              <option value="patient">Patient</option>
+              <option value="industriel">Industriel / titulaire d'AMM</option>
+              <option value="litterature">Littérature</option>
+            </select>
+            <label for="notificateur_nom" class="form-label small">Nom (facultatif)</label>
+            <input type="text" class="form-control mb-2" id="notificateur_nom" name="notificateur_nom">
+            <label for="notificateur_contact" class="form-label small">Contact pour un éventuel suivi (facultatif)</label>
+            <input type="text" class="form-control" id="notificateur_contact" name="notificateur_contact">
+          </fieldset>
+
+          <button type="submit" class="btn btn-primary">Envoyer la notification</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

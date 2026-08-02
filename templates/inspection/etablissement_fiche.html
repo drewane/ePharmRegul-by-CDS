@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ etab.raison_sociale }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">{{ etab.raison_sociale }}</h4>
+    <div class="text-muted">{{ etab.type.replace('_',' ') }} · {{ etab.adresse or "Adresse non renseignée" }}</div>
+  </div>
+  <div class="text-end">
+    <span class="badge {{ 'bg-success' if etab.statut_licence == 'active' else ('bg-danger' if etab.statut_licence in ('suspendue','revoquee') else 'bg-secondary') }} fs-6">
+      {{ STATUTS_LICENCE.get(etab.statut_licence, etab.statut_licence) }}
+    </span>
+    {% if etab.date_expiration_licence and etab.statut_licence == "active" %}
+    <div class="small text-muted mt-1">Valide jusqu'au {{ etab.date_expiration_licence.strftime('%d/%m/%Y') }}</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-4 mb-3">
+    <div class="card">
+      <div class="card-header">Licence</div>
+      <div class="card-body d-grid gap-2">
+        {% if etab.statut_licence == "suspendue" and current_user.role_systeme == "directeur_dpml" %}
+        <form method="post" action="{{ url_for('li.etablissement_reactiver', id=etab.id) }}">
+          <button class="btn btn-outline-success btn-sm w-100">Lever la suspension</button>
+        </form>
+        <form method="post" action="{{ url_for('li.etablissement_revoquer', id=etab.id) }}"
+              onsubmit="return confirm('Confirmer la révocation définitive de cette licence ?');">
+          <textarea class="form-control form-control-sm mb-2" name="motif" rows="2" placeholder="Motif de révocation" required></textarea>
+          <button class="btn btn-outline-danger btn-sm w-100">Révoquer définitivement</button>
+        </form>
+        {% elif etab.statut_licence in ("en_instruction", "refusee") and peut_gerer_licence %}
+        {% set demande_active = demandes_licence | selectattr("statut", "in", ["deposee","en_instruction"]) | list | first %}
+        {% if not demande_active %}
+        <form method="post" action="{{ url_for('li.deposer', etablissement_id=etab.id) }}">
+          <input type="hidden" name="type_demande" value="nouvelle">
+          <button class="btn btn-primary btn-sm w-100">Déposer une demande de licence</button>
+        </form>
+        {% else %}
+        <p class="small text-muted mb-0">Demande {{ demande_active.numero }} en cours d'instruction.</p>
+        {% endif %}
+        {% elif etab.statut_licence == "active" and peut_gerer_licence %}
+        <form method="post" action="{{ url_for('li.deposer', etablissement_id=etab.id) }}">
+          <input type="hidden" name="type_demande" value="renouvellement">
+          <button class="btn btn-outline-primary btn-sm w-100">Renouveler la licence</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-8 mb-3">
+    <div class="card">
+      <div class="card-header">Historique des demandes de licence</div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr><th>Numéro</th><th>Type</th><th>Date</th><th>Statut</th></tr></thead>
+          <tbody>
+            {% for d in demandes_licence %}
+            <tr>
+              <td><a href="{{ url_for('li.fiche', id=d.id) }}">{{ d.numero }}</a></td>
+              <td>{{ TYPES_LI.get(d.type_demande, d.type_demande) }}</td>
+              <td>{{ d.date_creation.strftime('%d/%m/%Y') }}</td>
+              <td><span class="badge bg-primary badge-statut">{{ STATUTS_LI.get(d.statut, d.statut) }}</span></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Aucune demande de licence enregistrée.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header">Piste d'audit — statut de la licence</div>
+  <div class="card-body">
+    {% for e in audit_events %}
+    <div class="timeline-item">
+      <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+      <div>{{ e.action }}{% if e.nouveau_statut and e.nouveau_statut != e.ancien_statut %} → <em>{{ STATUTS_LICENCE.get(e.nouveau_statut, e.nouveau_statut) }}</em>{% endif %}</div>
+      {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="text-muted small">Aucun évènement.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">Historique d'inspection</div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Numéro</th><th>Date</th><th>Type</th><th>Score</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for i in inspections %}
+        <tr>
+          <td><a href="{{ url_for('ri.fiche', id=i.id) }}">{{ i.numero }}</a></td>
+          <td>{{ i.date_realisee.strftime('%d/%m/%Y') if i.date_realisee else (i.date_planifiee.strftime('%d/%m/%Y') if i.date_planifiee else "—") }}</td>
+          <td>{{ TYPES_RI.get(i.type, i.type) }}</td>
+          <td>{{ i.score_conformite ~ '%' if i.score_conformite is not none else "—" }}</td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS_RI.get(i.statut, i.statut) }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucune inspection enregistrée pour cet établissement.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

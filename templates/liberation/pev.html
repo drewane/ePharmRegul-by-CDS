@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Chaîne du froid / couverture vaccinale (PEV){% endblock %}
+{% block content %}
+<h4 class="mb-1">Interface chaîne du froid / couverture vaccinale (PEV)</h4>
+<p class="text-muted">Vue croisée des lots libérés récemment. L'obtention des indicateurs de couverture
+  vaccinale et de rupture de chaîne du froid (import périodique ou consultation d'un système externe) est un
+  choix d'implémentation non couvert par cette démonstration.</p>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Produit</th><th>Lot</th><th>Date de libération</th><th>Référence PEV</th></tr></thead>
+      <tbody>
+        {% for l in liberations %}
+        <tr>
+          <td>{{ l.produit.libelle }}</td>
+          <td>{{ l.lot.numero_lot }}</td>
+          <td>{{ l.date_liberation.strftime('%d/%m/%Y') if l.date_liberation else "—" }}</td>
+          <td>{{ l.reference_pev or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center text-muted py-4">Aucun lot libéré pour le moment.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Vérification d'authenticité — SIREPH{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <h4 class="mb-3"><i class="bi bi-patch-check"></i> Vérification d'authenticité</h4>
+    {% if d and d.statut == "approuve" %}
+      <div class="alert alert-success">
+        <h5 class="alert-heading">Document authentique</h5>
+        <p class="mb-1"><strong>N° AMM :</strong> {{ d.numero }}</p>
+        <p class="mb-1"><strong>Produit :</strong> {{ d.produit.libelle }} ({{ d.produit.denomination_commune_internationale }})</p>
+        <p class="mb-1"><strong>Titulaire :</strong> {{ d.produit.titulaire_amm.raison_sociale if d.produit.titulaire_amm else "—" }}</p>
+        <p class="mb-1"><strong>Date de délivrance :</strong> {{ d.date_decision.strftime('%d/%m/%Y') if d.date_decision else "—" }}</p>
+        <p class="mb-0"><strong>Valide jusqu'au :</strong> {{ d.date_validite_amm.strftime('%d/%m/%Y') if d.date_validite_amm else "—" }}</p>
+      </div>
+    {% elif d %}
+      <div class="alert alert-warning">
+        <h5 class="alert-heading">Statut non actif</h5>
+        <p class="mb-0">Le dossier {{ d.numero }} existe mais n'est pas (ou plus) au statut « Approuvé »
+          (statut actuel : {{ STATUTS.get(d.statut, d.statut) }}). Ce document ne peut donc pas être authentifié
+          comme une AMM active.</p>
+      </div>
+    {% else %}
+      <div class="alert alert-danger">
+        <h5 class="alert-heading">Numéro inconnu</h5>
+        <p class="mb-0">Aucun dossier ne correspond à ce numéro dans le registre SIREPH.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

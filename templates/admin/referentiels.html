@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Référentiels — Administration{% endblock %}
+{% block content %}
+<h4 class="mb-3">Gestion des référentiels — paramètres configurables</h4>
+<p class="text-muted small">Tout délai réglementaire ou montant de frais est un paramètre configurable, jamais une
+  valeur codée en dur. Toute modification est elle-même journalisée dans la piste d'audit (qui, quand, ancienne et
+  nouvelle valeur).</p>
+
+<div class="alert alert-info small">
+  Une modification s'applique aux <strong>nouveaux calculs uniquement</strong> : les délais et frais déjà engagés sur
+  des dossiers en cours ne sont pas recalculés rétroactivement.
+</div>
+
+{% for module, parametres in parametres_par_module.items() %}
+<h6 class="mt-4">Module {{ module }}</h6>
+<div class="card mb-3">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th>Clé</th><th>Description</th><th>Valeur actuelle</th><th>Dernière modification</th><th></th></tr></thead>
+      <tbody>
+        {% for p in parametres %}
+        <tr>
+          <td><code>{{ p.cle }}</code></td>
+          <td class="small">{{ p.description }}</td>
+          <td style="width: 15%">
+            <form method="post" action="{{ url_for('admin_referentiel_modifier', id=p.id) }}" class="d-flex gap-1">
+              <label for="valeur-{{ p.id }}" class="visually-hidden">Valeur de {{ p.cle }}</label>
+              <input type="text" class="form-control form-control-sm" id="valeur-{{ p.id }}" name="valeur" value="{{ p.valeur }}">
+              <button class="btn btn-sm btn-outline-primary">Enregistrer</button>
+            </form>
+          </td>
+          <td class="small text-muted">
+            {% if p.derniere_modif_par %}{{ p.derniere_modif_par.nom_complet }} — {% endif %}
+            {{ p.derniere_modif_le.strftime('%d/%m/%Y %H:%M') if p.derniere_modif_le else "—" }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<p class="text-center text-muted py-4">Aucun paramètre configuré.</p>
+{% endfor %}
+{% endblock %}

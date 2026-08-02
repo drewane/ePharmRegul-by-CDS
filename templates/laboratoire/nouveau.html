@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Nouvel échantillon{% endblock %}
+{% block content %}
+<h4 class="mb-3">Nouvel échantillon (demande directe)</h4>
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+            <select class="form-select" id="produit_id" name="produit_id" required>
+              {% for p in produits %}
+              <option value="{{ p.id }}">{{ p.libelle }} — {{ p.denomination_commune_internationale }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="numero_lot" class="form-label">Numéro de lot (facultatif)</label>
+            <input type="text" class="form-control" id="numero_lot" name="numero_lot">
+          </div>
+          <button type="submit" class="btn btn-primary">Enregistrer la réception</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

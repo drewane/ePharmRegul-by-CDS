@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Signaler un défaut qualité — SIREPH{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <h4 class="mb-1">Signaler un défaut qualité</h4>
+    <p class="text-muted">Formulaire public, sans compte utilisateur.</p>
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="produit_id" class="form-label">Produit <span class="text-danger">*</span></label>
+            <select class="form-select" id="produit_id" name="produit_id" required>
+              {% for p in produits %}
+              <option value="{{ p.id }}">{{ p.libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="numeros_lots" class="form-label">Numéro(s) de lot (si connu)</label>
+            <input type="text" class="form-control" id="numeros_lots" name="numeros_lots">
+          </div>
+          <div class="mb-3">
+            <label for="description" class="form-label">Description du défaut observé <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="description" name="description" rows="4" required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Envoyer le signalement</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

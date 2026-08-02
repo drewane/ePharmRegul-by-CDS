@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Notification enregistrée — SIREPH{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+    <div class="alert alert-success">
+      <h4 class="alert-heading"><i class="bi bi-check-circle"></i> Notification enregistrée</h4>
+      <p>Votre signalement a bien été reçu et sera instruit par l'équipe de pharmacovigilance de la DPML.</p>
+      <p class="mb-0">Numéro de suivi : <strong>{{ cas.numero }}</strong></p>
+    </div>
+    <p class="text-muted small">Conservez ce numéro pour toute référence ultérieure. Aucune donnée directement
+      identifiante du patient n'a été enregistrée.</p>
+    <a href="{{ url_for('vl.notifier') }}" class="btn btn-outline-primary">Signaler un autre cas</a>
+  </div>
+</div>
+{% endblock %}

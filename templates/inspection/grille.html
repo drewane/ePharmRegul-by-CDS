@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Grille — {{ insp.numero }}{% endblock %}
+{% block content %}
+<h4 class="mb-1">{{ insp.etablissement.raison_sociale }}</h4>
+<p class="text-muted">{{ insp.numero }} · {{ TYPES_RI.get(insp.type, insp.type) }}</p>
+
+<div id="etat-sync" class="alert small"></div>
+<div id="etat-cloture" class="alert alert-info small d-none"></div>
+
+<div id="grille-conteneur"></div>
+
+<div id="zone-confirmation" class="alert alert-warning small d-none">
+  <p id="msg-items-manquants" class="mb-2"></p>
+  <div class="form-check mb-2">
+    <input type="checkbox" class="form-check-input" id="confirmation-items-manquants">
+    <label class="form-check-label" for="confirmation-items-manquants">
+      Je confirme vouloir clôturer la visite malgré ces éléments non répondus.
+    </label>
+  </div>
+  <button id="btn-confirmer-cloture" class="btn btn-warning btn-sm">Confirmer la clôture</button>
+</div>
+
+<div class="d-grid gap-2 d-md-flex mt-3">
+  <button id="btn-sauvegarder" class="btn btn-outline-secondary">Enregistrer (local)</button>
+  <button id="btn-cloturer" class="btn btn-primary">Clôturer la visite</button>
+</div>
+
+<script id="grille-initiale" type="application/json">{{ insp.grille | tojson }}</script>
+<script>
+(function() {
+  const inspectionId = {{ insp.id }};
+  const cleLocale = 'sireph_grille_' + inspectionId;
+  const conteneur = document.getElementById('grille-conteneur');
+  const etatSync = document.getElementById('etat-sync');
+  const etatCloture = document.getElementById('etat-cloture');
+  const zoneConfirmation = document.getElementById('zone-confirmation');
+
+  // 1. Charger les données : priorité au brouillon local non synchronisé (pour ne
+  // jamais écraser une saisie hors ligne non encore envoyée), sinon les données serveur.
+  let etat = null;
+  const brouillon = localStorage.getItem(cleLocale);
+  if (brouillon) {
+    etat = JSON.parse(brouillon);
+  }
+  if (!etat || etat.synchronise) {
+    const donneesServeur = JSON.parse(document.getElementById('grille-initiale').textContent);
+    // Ne remplace le brouillon local que s'il n'y a pas de modification en attente.
+    if (!etat || !etat.cloture_demandee) {
+      etat = { grille: donneesServeur, cloture_demandee: (etat ? etat.cloture_demandee : false), synchronise: true };
+    }
+  }
+
+  function sauvegarderLocal() {
+    localStorage.setItem(cleLocale, JSON.stringify(etat));
+  }
+
+  function majIndicateurs() {
+    if (etat.cloture_demandee) {
+      etatCloture.classList.remove('d-none');
+      etatCloture.textContent = etat.synchronise
+        ? 'Visite clôturée et synchronisée — rapport rédigé.'
+        : 'Clôture enregistrée sur cet appareil — en attente de synchronisation.';
+    } else {
+      etatCloture.classList.add('d-none');
+    }
+    if (etat.synchronise) {
+      etatSync.className = 'alert alert-success small';
+      etatSync.textContent = 'À jour — toutes les données sont synchronisées.';
+    } else {
+      etatSync.className = 'alert alert-warning small';
+      etatSync.textContent = 'Modifications en attente d\'envoi (conservées sur cet appareil).';
+    }
+  }
+
+  function rendre() {
+    conteneur.innerHTML = '';
+    let sectionCourante = null;
+    let bloc = null;
+    etat.grille.forEach(function(item, idx) {
+      if (item.section !== sectionCourante) {
+        sectionCourante = item.section;
+        const titre = document.createElement('h6');
+        titre.className = 'mt-3';
+        titre.textContent = sectionCourante;
+        conteneur.appendChild(titre);
+        bloc = document.createElement('div');
+        bloc.className = 'card mb-2';
+        conteneur.appendChild(bloc);
+      }
+      const ligne = document.createElement('div');
+      ligne.className = 'card-body py-2 border-bottom';
+      const dejaLu = etat.cloture_demandee;
+      ligne.innerHTML = `
+        <div class="small mb-1">${item.item}</div>
+        <div class="btn-group btn-group-sm mb-1" role="group">
+          <button type="button" class="btn ${item.reponse === 'conforme' ? 'btn-success' : 'btn-outline-success'}" data-idx="${idx}" data-val="conforme" ${dejaLu ? 'disabled' : ''}>Conforme</button>
+          <button type="button" class="btn ${item.reponse === 'non_conforme' ? 'btn-danger' : 'btn-outline-danger'}" data-idx="${idx}" data-val="non_conforme" ${dejaLu ? 'disabled' : ''}>Non conforme</button>
+          <button type="button" class="btn ${item.reponse === 'non_applicable' ? 'btn-secondary' : 'btn-outline-secondary'}" data-idx="${idx}" data-val="non_applicable" ${dejaLu ? 'disabled' : ''}>N/A</button>
+        </div>
+        <textarea class="form-control form-control-sm" data-idx="${idx}" data-role="commentaire" placeholder="Commentaire (optionnel)" ${dejaLu ? 'disabled' : ''}>${item.commentaire || ''}</textarea>
+      `;
+      bloc.appendChild(ligne);
+    });
+
+    conteneur.querySelectorAll('button[data-val]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        etat.grille[idx].reponse = btn.getAttribute('data-val');
+        etat.synchronise = false;
+        sauvegarderLocal();
+        rendre();
+        tenterSynchronisation('sync');
+      });
+    });
+    conteneur.querySelectorAll('textarea[data-role="commentaire"]').forEach(function(ta) {
+      ta.addEventListener('change', function() {
+        const idx = parseInt(ta.getAttribute('data-idx'), 10);
+        etat.grille[idx].commentaire = ta.value;
+        etat.synchronise = false;
+        sauvegarderLocal();
+        tenterSynchronisation('sync');
+      });
+    });
+    majIndicateurs();
+  }
+
+  function itemsNonRepondus() {
+    return etat.grille.filter(function(it) { return !it.reponse; });
+  }
+
+  function tenterSynchronisation(action) {
+    if (!navigator.onLine) { return; }
+    const payload = { grille: etat.grille, action: etat.cloture_demandee ? 'cloturer' : action,
+                       confirmation_items_manquants: !!etat.confirmation_items_manquants };
+    fetch('/inspections/' + inspectionId + '/sync', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+    }).then(function(r) { return r.json().then(function(data) { return { status: r.status, data: data }; }); })
+      .then(function(res) {
+        if (res.status === 200 && res.data.ok) {
+          etat.synchronise = true;
+          sauvegarderLocal();
+          majIndicateurs();
+          if (etat.cloture_demandee) {
+            etatCloture.innerHTML = 'Visite clôturée et synchronisée — rapport rédigé (score : ' +
+              (res.data.score !== null ? res.data.score + '%' : '—') +
+              '). <a href="/inspections/' + inspectionId + '">Voir la fiche</a>.';
+          }
+        }
+        // Si erreur métier (ex: items manquants sans confirmation), on ne perd aucune
+        // donnée locale — l'utilisateur reste sur la page avec son brouillon intact.
+      })
+      .catch(function() {
+        // Échec réseau : comportement normal en mode dégradé, aucune perte de saisie
+        // (les données restent en localStorage), pas de message d'erreur intrusif.
+      });
+  }
+
+  document.getElementById('btn-sauvegarder').addEventListener('click', function() {
+    sauvegarderLocal();
+    tenterSynchronisation('sync');
+  });
+
+  document.getElementById('btn-cloturer').addEventListener('click', function() {
+    const manquants = itemsNonRepondus();
+    if (manquants.length > 0) {
+      document.getElementById('msg-items-manquants').textContent =
+        manquants.length + ' élément(s) de la grille ne sont pas renseignés.';
+      zoneConfirmation.classList.remove('d-none');
+      return;
+    }
+    etat.cloture_demandee = true;
+    etat.synchronise = false;
+    sauvegarderLocal();
+    rendre();
+    tenterSynchronisation('cloturer');
+  });
+
+  document.getElementById('btn-confirmer-cloture').addEventListener('click', function() {
+    etat.confirmation_items_manquants = document.getElementById('confirmation-items-manquants').checked;
+    if (!etat.confirmation_items_manquants) { return; }
+    etat.cloture_demandee = true;
+    etat.synchronise = false;
+    zoneConfirmation.classList.add('d-none');
+    sauvegarderLocal();
+    rendre();
+    tenterSynchronisation('cloturer');
+  });
+
+  window.addEventListener('online', function() { tenterSynchronisation(etat.cloture_demandee ? 'cloturer' : 'sync'); });
+
+  rendre();
+  if (!etat.synchronise) { tenterSynchronisation(etat.cloture_demandee ? 'cloturer' : 'sync'); }
+})();
+</script>
+{% endblock %}

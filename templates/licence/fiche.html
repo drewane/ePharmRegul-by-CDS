@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Demande {{ d.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Demande {{ d.numero }}</h4>
+    <div class="text-muted">
+      <a href="{{ url_for('ri.etablissement_fiche', id=d.etablissement_id) }}">{{ d.etablissement.raison_sociale }}</a>
+      · {{ TYPES_LI.get(d.type_demande, d.type_demande) }}
+    </div>
+  </div>
+  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_LI.get(d.statut, d.statut) }}</span>
+</div>
+
+{% if d.motif_decision %}
+<div class="alert alert-warning">Motif : {{ d.motif_decision }}</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header">Pièces justificatives</div>
+      <div class="card-body">
+        <p class="mb-3">{{ d.pieces_justificatives or "Aucune description fournie." }}</p>
+
+        {% if pieces %}
+        <ul class="list-group list-group-flush mb-3">
+          {% for p in pieces %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <div>
+              <i class="bi bi-file-earmark-arrow-down"></i>
+              <a href="{{ url_for('pieces.telecharger', piece_id=p.id) }}">{{ p.nom_fichier }}</a>
+              {% if p.type_document %}<span class="badge bg-light text-dark border">{{ p.type_document }}</span>{% endif %}
+              <div class="small text-muted">Déposé le {{ p.date_televersement.strftime('%d/%m/%Y %H:%M') }}
+                {% if p.televerse_par %}par {{ p.televerse_par.nom_complet }}{% endif %}</div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small">Aucun document téléversé pour l'instant.</p>
+        {% endif %}
+
+        {% if current_user.role_systeme == "administrateur_dpml" or (current_user.role_systeme == "demandeur_externe" and current_user.etablissement_rattachement_id == d.etablissement_id) %}
+        <form method="post" action="{{ url_for('li.televerser_document', id=d.id) }}" enctype="multipart/form-data" class="row g-2">
+          <div class="col-md-5">
+            <input type="text" class="form-control form-control-sm" name="type_document" placeholder="Type de document (ex. statuts, CV pharmacien)">
+          </div>
+          <div class="col-md-5">
+            <input type="file" class="form-control form-control-sm" name="fichier" required>
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-sm btn-outline-primary w-100">Téléverser</button>
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if paiements %}
+    {% set statuts_paiement = {"en_attente": "En attente de règlement", "preuve_deposee": "Preuve déposée — en vérification",
+                                "confirme": "Confirmé", "rejete": "Rejeté"} %}
+    {% set couleurs_paiement = {"en_attente": "warning", "preuve_deposee": "info", "confirme": "success", "rejete": "danger"} %}
+    <div class="card mb-3">
+      <div class="card-header">Paiement des frais</div>
+      <div class="card-body">
+        {% for p in paiements %}
+        <div class="d-flex justify-content-between align-items-start {{ 'mb-3 pb-3 border-bottom' if not loop.last }}">
+          <div>
+            <div><strong>{{ p.numero }}</strong> — {{ "{:,}".format(p.montant).replace(',', ' ') }} {{ p.devise }}
+              <span class="badge bg-{{ couleurs_paiement.get(p.statut, 'secondary') }}">{{ statuts_paiement.get(p.statut, p.statut) }}</span>
+            </div>
+            {% if p.motif_rejet %}<div class="small text-danger mt-1">Motif du rejet : {{ p.motif_rejet }}</div>{% endif %}
+            {% if p.piece_jointe %}
+            <div class="small mt-1">
+              <i class="bi bi-file-earmark-arrow-down"></i>
+              <a href="{{ url_for('pieces.telecharger', piece_id=p.piece_jointe.id) }}">{{ p.piece_jointe.nom_fichier }}</a>
+              (preuve déposée le {{ p.piece_jointe.date_televersement.strftime('%d/%m/%Y %H:%M') }})
+            </div>
+            {% endif %}
+            {% if p.statut == "confirme" %}
+            <div class="small text-muted mt-1">Confirmé le {{ p.date_confirmation.strftime('%d/%m/%Y %H:%M') }}
+              {% if p.confirme_par %}par {{ p.confirme_par.nom_complet }}{% endif %}</div>
+            {% endif %}
+
+            {% if p.statut in ("en_attente", "rejete") and (current_user.role_systeme == "administrateur_dpml" or (current_user.role_systeme == "demandeur_externe" and current_user.etablissement_rattachement_id == d.etablissement_id)) %}
+            <form method="post" action="{{ url_for('li.paiement_preuve', id=d.id, paiement_id=p.id) }}"
+                  enctype="multipart/form-data" class="d-flex gap-2 mt-2">
+              <input type="file" class="form-control form-control-sm" name="fichier" required>
+              <button class="btn btn-sm btn-outline-primary text-nowrap">Déposer la preuve</button>
+            </form>
+            {% endif %}
+
+            {% if p.statut == "preuve_deposee" and current_user.role_systeme == "administrateur_dpml" %}
+            <div class="d-flex gap-2 mt-2">
+              <form method="post" action="{{ url_for('li.paiement_confirmer', id=d.id, paiement_id=p.id) }}">
+                <button class="btn btn-sm btn-success">Confirmer le paiement</button>
+              </form>
+              <form method="post" action="{{ url_for('li.paiement_rejeter', id=d.id, paiement_id=p.id) }}" class="d-flex gap-1">
+                <input type="text" class="form-control form-control-sm" name="motif" placeholder="Motif du rejet" required>
+                <button class="btn btn-sm btn-outline-danger text-nowrap">Rejeter</button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-4">
+    {% if d.statut == "deposee" and current_user.role_systeme == "agent_licences" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Instruction</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('li.action_instruire', id=d.id) }}">
+          <button class="btn btn-primary btn-sm w-100">Mettre en instruction</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if d.statut == "en_instruction" and current_user.role_systeme == "directeur_dpml" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Décision</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('li.action_decision', id=d.id) }}">
+          <textarea name="motif" class="form-control mb-2" rows="2" placeholder="Motif (obligatoire si refus)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="approuve" class="btn btn-success btn-sm">Octroyer la licence</button>
+            <button name="decision" value="refuse" class="btn btn-danger btn-sm">Refuser</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

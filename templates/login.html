@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Connexion — SIREPH{% endblock %}
+{% block content %}
+<div class="row justify-content-center g-4">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h4 class="mb-3 text-center"><i class="bi bi-shield-check"></i> SIREPH</h4>
+        <p class="text-muted text-center small mb-4">Accès avec connexion — comptes internes DPML et laboratoires déjà inscrits</p>
+        <form method="post" novalidate>
+          <div class="mb-3">
+            <label for="email" class="form-label">Adresse e-mail</label>
+            <input type="email" class="form-control" id="email" name="email" required autofocus>
+          </div>
+          <div class="mb-3">
+            <label for="password" class="form-label">Mot de passe</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Se connecter</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-5">
+    <div class="card shadow-sm border-primary">
+      <div class="card-body p-4 d-flex flex-column">
+        <h5 class="mb-2"><i class="bi bi-journal-plus"></i> Vous êtes un laboratoire ?</h5>
+        <p class="text-muted small">Déposez une demande d'AMM sans compte préalable — la création de votre compte
+          se fait à la dernière étape, une fois votre produit décrit.</p>
+        <a href="{{ url_for('dossier_nouveau') }}" class="btn btn-outline-primary mt-auto">
+          Déposer une demande d'AMM
+        </a>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-primary mt-4">
+      <div class="card-body p-4 d-flex flex-column">
+        <h5 class="mb-2"><i class="bi bi-truck"></i> Vous êtes une société grossiste-répartiteur ?</h5>
+        <p class="text-muted small">Demandez votre licence d'établissement (médicaments et/ou dispositifs médicaux)
+          sans compte préalable — la création de votre compte se fait à la dernière étape.</p>
+        <a href="{{ url_for('licence_nouvelle') }}" class="btn btn-outline-primary mt-auto">
+          Déposer une demande de licence
+        </a>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+      <div class="card-body p-4">
+        <h6 class="mb-2">Accès libre — sans compte</h6>
+        <ul class="list-unstyled small mb-0">
+          <li class="mb-2"><a href="{{ url_for('registre_public') }}">Registre public des AMM actives</a></li>
+          <li class="mb-2"><a href="{{ url_for('ri.etablissements_registre') }}">Établissements agréés</a></li>
+          <li class="mb-2"><a href="{{ url_for('mc.rappels_public') }}">Rappels de lots en cours</a></li>
+          <li class="mb-2"><a href="{{ url_for('vl.notifier') }}">Signaler un effet indésirable</a></li>
+          <li><a href="{{ url_for('mc.public') }}">Signaler un défaut qualité</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

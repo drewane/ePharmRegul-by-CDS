@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Dérogation {{ d.numero }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Dérogation {{ d.numero }}</h4>
+    <div class="text-muted">
+      {{ d.objet }}
+      {% if d.dossier_amm %} · Dossier lié : <a href="{{ url_for('dossier_detail', id=d.dossier_amm_id) }}">{{ d.dossier_amm.numero or "brouillon" }}</a>{% endif %}
+      · Demandeur : {{ d.demandeur.nom_complet }}
+    </div>
+  </div>
+  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_DEROGATION.get(d.statut, d.statut) }}</span>
+</div>
+
+{% if d.motif_decision %}
+<div class="alert alert-warning">Motif de la décision : {{ d.motif_decision }}</div>
+{% endif %}
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header">Motif de la demande</div>
+      <div class="card-body">
+        <p class="mb-0" style="white-space: pre-wrap;">{{ d.motif }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    {% if d.statut == "deposee" and current_user.role_systeme == "administrateur_dpml" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Instruction</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('derogation.action_instruire', id=d.id) }}">
+          <button class="btn btn-primary btn-sm w-100">Mettre en instruction</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if d.statut == "en_instruction" and current_user.role_systeme == "directeur_dpml" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Décision</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('derogation.action_decision', id=d.id) }}">
+          <textarea name="motif" class="form-control mb-2" rows="2" placeholder="Motif (obligatoire si refus)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="approuve" class="btn btn-success btn-sm">Approuver</button>
+            <button name="decision" value="refuse" class="btn btn-danger btn-sm">Refuser</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

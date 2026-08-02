@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Accès refusé{% endblock %}
+{% block content %}
+<div class="alert alert-danger">
+  <h4 class="alert-heading"><i class="bi bi-slash-circle"></i> Accès refusé</h4>
+  <p class="mb-0">Votre rôle actuel ne permet pas d'effectuer cette action ou de consulter cette page.</p>
+</div>
+<a href="{{ url_for('dashboard') if current_user else url_for('login') }}" class="btn btn-primary">Retour au tableau de bord</a>
+{% endblock %}

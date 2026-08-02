@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle demande — AMM{% endblock %}
+{% block content %}
+<h4 class="mb-1">Nouvelle demande</h4>
+{% if not current_user %}
+<p class="text-muted">Accès libre, sans compte — décrivez votre produit ; une dernière étape vous permettra de
+  créer votre compte laboratoire pour finaliser le dépôt. Le renouvellement et la variation d'une AMM existante
+  nécessitent un compte déjà créé — <a href="{{ url_for('login') }}">connectez-vous</a> pour y accéder.</p>
+{% endif %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate id="form-nouvelle-demande">
+          {% if current_user %}
+          <div class="mb-3">
+            <label for="type_procedure" class="form-label">Type de demande <span class="text-danger">*</span></label>
+            <select class="form-select" id="type_procedure" name="type_procedure">
+              <option value="nouvelle_demande">Octroi — nouvelle AMM</option>
+              <option value="renouvellement" {{ "disabled" if not produits_existants }}>Renouvellement d'une AMM existante</option>
+              <option value="variation" {{ "disabled" if not produits_existants }}>Variation d'une AMM existante</option>
+              <option value="retrait" {{ "disabled" if not produits_existants }}>Retrait d'un produit du marché</option>
+            </select>
+            {% if not produits_existants %}
+            <div class="form-text">Aucun produit titulaire d'une AMM active n'est associé à votre compte pour
+              l'instant — le renouvellement, la variation et le retrait ne sont proposés qu'une fois une première
+              AMM approuvée.</div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% if current_user and current_user.role_systeme == "administrateur_dpml" %}
+          <div class="mb-3">
+            <label for="demandeur_id" class="form-label">Demandeur</label>
+            <select class="form-select" id="demandeur_id" name="demandeur_id">
+              {% for d in demandeurs %}
+              <option value="{{ d.id }}">{{ d.nom_complet }} ({{ d.email }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <!-- Bloc "procédure liée" (renouvellement / variation / retrait) -->
+          <div id="bloc-produit-existant" class="mb-3 d-none">
+            <label for="produit_id" class="form-label">Produit concerné <span class="text-danger">*</span></label>
+            <select class="form-select" id="produit_id" name="produit_id">
+              <option value="">— Sélectionner —</option>
+              {% for p in produits_existants %}
+              <option value="{{ p.id }}">{{ p.libelle }} — {{ p.denomination_commune_internationale }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Bloc "nouvelle AMM" -->
+          <div id="bloc-nouveau-produit">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="nom_commercial" class="form-label">Produit (nom commercial) et dosage <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="nom_commercial" name="nom_commercial" {{ "required" if not current_user }}>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="dosage" class="form-label">Dosage</label>
+              <input type="text" class="form-control" id="dosage" name="dosage" placeholder="ex. 500 mg">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="dci" class="form-label">Dénomination Commune Internationale (DCI) <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="dci" name="dci" {{ "required" if not current_user }}>
+          </div>
+          <div class="mb-3">
+            <label for="forme_pharmaceutique" class="form-label">Forme pharmaceutique</label>
+            <input type="text" class="form-control" id="forme_pharmaceutique" name="forme_pharmaceutique" placeholder="ex. comprimé, sirop, solution injectable">
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="fabricant_nom" class="form-label">Fabricant</label>
+              <input type="text" class="form-control" id="fabricant_nom" name="fabricant_nom">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="fabricant_site" class="form-label">Site de fabrication</label>
+              <input type="text" class="form-control" id="fabricant_site" name="fabricant_site">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="titulaire_nom" class="form-label">Titulaire de l'AMM (si différent du fabricant)</label>
+              <input type="text" class="form-control" id="titulaire_nom" name="titulaire_nom">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="pays_origine" class="form-label">Pays d'origine</label>
+              <input type="text" class="form-control" id="pays_origine" name="pays_origine">
+            </div>
+          </div>
+
+          <hr>
+          <p class="text-muted small mb-3">Informations complémentaires (facultatives à ce stade — complétables
+            depuis la fiche du dossier tant qu'il reste en brouillon).</p>
+          <div class="mb-3">
+            <label for="composition_integrale" class="form-label">Composition intégrale</label>
+            <textarea class="form-control" id="composition_integrale" name="composition_integrale" rows="2"
+                      placeholder="Composition qualitative et quantitative complète du produit"></textarea>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="classe_therapeutique" class="form-label">Classe(s) thérapeutique(s)</label>
+              <input type="text" class="form-control" id="classe_therapeutique" name="classe_therapeutique">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="voie_administration" class="form-label">Voie d'administration</label>
+              <input type="text" class="form-control" id="voie_administration" name="voie_administration">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label for="indications_therapeutiques" class="form-label">Indications thérapeutiques</label>
+            <textarea class="form-control" id="indications_therapeutiques" name="indications_therapeutiques" rows="2"></textarea>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="duree_stabilite" class="form-label">Durée de stabilité (péremption)</label>
+              <input type="text" class="form-control" id="duree_stabilite" name="duree_stabilite" placeholder="ex. 24 mois">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="prix_grossiste_ht" class="form-label">Prix Grossiste Hors Taxe — PGHT (XAF)</label>
+              <input type="number" min="0" class="form-control" id="prix_grossiste_ht" name="prix_grossiste_ht">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="representant_local_nom" class="form-label">Représentant local (pharmacien interlocuteur)</label>
+              <input type="text" class="form-control" id="representant_local_nom" name="representant_local_nom">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="representant_local_contact" class="form-label">Contact du représentant local</label>
+              <input type="text" class="form-control" id="representant_local_contact" name="representant_local_contact"
+                     placeholder="Téléphone et e-mail">
+            </div>
+          </div>
+          </div>
+
+          <button type="submit" id="btn-submit-nouvelle-demande" class="btn btn-primary">
+            {{ "Continuer — créer mon compte laboratoire" if not current_user else "Créer le dossier (brouillon)" }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if current_user %}
+<script>
+(function () {
+  var selectType = document.getElementById("type_procedure");
+  var blocProduitExistant = document.getElementById("bloc-produit-existant");
+  var blocNouveauProduit = document.getElementById("bloc-nouveau-produit");
+  var champProduit = document.getElementById("produit_id");
+  var champNomCommercial = document.getElementById("nom_commercial");
+  var champDci = document.getElementById("dci");
+  var btnSubmit = document.getElementById("btn-submit-nouvelle-demande");
+  var libellesBouton = {
+    nouvelle_demande: "Créer le dossier (brouillon)",
+    renouvellement: "Créer le dossier de renouvellement",
+    variation: "Créer le dossier de variation",
+    retrait: "Créer le dossier de retrait",
+  };
+
+  function appliquer() {
+    var estNouvelle = selectType.value === "nouvelle_demande";
+    blocProduitExistant.classList.toggle("d-none", estNouvelle);
+    blocNouveauProduit.classList.toggle("d-none", !estNouvelle);
+    champProduit.required = !estNouvelle;
+    champNomCommercial.required = estNouvelle;
+    champDci.required = estNouvelle;
+    btnSubmit.textContent = libellesBouton[selectType.value] || libellesBouton.nouvelle_demande;
+  }
+
+  selectType.addEventListener("change", appliquer);
+  appliquer();
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Registre des cas de pharmacovigilance{% endblock %}
+{% block content %}
+<h4 class="mb-3">Registre des cas de pharmacovigilance</h4>
+
+<form method="get" class="row g-2 mb-3" role="search">
+  <div class="col-md-3">
+    <label for="statut" class="visually-hidden">Statut</label>
+    <select class="form-select" id="statut" name="statut">
+      <option value="">Tous les statuts</option>
+      {% for code, label in STATUTS_VL.items() %}
+      <option value="{{ code }}" {{ "selected" if statut == code }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="gravite" class="visually-hidden">Gravité</label>
+    <select class="form-select" id="gravite" name="gravite">
+      <option value="">Toutes gravités</option>
+      <option value="non_grave" {{ "selected" if gravite == "non_grave" }}>Non grave</option>
+      <option value="grave" {{ "selected" if gravite == "grave" }}>Grave</option>
+      <option value="fatal" {{ "selected" if gravite == "fatal" }}>Fatal</option>
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label for="produit_id" class="visually-hidden">Produit</label>
+    <select class="form-select" id="produit_id" name="produit_id">
+      <option value="">Tous les produits</option>
+      {% for p in produits %}
+      <option value="{{ p.id }}" {{ "selected" if produit_id == p.id }}>{{ p.libelle }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filtrer</button></div>
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th>Numéro</th><th>Produit</th><th>Gravité</th><th>Statut</th><th>Date</th><th></th></tr></thead>
+      <tbody>
+        {% for cas in cas_liste %}
+        <tr class="{{ 'table-danger' if en_retard(cas) }}">
+          <td><a href="{{ url_for('vl.fiche', id=cas.id) }}">{{ cas.numero }}</a></td>
+          <td>{{ cas.produit.libelle if cas.produit else "Inconnu / à préciser" }}</td>
+          <td><span class="badge {{ 'bg-danger' if cas.gravite in ('grave','fatal') else 'bg-secondary' }}">{{ cas.gravite_label }}</span></td>
+          <td><span class="badge bg-primary badge-statut">{{ STATUTS_VL.get(cas.statut, cas.statut) }}</span></td>
+          <td>{{ cas.date_notification.strftime('%d/%m/%Y') }}</td>
+          <td>{% if en_retard(cas) %}<span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> Délai dépassé</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-4">Aucun résultat ne correspond à ces critères.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

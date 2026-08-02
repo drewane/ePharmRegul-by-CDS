@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Cas {{ cas.numero }} — Pharmacovigilance{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Cas {{ cas.numero }}</h4>
+    <div class="text-muted">
+      {{ cas.produit.libelle if cas.produit else "Produit inconnu / à préciser" }} ·
+      Reçu le {{ cas.date_notification.strftime('%d/%m/%Y %H:%M') }} · Source : {{ cas.source.replace('_', ' ') }}
+    </div>
+  </div>
+  <div class="text-end">
+    <span class="badge {{ 'bg-danger' if cas.gravite in ('grave','fatal') else 'bg-secondary' }} mb-1">{{ cas.gravite_label }}</span><br>
+    <span class="badge bg-primary badge-statut fs-6">{{ STATUTS_VL.get(cas.statut, cas.statut) }}</span>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+
+    <div class="card mb-3">
+      <div class="card-header">Détail de la notification</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6 mb-2"><div class="small text-muted">Produit</div><div>{{ cas.produit.libelle if cas.produit else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Lot</div><div>{{ cas.lot.numero_lot if cas.lot else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Âge du patient</div><div>{{ cas.patient_age if cas.patient_age is not none else "—" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Sexe du patient</div><div>{{ cas.patient_sexe or "—" }}</div></div>
+          <div class="col-12 mb-2"><div class="small text-muted">Description de l'effet</div><div>{{ cas.description_effet }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Notificateur</div><div>{{ cas.notificateur_nom or "Anonyme" }}</div></div>
+          <div class="col-md-6 mb-2"><div class="small text-muted">Contact notificateur</div><div>{{ cas.notificateur_contact or "—" }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    {% if cas.statut in ("recue", "en_evaluation") and current_user.role_systeme == "agent_vigilance" %}
+    <div class="card mb-3">
+      <div class="card-header">Compléter / corriger le cas</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('vl.action_modifier', id=cas.id) }}">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label class="form-label small">Produit</label>
+              <select class="form-select" name="produit_id">
+                <option value="">Inconnu / à préciser</option>
+                {% for p in produits %}
+                <option value="{{ p.id }}" {{ "selected" if cas.produit_id == p.id }}>{{ p.libelle }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Numéro de lot</label>
+              <input type="text" class="form-control" name="numero_lot" value="{{ cas.lot.numero_lot if cas.lot else '' }}">
+            </div>
+          </div>
+          <label class="form-label small">Description de l'effet</label>
+          <textarea class="form-control mb-2" name="description_effet" rows="2">{{ cas.description_effet }}</textarea>
+          <label class="form-label small">Gravité confirmée</label>
+          <select class="form-select mb-2" name="gravite">
+            <option value="non_grave" {{ "selected" if cas.gravite == "non_grave" }}>Non grave</option>
+            <option value="grave" {{ "selected" if cas.gravite == "grave" }}>Grave</option>
+            <option value="fatal" {{ "selected" if cas.gravite == "fatal" }}>Fatal</option>
+          </select>
+          <label class="form-label small">Évaluation de causalité</label>
+          <textarea class="form-control mb-2" name="evaluation_causalite" rows="3"
+                    placeholder="Lien probable entre le produit et l'effet observé">{{ cas.evaluation_causalite or '' }}</textarea>
+          <button class="btn btn-sm btn-outline-primary">Enregistrer</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Transmission internationale (VigiFlow / VigiBase)</div>
+      <div class="card-body">
+        {% if cas.reference_e2b %}
+        <p class="mb-0"><i class="bi bi-check-circle text-success"></i> Transmis le
+          {{ cas.date_transmission_e2b.strftime('%d/%m/%Y %H:%M') }} — référence <code>{{ cas.reference_e2b }}</code></p>
+        {% else %}
+        <p class="text-muted">Transmission en attente.</p>
+        {% if current_user.role_systeme in ("agent_vigilance", "administrateur_dpml") %}
+        <form method="post" action="{{ url_for('vl.action_transmettre', id=cas.id) }}">
+          <button class="btn btn-sm btn-outline-primary">Transmettre à VigiFlow</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="col-lg-4">
+
+    {% if cas.statut == "recue" and current_user.role_systeme == "agent_vigilance" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Prise en charge</div>
+      <div class="card-body">
+        <p class="small">Confirme le contrôle de complétude et ouvre l'évaluation de causalité.</p>
+        <form method="post" action="{{ url_for('vl.action_prendre_en_charge', id=cas.id) }}">
+          <button class="btn btn-primary w-100">Prendre en charge</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if cas.statut == "en_evaluation" and current_user.role_systeme == "agent_vigilance" %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header text-primary">Décision de suivi</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('vl.action_decision', id=cas.id) }}">
+          <textarea name="commentaire" class="form-control mb-2" rows="2" placeholder="Commentaire (optionnel)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="cloturer" class="btn btn-success btn-sm">Clôturer (cas isolé, sans signal)</button>
+            <button name="decision" value="signal_detecte" class="btn btn-warning btn-sm">Signal potentiel détecté — transmettre au directeur</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if cas.statut == "signal_detecte" and current_user.role_systeme == "directeur_dpml" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary"><i class="bi bi-award"></i> Arbitrage du signal</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('vl.action_arbitrage', id=cas.id) }}">
+          <label class="form-label small">Type de mesure (si mesure décidée)</label>
+          <select class="form-select mb-2" name="type_mesure">
+            {% for code, label in TYPES_MESURE.items() %}
+            <option value="{{ code }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <textarea name="motif" class="form-control mb-2" rows="2" placeholder="Motif (obligatoire si aucune mesure)"></textarea>
+          <div class="d-grid gap-2">
+            <button name="decision" value="mesure_decidee" class="btn btn-success btn-sm">Décider une mesure</button>
+            <button name="decision" value="aucune_mesure" class="btn btn-secondary btn-sm">Aucune mesure nécessaire</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if cas.statut == "mesures_en_cours" %}
+    <div class="card mb-3 border-warning">
+      <div class="card-header text-primary">Mesure en cours</div>
+      <div class="card-body">
+        <p class="small">{{ TYPES_MESURE.get(cas.type_mesure, cas.type_mesure) }}</p>
+        {% if current_user.role_systeme == "agent_vigilance" %}
+        <form method="post" action="{{ url_for('vl.action_cloturer_mesure', id=cas.id) }}">
+          <button class="btn btn-success btn-sm w-100">Confirmer l'exécution et clôturer</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if cas.statut == "cloturee" and cas.motif_decision %}
+    <div class="alert alert-secondary small">Motif de clôture : {{ cas.motif_decision }}</div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header">Piste d'audit</div>
+      <div class="card-body">
+        {% for e in audit_events %}
+        <div class="timeline-item">
+          <div class="small text-muted">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') }} — {{ e.acteur.nom_complet if e.acteur else "Système / notificateur externe" }}</div>
+          <div>{{ e.action }}</div>
+          {% if e.commentaire %}<div class="small">{{ e.commentaire }}</div>{% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small">Aucun évènement.</div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

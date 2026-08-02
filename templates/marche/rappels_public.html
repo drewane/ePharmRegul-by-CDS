@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Registre public des rappels — SIREPH{% endblock %}
+{% block content %}
+<h4 class="mb-1">Registre public des rappels</h4>
+<p class="text-muted">Consultation libre, sans authentification.</p>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead><tr><th>Produit</th><th>Lots</th><th>Niveau</th><th>Statut</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for s in signalements %}
+        <tr>
+          <td>{{ s.produit.libelle }}</td>
+          <td>{% for l in s.lots_concernes %}{{ l.numero_lot }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+          <td>{{ s.niveau_risque or "—" }}</td>
+          <td><span class="badge bg-primary">{{ STATUTS_MC.get(s.statut, s.statut) }}</span></td>
+          <td>{{ s.date_creation.strftime('%d/%m/%Y') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Aucun rappel en cours ou clos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

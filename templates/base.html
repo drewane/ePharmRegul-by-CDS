@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}SIREPH — DPML{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+<a class="visually-hidden-focusable btn btn-light m-2" href="#contenu-principal">Aller au contenu principal</a>
+
+<div class="sireph-flagbar" aria-hidden="true"><span></span><span></span><span></span></div>
+
+<header class="sireph-topbar">
+  <div class="container-fluid px-3 py-2 d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2">
+      {% if current_user %}
+      <button class="btn btn-sm btn-outline-secondary d-lg-none" type="button"
+              data-bs-toggle="offcanvas" data-bs-target="#sireph-sidebar" aria-controls="sireph-sidebar"
+              aria-label="Afficher/masquer la navigation">
+        <i class="bi bi-list fs-5"></i>
+      </button>
+      {% endif %}
+      <a class="sireph-brand" href="{{ current_user and url_for('dashboard') or url_for('login') }}">
+        <i class="bi bi-star-fill"></i> SIREPH
+        <small>Système Intégré de Régulation Pharmaceutique — DPML</small>
+      </a>
+    </div>
+    {% if current_user %}
+    <div class="d-flex align-items-center gap-3">
+      <a href="{{ url_for('notifications_liste') }}" class="sireph-icon-btn" title="Notifications" aria-label="Notifications">
+        <i class="bi bi-bell-fill"></i>
+      </a>
+      <span class="small d-none d-md-inline">{{ current_user.nom_complet }} ·
+        <span class="badge bg-light text-dark border">{{ current_user.role_label }}</span></span>
+      <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-secondary">Déconnexion</a>
+    </div>
+    {% endif %}
+  </div>
+</header>
+
+<div class="sireph-layout">
+  {% if current_user %}
+  <nav id="sireph-sidebar" class="offcanvas-lg offcanvas-start sireph-sidebar" tabindex="-1"
+       aria-label="Navigation principale">
+    <div class="offcanvas-header d-lg-none">
+      <span class="text-white fw-bold">Navigation</span>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"
+              data-bs-target="#sireph-sidebar" aria-label="Fermer"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column p-0">
+      <ul class="nav nav-pills flex-column">
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/' }}" href="{{ url_for('dashboard') }}">
+            <i class="bi bi-speedometer2"></i> Tableau de bord</a>
+        </li>
+        {% if current_user.role_systeme != "demandeur_externe" or demandeur_a_amm %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if '/dossiers' in request.path }}" href="{{ url_for('dossiers_registre') }}">
+            <i class="bi bi-journal-medical"></i> Dossiers AMM</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_vigilance", "directeur_dpml") %}
+        <div class="sireph-sidebar-section">Pharmacovigilance</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('vl.registre') }}" href="{{ url_for('vl.registre') }}">
+            <i class="bi bi-clipboard2-pulse"></i> Cas de vigilance</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('vl.signaux') }}" href="{{ url_for('vl.signaux') }}">
+            <i class="bi bi-graph-up"></i> Signaux</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "inspecteur_igspl", "directeur_dpml") or current_user.role_systeme == "inspecteur_igspl" %}
+        <div class="sireph-sidebar-section">Inspection</div>
+        {% if current_user.role_systeme in ("administrateur_dpml", "inspecteur_igspl", "directeur_dpml") %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('ri.registre') }}" href="{{ url_for('ri.registre') }}">
+            <i class="bi bi-clipboard-check"></i> Inspections</a>
+        </li>
+        {% endif %}
+        {% if current_user.role_systeme == "inspecteur_igspl" %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if '/inspections/mobile' in request.path }}" href="{{ url_for('ri.mobile_liste') }}">
+            <i class="bi bi-phone"></i> Mes inspections (terrain)</a>
+        </li>
+        {% endif %}
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_licences", "directeur_dpml") or (current_user.role_systeme == "demandeur_externe" and demandeur_a_licences) %}
+        <div class="sireph-sidebar-section">Licences</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('li.registre') }}" href="{{ url_for('li.registre') }}">
+            <i class="bi bi-award"></i> Demandes de licence</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_laboratoire", "responsable_qualite_labo") %}
+        <div class="sireph-sidebar-section">Laboratoire</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('lt.registre') }}" href="{{ url_for('lt.registre') }}">
+            <i class="bi bi-flask"></i> Échantillons</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme != "demandeur_externe" %}
+        <div class="sireph-sidebar-section">Surveillance du marché</div>
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_surveillance_marche", "directeur_dpml") %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('mc.registre') }}" href="{{ url_for('mc.registre') }}">
+            <i class="bi bi-shield-exclamation"></i> Signalements</a>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('mc.rappels_public') }}" href="{{ url_for('mc.rappels_public') }}">
+            <i class="bi bi-megaphone"></i> Rappels</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('mc.mitm') }}" href="{{ url_for('mc.mitm') }}">
+            <i class="bi bi-capsule"></i> MITM</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_dros", "directeur_dpml") or (current_user.role_systeme == "demandeur_externe" and demandeur_a_ct) %}
+        <div class="sireph-sidebar-section">Essais cliniques</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('ct.registre') }}" href="{{ url_for('ct.registre') }}">
+            <i class="bi bi-file-earmark-medical"></i> Protocoles</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "agent_laboratoire", "responsable_qualite_labo", "directeur_dpml") %}
+        <div class="sireph-sidebar-section">Libération des lots</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('lr.registre') }}" href="{{ url_for('lr.registre') }}">
+            <i class="bi bi-box-seam"></i> Dossiers de lot</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "directeur_dpml") or (current_user.role_systeme == "demandeur_externe" and demandeur_a_derogations) %}
+        <div class="sireph-sidebar-section">Dérogations spéciales</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('derogation.registre') }}" href="{{ url_for('derogation.registre') }}">
+            <i class="bi bi-file-earmark-excel"></i> Demandes de dérogation</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("administrateur_dpml", "directeur_dpml") or (current_user.role_systeme == "demandeur_externe" and demandeur_a_visas) %}
+        <div class="sireph-sidebar-section">Visas techniques</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('visas.registre') }}" href="{{ url_for('visas.registre') }}">
+            <i class="bi bi-stamp"></i> Visas techniques</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme != "demandeur_externe" %}
+        <hr>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('ri.etablissements_registre') }}" href="{{ url_for('ri.etablissements_registre') }}">
+            <i class="bi bi-building"></i> Établissements</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('registre_public') }}" href="{{ url_for('registre_public') }}">
+            <i class="bi bi-globe"></i> Registre public des AMM</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme == "administrateur_dpml" %}
+        <div class="sireph-sidebar-section">Administration</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('admin_referentiels') }}" href="{{ url_for('admin_referentiels') }}">
+            <i class="bi bi-gear"></i> Référentiels</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == url_for('admin_utilisateurs') }}" href="{{ url_for('admin_utilisateurs') }}">
+            <i class="bi bi-people"></i> Utilisateurs</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if '/admin/base-donnees' in request.path }}" href="{{ url_for('admin_base_donnees') }}">
+            <i class="bi bi-database"></i> Base de données</a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </nav>
+  {% endif %}
+
+  <main id="contenu-principal" class="sireph-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category=='danger' else category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <footer class="text-muted small py-4 mt-3">
+      SIREPH — Système Intégré de Régulation Pharmaceutique · DPML, République du Cameroun
+    </footer>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

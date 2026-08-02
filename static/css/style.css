@@ -1,0 +1,192 @@
+/* Palette aux couleurs du drapeau de la République du Cameroun */
+:root {
+  --cm-green: #007a5e;        /* fond de la barre latérale, boutons principaux */
+  --cm-green-dark: #00553f;   /* survol / état actif sur fond vert */
+  --cm-red: #ce1126;          /* marque, alertes, rappels, non-conformités graves */
+  --cm-yellow: #fcd116;       /* accent d'attention, état actif, focus */
+}
+
+body {
+  background-color: #f4f6f8;
+  font-family: "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+}
+
+/* Bandeau tricolore, en tête de page (usage protocolaire courant sur les
+   supports officiels camerounais) */
+.sireph-flagbar { height: 5px; display: flex; }
+.sireph-flagbar span { flex: 1 1 0; }
+.sireph-flagbar span:nth-child(1) { background-color: var(--cm-green); }
+.sireph-flagbar span:nth-child(2) { background-color: var(--cm-red); }
+.sireph-flagbar span:nth-child(3) { background-color: var(--cm-yellow); }
+
+/* ---------------------------------------------------------------------- */
+/* Ossature : bandeau tricolore + en-tête fin + barre latérale + contenu */
+/* ---------------------------------------------------------------------- */
+.sireph-topbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e6ea;
+}
+.sireph-brand {
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--cm-red);
+  letter-spacing: 0.5px;
+  text-decoration: none;
+  line-height: 1.1;
+}
+.sireph-brand:hover { color: var(--cm-red); }
+.sireph-brand .bi-star-fill { color: var(--cm-yellow); font-size: 0.9rem; vertical-align: 2px; }
+.sireph-brand small {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--cm-green);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.sireph-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #1c1c1c;
+  background-color: var(--cm-yellow);
+  border: none;
+  text-decoration: none;
+}
+.sireph-icon-btn:hover, .sireph-icon-btn:focus { color: #1c1c1c; filter: brightness(0.95); }
+
+.sireph-layout { display: flex; align-items: stretch; min-height: calc(100vh - 63px); }
+
+.sireph-sidebar {
+  /* !important nécessaire : Bootstrap force background-color: transparent !important
+     sur .offcanvas-lg au-delà du seuil lg (le rendu "toujours visible" du composant
+     offcanvas responsive est pensé pour hériter le fond de la page, pas en avoir un
+     propre) — voir bootstrap.min.css, règle .offcanvas-lg en media query min-width. */
+  background-color: var(--cm-green) !important;
+  width: 270px;
+  flex-shrink: 0;
+  padding: 1rem 0;
+}
+.sireph-sidebar .nav-link {
+  color: rgba(255, 255, 255, 0.92);
+  padding: 0.65rem 1.25rem;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  font-size: 0.92rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.sireph-sidebar .nav-link i { font-size: 1rem; opacity: 0.9; }
+.sireph-sidebar .nav-link:hover,
+.sireph-sidebar .nav-link:focus {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.sireph-sidebar .nav-link.active {
+  background-color: var(--cm-green-dark);
+  border-left-color: var(--cm-yellow);
+  font-weight: 600;
+  color: #fff;
+}
+.sireph-sidebar hr {
+  border-color: rgba(255, 255, 255, 0.25);
+  margin: 0.6rem 1.25rem;
+}
+.sireph-sidebar .sireph-sidebar-section {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.5rem 1.25rem 0.25rem;
+}
+
+.sireph-content { flex: 1 1 auto; min-width: 0; padding: 1.5rem; }
+
+@media (max-width: 991.98px) {
+  .sireph-sidebar { width: 270px; }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Composants divers */
+/* ---------------------------------------------------------------------- */
+.timeline-item { border-left: 2px solid #dee2e6; padding-left: 12px; margin-bottom: 12px; }
+.timeline-item:last-child { margin-bottom: 0; }
+.badge-statut { font-weight: 600; }
+.module-grise { opacity: 0.45; }
+.progress-fonction { height: 8px; }
+
+/* Étiquettes de catégorie (alertes, informations) */
+.sireph-tag {
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.sireph-tag-alerte { color: var(--cm-red); }
+.sireph-tag-info { color: var(--cm-green); }
+
+.btn-primary {
+  --bs-btn-bg: var(--cm-green);
+  --bs-btn-border-color: var(--cm-green);
+  --bs-btn-hover-bg: var(--cm-green-dark);
+  --bs-btn-hover-border-color: var(--cm-green-dark);
+  --bs-btn-active-bg: var(--cm-green-dark);
+}
+.btn-danger {
+  --bs-btn-bg: var(--cm-red);
+  --bs-btn-border-color: var(--cm-red);
+  --bs-btn-hover-bg: #a90d1f;
+  --bs-btn-hover-border-color: #a90d1f;
+}
+.badge.bg-primary { background-color: var(--cm-green) !important; }
+.badge.bg-danger { background-color: var(--cm-red) !important; }
+.card-header { background-color: #f0f4f1; font-weight: 600; }
+.progress-bar.bg-success { background-color: var(--cm-green) !important; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--cm-yellow);
+  outline-offset: 2px;
+}
+
+/* Suivi d'étapes (voyants rouge/vert) sur la fiche d'un dossier */
+.sireph-suivi-etapes {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+}
+.sireph-suivi-etape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 7rem;
+}
+.sireph-suivi-voyant {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #fff;
+  background-color: #adb5bd;
+  border: 3px solid #adb5bd;
+}
+.sireph-suivi-etape--valide .sireph-suivi-voyant { background-color: var(--cm-green); border-color: var(--cm-green); }
+.sireph-suivi-etape--en_cours .sireph-suivi-voyant { background-color: var(--cm-yellow); border-color: var(--cm-yellow); color: #4a3b00; }
+.sireph-suivi-etape--probleme .sireph-suivi-voyant { background-color: var(--cm-red); border-color: var(--cm-red); }
+.sireph-suivi-etape--a_venir .sireph-suivi-voyant { background-color: #fff; color: #adb5bd; }
+.sireph-suivi-libelle { font-size: 0.8rem; margin-top: 0.35rem; max-width: 8rem; }
+.sireph-suivi-trait {
+  height: 3px;
+  flex: 1;
+  margin-top: 1.2rem;
+  background-color: #dee2e6;
+  min-width: 2rem;
+}
+.sireph-suivi-trait--valide { background-color: var(--cm-green); }
