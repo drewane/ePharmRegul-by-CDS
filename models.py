@@ -93,6 +93,9 @@ class Produit(db.Model):
     dosage = db.Column(db.String(150))
     categorie = db.Column(db.String(30), nullable=False, default="medicament")
     # medicament | vaccin | produit_sanguin | dispositif_medical | autre
+    # Nature du produit : pilote la profondeur du dossier technique exigé
+    # (chimique | biologique | phytotherapie | dispositif_medical | autre).
+    nature = db.Column(db.String(30), nullable=True)
     fabricant_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=True)
     titulaire_amm_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=True)
     pays_origine = db.Column(db.String(150))

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Exigences du dossier technique — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Modules exigés selon la demande</h1>
+<p class="text-muted">
+  Le dossier technique attendu dépend de la <strong>nature du produit</strong> et
+  du <strong>type de demande</strong>. Un renouvellement de générique n'appelle
+  pas le même dossier qu'une nouvelle demande de biosimilaire.
+</p>
+
+<div class="alert alert-warning small">
+  <i class="bi bi-exclamation-triangle me-1"></i>
+  Ces combinaisons sont une <strong>proposition de travail</strong>, à valider par
+  la DPML au regard de la réglementation applicable. Elles se modifient sans
+  reprise du logiciel.
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Matrice des exigences</div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle text-center">
+      <thead>
+        <tr>
+          <th class="text-start">Nature du produit</th>
+          {% for code, libelle in TYPES.items() %}
+          <th>{{ libelle }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+      {% for ligne in matrice %}
+        <tr>
+          <td class="text-start">
+            <i class="bi {{ NATURES[ligne.nature].icone }} me-1"></i>
+            <strong>{{ ligne.libelle }}</strong>
+            <div class="small text-muted">{{ NATURES[ligne.nature].description }}</div>
+          </td>
+          {% for code, _libelle in TYPES.items() %}
+          <td>
+            {% for n in ligne.exigences[code] %}
+            <span class="badge bg-primary">{{ n }}</span>
+            {% endfor %}
+            <div class="small text-muted">
+              {{ ligne.exigences[code]|length }} module(s)</div>
+          </td>
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2 class="h5">Les cinq modules</h2>
+<div class="row g-3">
+  {% for n, meta in MODULES.items() %}
+  <div class="col-md-6 col-lg-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h3 class="h6">
+          <span class="badge rounded-pill bg-primary">{{ n }}</span>
+          {{ meta.titre }}</h3>
+        <p class="small text-muted">{{ meta.resume }}</p>
+        <details>
+          <summary class="small">{{ meta.champs|length }} champs attendus</summary>
+          <ul class="small mt-2 mb-0 ps-3">
+            {% for code, libelle, _t in meta.champs %}
+            <li>{{ libelle }}</li>
+            {% endfor %}
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

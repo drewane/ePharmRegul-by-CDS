@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Module {{ numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('ctd.sommaire', dossier_id=d.id) }}">
+    <i class="bi bi-arrow-left"></i> Sommaire du dossier technique</a>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+  <div>
+    <h1 class="h4 mb-1">Module {{ numero }} — {{ meta.titre }}</h1>
+    <p class="text-muted mb-0">{{ meta.resume }}</p>
+  </div>
+  <span class="badge bg-secondary fs-6">
+    étape {{ position }} / {{ exiges|length }}</span>
+</div>
+
+<!-- Fil des modules exigés -->
+<div class="d-flex gap-1 mb-3 flex-wrap">
+  {% for n in exiges %}
+  <a class="btn btn-sm {{ 'btn-primary' if n == numero else 'btn-outline-secondary' }}"
+     href="{{ url_for('ctd.module', dossier_id=d.id, numero=n) }}">{{ n }}</a>
+  {% endfor %}
+</div>
+
+<form method="post" enctype="multipart/form-data">
+  <div class="card">
+    <div class="card-header">Renseignements du module</div>
+    <div class="card-body">
+      {% for code, libelle, type_champ in meta.champs %}
+      <div class="mb-3">
+        <label class="form-label" for="{{ code }}">{{ libelle }}</label>
+        {% if type_champ == 'zone' %}
+          <textarea class="form-control" id="{{ code }}" name="{{ code }}"
+                    rows="3">{{ valeurs.get(code, '') }}</textarea>
+        {% elif type_champ == 'date' %}
+          <input class="form-control" type="date" id="{{ code }}" name="{{ code }}"
+                 value="{{ valeurs.get(code, '') }}">
+        {% elif type_champ == 'nombre' %}
+          <input class="form-control" type="number" id="{{ code }}" name="{{ code }}"
+                 value="{{ valeurs.get(code, '') }}">
+        {% elif type_champ.startswith('liste:') %}
+          <select class="form-select" id="{{ code }}" name="{{ code }}">
+            <option value="">—</option>
+            {% for opt in options(type_champ) %}
+            <option value="{{ opt }}"
+                    {{ 'selected' if valeurs.get(code) == opt }}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <input class="form-control" id="{{ code }}" name="{{ code }}"
+                 value="{{ valeurs.get(code, '') }}">
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card mt-3">
+    <div class="card-header">
+      <i class="bi bi-paperclip me-1"></i> Pièce justificative du module
+    </div>
+    <div class="card-body">
+      {% if pieces %}
+      <ul class="small mb-3">
+        {% for p in pieces %}
+        <li>{{ p.nom_original }}
+          <span class="text-muted">
+            — {{ p.date_televersement.strftime('%d/%m/%Y') }}</span></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <input class="form-control" type="file" name="piece">
+      <div class="form-text">
+        Chargez ici le document correspondant à ce module (PDF de préférence).
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-between mt-3">
+    <div>
+      {% if precedent %}
+      <a class="btn btn-outline-secondary"
+         href="{{ url_for('ctd.module', dossier_id=d.id, numero=precedent) }}">
+        <i class="bi bi-arrow-left me-1"></i> Module {{ precedent }}</a>
+      {% endif %}
+    </div>
+    <button class="btn btn-primary" type="submit">
+      {% if suivant_liste %}
+        Enregistrer et passer au module {{ suivant_liste }}
+        <i class="bi bi-arrow-right ms-1"></i>
+      {% else %}
+        Enregistrer et terminer le dossier technique
+      {% endif %}
+    </button>
+  </div>
+</form>
+{% endblock %}
