@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Vérification d'un reçu — SIREPH{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+
+    {% if paiement %}
+    <div class="card border-success">
+      <div class="card-header bg-success-subtle">
+        <i class="bi bi-patch-check me-1"></i> Reçu authentique
+      </div>
+      <div class="card-body">
+        <p>Le reçu <strong>{{ numero }}</strong> correspond bien à un paiement
+           encaissé par la DPML.</p>
+        <dl class="row small mb-3">
+          <dt class="col-5">Montant encaissé</dt>
+          <dd class="col-7">
+            {{ "{:,}".format(paiement.montant).replace(',', ' ') }} {{ paiement.devise }}</dd>
+          <dt class="col-5">Objet</dt><dd class="col-7">{{ objet }}</dd>
+          <dt class="col-5">Date</dt>
+          <dd class="col-7">
+            {{ paiement.date_confirmation.strftime('%d/%m/%Y') if paiement.date_confirmation else '—' }}</dd>
+        </dl>
+        <p class="small text-muted mb-1">Empreinte du document :</p>
+        <p class="small"><code style="word-break:break-all">{{ empreinte }}</code></p>
+        <p class="small text-muted mb-0">
+          Comparez cette empreinte à celle imprimée en bas du reçu : toute
+          différence signale un document altéré.
+        </p>
+      </div>
+    </div>
+    {% else %}
+    <div class="card border-danger">
+      <div class="card-header bg-danger-subtle">
+        <i class="bi bi-exclamation-octagon me-1"></i> Reçu non reconnu
+      </div>
+      <div class="card-body">
+        <p class="mb-0">Aucun paiement encaissé ne porte la référence
+          <strong>{{ numero }}</strong>. Ce document ne peut pas être authentifié
+          par la DPML.</p>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

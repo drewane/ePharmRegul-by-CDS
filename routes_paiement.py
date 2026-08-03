@@ -203,6 +203,57 @@ def notification():
 
 
 # ---------------------------------------------------------------------------
+# Reçu de paiement
+# ---------------------------------------------------------------------------
+@bp.route("/<int:paiement_id>/recu")
+@login_required
+def recu(paiement_id):
+    """Reçu PDF — délivré uniquement pour une créance effectivement encaissée."""
+    import os
+    import tempfile
+
+    import pdf_gen
+    from flask import send_file
+
+    p = _paiement_ou_404(paiement_id)
+    if not _peut_payer(current_user(), p):
+        abort(403)
+    if p.statut != "confirme":
+        flash("Un reçu n'est délivré que pour un paiement confirmé.", "warning")
+        return redirect(url_for("paiement.payer", paiement_id=p.id))
+
+    f = plateforme.FOURNISSEURS.get(p.fournisseur)
+    chemin = os.path.join(tempfile.gettempdir(), f"recu-{p.numero}.pdf")
+    pdf_gen.generer_recu_paiement(
+        p, chemin,
+        objet=svc.LIBELLE_OBJET.get(p.entite_type, p.entite_type),
+        redevable=svc._demandeur(p),
+        moyen=f.libelle if f else (p.fournisseur or "-"),
+        base_url=request.url_root)
+    return send_file(chemin, as_attachment=True,
+                     download_name=f"recu-{p.numero}.pdf",
+                     mimetype="application/pdf")
+
+
+@bp.route("/verifier/<numero>")
+def verifier(numero):
+    """Vérification publique d'un reçu (cible du QR code).
+
+    N'expose que le strict nécessaire pour authentifier le document : ni
+    identité du redevable, ni détail du dossier.
+    """
+    import pdf_gen
+
+    p = Paiement.query.filter_by(numero=numero).first()
+    if not p or p.statut != "confirme":
+        return render_template("paiement/verification.html", paiement=None,
+                               numero=numero, empreinte=None)
+    return render_template("paiement/verification.html", paiement=p, numero=numero,
+                           empreinte=pdf_gen.calculer_hash_recu(p),
+                           objet=svc.LIBELLE_OBJET.get(p.entite_type, p.entite_type))
+
+
+# ---------------------------------------------------------------------------
 # Console de rapprochement bancaire (agents habilités)
 # ---------------------------------------------------------------------------
 @bp.route("/rapprochement", methods=["GET", "POST"])

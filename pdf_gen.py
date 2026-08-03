@@ -220,3 +220,94 @@ def generer_certificat_laboratoire(echantillon, chemin_sortie):
     c.showPage()
     c.save()
     return chemin_sortie
+
+
+def calculer_hash_recu(paiement):
+    """Empreinte du reçu : rend toute altération détectable a posteriori."""
+    base = (f"{paiement.numero}|{paiement.montant}|{paiement.devise}|"
+            f"{paiement.reference_transaction or ''}|"
+            f"{paiement.date_confirmation.isoformat() if paiement.date_confirmation else ''}")
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()
+
+
+def generer_recu_paiement(paiement, chemin_sortie, objet="", redevable=None,
+                           moyen="", base_url=""):
+    """Reçu de paiement — délivré uniquement pour une créance confirmée.
+
+    Porte une empreinte SHA-256 et un QR de vérification : un reçu présenté sur
+    papier peut être recoupé avec la base.
+    """
+    c = canvas.Canvas(chemin_sortie, pagesize=A4)
+    largeur, hauteur = A4
+    _dessiner_entete(c, sous_titre="Direction de la Pharmacie, du Médicament et des "
+                                    "Laboratoires (DPML) — Recettes réglementaires")
+
+    y = hauteur - 45 * mm
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(largeur / 2, y, "REÇU DE PAIEMENT")
+    y -= 8 * mm
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(largeur / 2, y, f"N° {paiement.numero}")
+    y -= 16 * mm
+
+    # Montant encaissé, mis en évidence
+    c.setFillColor(colors.HexColor("#eaf3ea"))
+    c.rect(25 * mm, y - 4 * mm, largeur - 50 * mm, 16 * mm, fill=1, stroke=0)
+    c.setFillColor(colors.HexColor("#14532d"))
+    c.setFont("Helvetica-Bold", 18)
+    montant = f"{paiement.montant:,}".replace(",", " ")
+    c.drawCentredString(largeur / 2, y + 1 * mm, f"{montant} {paiement.devise}")
+    c.setFillColor(colors.black)
+    y -= 20 * mm
+
+    c.setFont("Helvetica", 10)
+    lignes = [
+        ("Objet", objet or paiement.entite_type),
+        ("Redevable", redevable.nom_complet if redevable else "-"),
+        ("Établissement", redevable.etablissement.raison_sociale
+         if redevable is not None and redevable.etablissement else "-"),
+        ("Moyen de paiement", moyen or paiement.fournisseur or "-"),
+        ("Référence de transaction", paiement.reference_transaction or "-"),
+        ("Référence marchande", paiement.reference_marchande or "-"),
+        ("Date d'encaissement",
+         paiement.date_confirmation.strftime("%d/%m/%Y à %H:%M")
+         if paiement.date_confirmation else "-"),
+    ]
+    for label, val in lignes:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(25 * mm, y, f"{label} :")
+        c.setFont("Helvetica", 10)
+        c.drawString(72 * mm, y, str(val)[:70])
+        y -= 7 * mm
+
+    y -= 6 * mm
+    c.setFont("Helvetica-Oblique", 9)
+    c.setFillColor(colors.HexColor("#555555"))
+    c.drawString(25 * mm, y, "Ce reçu atteste du règlement de la redevance ci-dessus. "
+                             "Il ne préjuge pas de la décision réglementaire.")
+    c.setFillColor(colors.black)
+
+    # Empreinte + QR de vérification
+    empreinte = calculer_hash_recu(paiement)
+    y -= 14 * mm
+    c.setFont("Helvetica", 8)
+    c.drawString(25 * mm, y, f"Empreinte SHA-256 : {empreinte}")
+
+    if base_url:
+        url = f"{base_url.rstrip('/')}/paiements/verifier/{paiement.numero}"
+        try:
+            c.drawImage(ImageReader(_qr_verification(url)), largeur - 55 * mm,
+                        y - 30 * mm, width=30 * mm, height=30 * mm)
+            c.setFont("Helvetica", 7)
+            c.drawCentredString(largeur - 40 * mm, y - 34 * mm, "Vérifier ce reçu")
+        except Exception:
+            pass          # un QR indisponible ne doit pas empêcher la délivrance
+
+    c.setFont("Helvetica", 8)
+    c.drawCentredString(largeur / 2, 15 * mm,
+                        f"Document généré par SIREPH le "
+                        f"{datetime.utcnow().strftime('%d/%m/%Y à %H:%M')} UTC")
+
+    c.showPage()
+    c.save()
+    return chemin_sortie

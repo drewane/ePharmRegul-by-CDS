@@ -58,7 +58,7 @@
     <table class="table table-sm mb-0 align-middle">
       <thead><tr>
         <th>Référence</th><th>Objet</th><th class="text-end">Montant</th>
-        <th>Mode</th><th>État</th><th>Date</th>
+        <th>Mode</th><th>État</th><th>Date</th><th></th>
       </tr></thead>
       <tbody>
       {% for p in paiements %}
@@ -81,6 +81,14 @@
           </td>
           <td class="small text-muted">
             {{ (p.date_confirmation or p.date_creation).strftime('%d/%m/%Y') }}</td>
+          <td class="text-end">
+            {% if p.statut == 'confirme' %}
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('paiement.recu', paiement_id=p.id) }}"
+               title="Télécharger le reçu">
+              <i class="bi bi-file-earmark-pdf"></i> Reçu</a>
+            {% endif %}
+          </td>
         </tr>
       {% endfor %}
       </tbody>
