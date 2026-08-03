@@ -65,10 +65,25 @@
             <i class="bi bi-briefcase"></i> Mon portefeuille</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.path == '/industriel/nouvelle-demande' }}"
-             href="{{ url_for('industriel.nouvelle_demande') }}">
-            <i class="bi bi-plus-circle"></i> Nouvelle demande</a>
+          <a class="nav-link {{ 'active' if request.path.startswith('/demandes') }}"
+             href="{{ url_for('demandes.accueil') }}">
+            <i class="bi bi-plus-circle"></i> Demande</a>
         </li>
+        {% if request.path.startswith('/demandes') %}
+        <li class="nav-item ps-3">
+          <a class="nav-link py-1 {{ 'active' if request.path.startswith('/demandes/amm') }}"
+             href="{{ url_for('demandes.amm') }}">
+            <i class="bi bi-dot"></i> AMM</a>
+        </li>
+        <li class="nav-item ps-3">
+          <a class="nav-link py-1" href="/derogations">
+            <i class="bi bi-dot"></i> Dérogation</a>
+        </li>
+        <li class="nav-item ps-3">
+          <a class="nav-link py-1" href="/visas">
+            <i class="bi bi-dot"></i> Visa technique</a>
+        </li>
+        {% endif %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if request.path.startswith('/industriel/inspections') }}"
              href="{{ url_for('industriel.inspections') }}">

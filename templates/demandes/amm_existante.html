@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ libelle }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('demandes.amm') }}">
+    <i class="bi bi-arrow-left"></i> Demandes d'AMM</a>
+</nav>
+
+<h1 class="h4 mb-1">{{ libelle }}</h1>
+<p class="text-muted">{{ description }}</p>
+
+{% if not existantes %}
+<div class="alert alert-warning">
+  <strong>Aucune AMM en vigueur.</strong>
+  Cette démarche part d'une autorisation existante de votre portefeuille.
+  <a href="{{ url_for('demandes.amm_type', type_procedure='nouvelle_demande') }}">
+    Déposer une nouvelle demande</a>.
+</div>
+{% else %}
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">1. Choisir l'AMM concernée</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="dossier_source">
+              Numéro d'AMM <span class="text-danger">*</span></label>
+            <select class="form-select" id="dossier_source" name="dossier_source"
+                    required onchange="afficherApercu(this.value)">
+              <option value="">— Sélectionnez —</option>
+              {% for d in existantes %}
+              <option value="{{ d.id }}">
+                {{ d.numero }} — {{ d.produit.libelle if d.produit else '—' }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">
+              Les informations du produit sont reprises automatiquement : vous
+              n'avez pas à les ressaisir.
+            </div>
+          </div>
+          <button class="btn btn-primary" type="submit">
+            Ouvrir le dossier <i class="bi bi-arrow-right ms-1"></i></button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card" id="carte-apercu" hidden>
+      <div class="card-header">2. Informations reprises</div>
+      <div class="card-body">
+        <dl class="row mb-0" id="apercu"></dl>
+      </div>
+    </div>
+    <div class="card" id="carte-vide">
+      <div class="card-body text-muted text-center py-5">
+        <i class="bi bi-arrow-left me-1"></i>
+        Sélectionnez une AMM pour voir les informations reprises.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Les informations produit sont déjà connues de l'administration : on les
+// affiche pour confirmation, sans les faire ressaisir.
+const APERCUS = {{ apercus | tojson }};
+function afficherApercu(id) {
+  const carte = document.getElementById('carte-apercu');
+  const vide = document.getElementById('carte-vide');
+  const cible = document.getElementById('apercu');
+  const a = APERCUS[id];
+  if (!a) { carte.hidden = true; vide.hidden = false; return; }
+  const lignes = [
+    ['Produit', a.produit], ['DCI', a.dci], ['Forme', a.forme],
+    ['Dosage', a.dosage], ['Titulaire', a.titulaire],
+    ['Nature du produit', a.nature], ['Validité actuelle', a.validite],
+  ];
+  cible.innerHTML = lignes.map(function (l) {
+    return '<dt class="col-sm-4 small">' + l[0] + '</dt>' +
+           '<dd class="col-sm-8">' + l[1] + '</dd>';
+  }).join('') +
+    '<dt class="col-sm-4 small">Modules exigés</dt><dd class="col-sm-8">' +
+    a.modules.map(function (m) {
+      return '<span class="badge bg-primary me-1">' + m + '</span>';
+    }).join('') +
+    ' <span class="text-muted small">(' + a.modules.length + ' module(s))</span></dd>';
+  carte.hidden = false; vide.hidden = true;
+}
+</script>
+{% endif %}
+{% endblock %}

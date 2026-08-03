@@ -72,6 +72,7 @@ from routes_industriel import bp as industriel_bp  # noqa: E402
 from routes_validation import bp as validation_bp  # noqa: E402
 from routes_instruction import bp as instruction_bp  # noqa: E402
 from routes_ctd import bp as ctd_bp  # noqa: E402
+from routes_demandes import bp as demandes_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -89,6 +90,7 @@ app.register_blueprint(industriel_bp)
 app.register_blueprint(validation_bp)
 app.register_blueprint(instruction_bp)
 app.register_blueprint(ctd_bp)
+app.register_blueprint(demandes_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
