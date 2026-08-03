@@ -12,8 +12,18 @@ from models import db, Personne, Notification
 
 
 def notifier(destinataire, type_notif, contenu, lien=None):
+    """Notifie dans l'application et, si le type le justifie, par courriel.
+
+    L'envoi du courriel ne doit jamais faire échouer le traitement métier : une
+    messagerie indisponible ne bloque pas un dossier.
+    """
     n = Notification(destinataire_id=destinataire.id, type=type_notif, contenu=contenu, lien=lien)
     db.session.add(n)
+    try:
+        import courriel
+        courriel.envoyer(destinataire, type_notif, contenu, lien)
+    except Exception:                                     # noqa: BLE001
+        pass
     return n
 
 

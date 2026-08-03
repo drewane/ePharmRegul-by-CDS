@@ -992,3 +992,27 @@ class RapportInstruction(db.Model):
 
     dossier = db.relationship("DossierAMM", foreign_keys=[dossier_id])
     redige_par = db.relationship("Personne", foreign_keys=[redige_par_id])
+
+
+class CourrielSortant(db.Model):
+    """Trace de chaque courriel préparé par l'application.
+
+    En l'absence de configuration SMTP, les messages sont journalisés au lieu
+    d'être envoyés : la démonstration reste utilisable et l'administration
+    peut vérifier ce qui aurait été adressé, sans qu'on prétende avoir envoyé
+    quoi que ce soit.
+    """
+    __tablename__ = "courriel_sortant"
+    id = db.Column(db.Integer, primary_key=True)
+    destinataire_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+    adresse = db.Column(db.String(200), nullable=False)
+    sujet = db.Column(db.String(300), nullable=False)
+    corps = db.Column(db.Text, nullable=False)
+    type_notification = db.Column(db.String(60))
+    statut = db.Column(db.String(20), nullable=False, default="en_attente")
+    # en_attente | envoye | echec | journalise | rejoue
+    erreur = db.Column(db.Text)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_envoi = db.Column(db.DateTime)
+
+    destinataire = db.relationship("Personne", foreign_keys=[destinataire_id])

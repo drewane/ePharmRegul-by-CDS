@@ -18,8 +18,10 @@ from models import (DossierAMM, Etablissement, EtapeValidation, Notification,
                     Personne, Produit, RapportInstruction, db)
 
 _res = []
-_MODELES = (EtapeValidation, RapportInstruction, DossierAMM, Produit, Notification,
-            Personne, Etablissement)
+from models import CourrielSortant  # noqa: E402
+
+_MODELES = (EtapeValidation, RapportInstruction, CourrielSortant, DossierAMM,
+            Produit, Notification, Personne, Etablissement)
 
 
 def verifier(nom, cond, detail=""):
@@ -170,14 +172,74 @@ def test_contenu_adapte():
              "checklist" not in vue_sd)
 
 
+def test_generalisation_circuits():
+    print("\n[5] Généralisation des circuits à tous les modules")
+    attendus = {"amm", "licence", "derogation", "visa_technique", "essai_clinique",
+                "controle_qualite", "inspection"}
+    verifier("sept circuits déclarés", set(vn.CIRCUITS) == attendus,
+             str(set(vn.CIRCUITS) ^ attendus) if set(vn.CIRCUITS) != attendus else "")
+    verifier("chaque circuit a un libellé",
+             all(c in vn.LIBELLE_CIRCUIT for c in vn.CIRCUITS))
+    verifier("chaque circuit se termine par un signataire de niveau direction",
+             all(e[-1] in ("directeur_dpml", "ministre_sante",
+                           "directeur_general_agence") for e in vn.CIRCUITS.values()))
+    verifier("commission pour l'AMM et l'essai clinique",
+             vn.CIRCUITS_AVEC_COMMISSION == {"amm", "essai_clinique"})
+    verifier("le contrôle qualité et l'inspection n'ont pas de commission",
+             "controle_qualite" not in vn.CIRCUITS_AVEC_COMMISSION
+             and "inspection" not in vn.CIRCUITS_AVEC_COMMISSION)
+    verifier("chaque circuit démarre par un chef de service",
+             all(e[0].startswith("chef_service") for e in vn.CIRCUITS.values()))
+    # Chaque échelon d'un circuit doit exister comme rôle
+    from permissions import ROLES
+    inconnus = [r for e in vn.CIRCUITS.values() for r in e if r not in ROLES]
+    verifier("tous les échelons correspondent à un rôle réel", not inconnus,
+             str(inconnus))
+
+
+def test_courriel():
+    print("\n[6] Notification par courriel")
+    import courriel
+    from models import CourrielSortant
+    verifier("service courriel disponible", hasattr(courriel, "envoyer"))
+    verifier("types couverts déclarés", len(courriel.TYPES_A_ENVOYER) >= 10,
+             f"{len(courriel.TYPES_A_ENVOYER)} types")
+    verifier("sans SMTP, rien n'est prétendu envoyé",
+             not courriel.etat()["configure"])
+
+    d = _dossier()
+    avant = CourrielSortant.query.count()
+    chef = _r("chef_service_amm")
+    wfi.enregistrer_checklist(d, chef, {c: True for c in wfi.POINTS_BLOQUANTS})
+    wfi.prononcer_recevabilite(d, chef, True)
+    db.session.flush()
+    apres = CourrielSortant.query.count()
+    verifier("un courriel est préparé à la recevabilité", apres > avant)
+    c = CourrielSortant.query.order_by(CourrielSortant.id.desc()).first()
+    verifier("adressé au déposant", c.adresse == d.demandeur.email, c.adresse)
+    verifier("statut « journalisé » faute de SMTP", c.statut == "journalise",
+             c.statut)
+    verifier("le corps reprend le message", "évaluation" in c.corps)
+    verifier("le corps porte un lien de consultation", "Consulter" in c.corps)
+
+    # Un type non listé ne déclenche pas de courriel : on n'inonde pas.
+    avant2 = CourrielSortant.query.count()
+    from notifications import notifier
+    notifier(d.demandeur, "type_sans_courriel", "Message interne.")
+    db.session.flush()
+    verifier("un type non listé ne part pas par courriel",
+             CourrielSortant.query.count() == avant2)
+
+
 def main():
     print("=" * 70)
-    print("Lot D — licences et vue par profil")
+    print("Lot D — licences, vue par profil, courriel")
     print("=" * 70)
     with application.app.app_context():
         reperes = _max_ids()
         for t in (test_circuit_licence, test_signature_licence,
-                  test_profondeur_par_profil, test_contenu_adapte):
+                  test_profondeur_par_profil, test_contenu_adapte,
+                  test_generalisation_circuits, test_courriel):
             try:
                 t()
             except Exception as e:                       # noqa: BLE001

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Courriels sortants — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Courriels sortants</h1>
+<p class="text-muted">
+  Trace de chaque message préparé par l'application, et de ce qu'il est devenu.
+</p>
+
+{% if not etat.configure %}
+<div class="alert alert-warning">
+  <strong>Aucun serveur de messagerie configuré.</strong>
+  Les messages sont <em>journalisés</em> ici au lieu d'être envoyés — rien ne part
+  réellement. Renseignez <code>SIREPH_SMTP_HOTE</code>,
+  <code>SIREPH_SMTP_UTILISATEUR</code> et <code>SIREPH_SMTP_MOTDEPASSE</code>
+  pour activer l'envoi.
+</div>
+{% else %}
+<div class="alert alert-success">
+  Messagerie raccordée — serveur <code>{{ etat.hote }}</code>,
+  expéditeur <code>{{ etat.expediteur }}</code>.
+</div>
+{% endif %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <a class="btn btn-sm {{ 'btn-primary' if not statut else 'btn-outline-secondary' }}"
+     href="{{ url_for('courriel.liste') }}">Tous</a>
+  {% for s, n in compteurs.items() %}
+  <a class="btn btn-sm {{ 'btn-primary' if statut == s else 'btn-outline-secondary' }}"
+     href="{{ url_for('courriel.liste', statut=s) }}">{{ s }} ({{ n }})</a>
+  {% endfor %}
+  {% if compteurs.echec %}
+  <form method="post" action="{{ url_for('courriel.rejouer') }}" class="ms-auto">
+    <button class="btn btn-sm btn-outline-warning">
+      <i class="bi bi-arrow-repeat me-1"></i> Réexpédier les échecs</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% if messages %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Destinataire</th><th>Sujet</th><th>Type</th><th>Statut</th><th>Date</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for m in messages %}
+        <tr>
+          <td class="small">{{ m.adresse }}</td>
+          <td class="small">{{ m.sujet[:56] }}</td>
+          <td><span class="badge bg-light text-dark border small">
+            {{ m.type_notification or '—' }}</span></td>
+          <td>
+            {% if m.statut == 'envoye' %}<span class="badge bg-success">envoyé</span>
+            {% elif m.statut == 'echec' %}<span class="badge bg-danger">échec</span>
+            {% elif m.statut == 'journalise' %}
+              <span class="badge bg-secondary">journalisé</span>
+            {% else %}<span class="badge bg-light text-dark border">{{ m.statut }}</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">
+            {{ (m.date_envoi or m.date_creation).strftime('%d/%m %H:%M') }}</td>
+          <td>
+            <details>
+              <summary class="small">Voir</summary>
+              <pre class="small bg-light p-2 mt-1 mb-0"
+                   style="white-space:pre-wrap">{{ m.corps }}</pre>
+              {% if m.erreur %}
+              <p class="small text-danger mb-0">{{ m.erreur }}</p>{% endif %}
+            </details>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucun courriel pour ce filtre.</div>
+  {% endif %}
+</div>
+{% endblock %}

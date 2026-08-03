@@ -43,6 +43,18 @@ CIRCUITS = {
     # pas ; le circuit reste prêt à en accueillir une le jour venu.
     "licence": ["chef_service_licences", "sous_directeur_etablissements",
                 "directeur_dpml"],
+    # Essai clinique : instruit par le service Homologation, examiné en
+    # commission spécialisée, autorisé par le directeur.
+    "essai_clinique": ["chef_service_amm", "sous_directeur_medicament",
+                       "directeur_dpml"],
+    # Contrôle qualité : le certificat d'analyse engage le laboratoire, puis la
+    # direction. Pas de commission — la conclusion est analytique.
+    "controle_qualite": ["chef_service_labo", "sous_directeur_medicament",
+                         "directeur_dpml"],
+    # Inspection : le rapport et ses suites sont validés par la voie
+    # hiérarchique de l'inspection.
+    "inspection": ["chef_service_inspection", "sous_directeur_etablissements",
+                   "directeur_dpml"],
 }
 
 LIBELLE_CIRCUIT = {
@@ -50,11 +62,14 @@ LIBELLE_CIRCUIT = {
     "visa_technique": "Visa technique",
     "amm": "Autorisation de mise sur le marché",
     "licence": "Licence d'établissement",
+    "essai_clinique": "Autorisation d'essai clinique",
+    "controle_qualite": "Certificat de contrôle qualité",
+    "inspection": "Rapport d'inspection",
 }
 
 # Circuits qui passent par une commission d'évaluation. Les licences en sont
 # dispensées : leur instruction est purement administrative.
-CIRCUITS_AVEC_COMMISSION = {"amm"}
+CIRCUITS_AVEC_COMMISSION = {"amm", "essai_clinique"}
 
 
 # ---------------------------------------------------------------------------
