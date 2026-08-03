@@ -82,9 +82,15 @@ def parapheur():
 @login_required
 def circuit(entite_type, entite_id):
     obj = _entite(entite_type, entite_id)
+    # Chaque échelon voit ce qui lui est utile pour décider : le ministre
+    # vérifie le parcours, le chef de service relit la technique.
+    vue = None
+    if entite_type == "DossierAMM":
+        import vue_par_profil
+        vue = vue_par_profil.dossier_amm(obj, current_user())
     return render_template(
         "validation/circuit.html", objet=obj, entite_type=entite_type,
-        libelle=DOCUMENTS[entite_type][2], etapes=vn.etapes(obj),
+        libelle=DOCUMENTS[entite_type][2], etapes=vn.etapes(obj), vue=vue,
         courante=vn.etape_courante(obj), acheve=vn.circuit_acheve(obj),
         refuse=vn.circuit_refuse(obj), peut_signer=vn.peut_signer(obj, current_user()))
 

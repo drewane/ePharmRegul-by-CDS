@@ -31,6 +31,89 @@
 </div>
 {% endif %}
 
+{% if vue %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-eye me-1"></i> {{ vue.libelle_profondeur }}</span>
+    <span class="small text-muted">{{ vue.role }}</span>
+  </div>
+  <div class="card-body">
+
+    <dl class="row small mb-3">
+      <dt class="col-sm-3">Référence</dt><dd class="col-sm-3">{{ vue.reference }}</dd>
+      <dt class="col-sm-3">Produit</dt><dd class="col-sm-3">{{ vue.produit }}</dd>
+      <dt class="col-sm-3">Demandeur</dt><dd class="col-sm-3">{{ vue.demandeur }}</dd>
+      <dt class="col-sm-3">Signatures</dt><dd class="col-sm-3">{{ vue.signatures }}</dd>
+    </dl>
+
+    {% if vue.profondeur == 'parcours' %}
+    <p class="small text-muted">
+      Contrôle de régularité : le dossier a-t-il suivi toutes les étapes requises ?
+    </p>
+    <ul class="list-unstyled mb-3">
+      {% for libelle, fait in vue.controles %}
+      <li class="mb-1">
+        {% if fait %}<i class="bi bi-check-circle-fill text-success me-1"></i>
+        {% else %}<i class="bi bi-circle text-muted me-1"></i>{% endif %}
+        <span class="{{ '' if fait else 'text-muted' }}">{{ libelle }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if vue.avis_commission %}
+    <p class="small mb-1"><strong>Avis de commission</strong> :
+      {{ vue.avis_commission | join(', ') }}</p>
+    {% endif %}
+    {% if vue.avis_direction %}
+    <p class="small mb-0"><strong>Avis de la direction</strong> :
+      {{ vue.avis_direction }}
+      {%- if vue.motif_direction %} — {{ vue.motif_direction }}{% endif %}</p>
+    {% endif %}
+
+    {% elif vue.profondeur == 'synthese' %}
+    {% if vue.avis_evaluateurs %}
+    <p class="small mb-1"><strong>Évaluation interne</strong></p>
+    <ul class="small">
+      {% for a in vue.avis_evaluateurs %}
+      <li>{{ a.nom }} — {{ a.conclusion }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% for s in vue.syntheses_commission %}
+    <p class="small mb-1"><strong>{{ s.seance }}</strong> — {{ s.avis }}</p>
+    {% if s.synthese %}
+    <pre class="small bg-light p-2" style="white-space:pre-wrap">{{ s.synthese }}</pre>
+    {% endif %}
+    {% endfor %}
+    {% if vue.rapport %}
+    <p class="small mb-0"><strong>Rapport</strong> : {{ vue.rapport.synthese or '—' }}</p>
+    {% endif %}
+
+    {% else %}
+    <p class="small text-muted mb-1">
+      Vue technique — le détail complet reste accessible depuis
+      <a href="{{ url_for('instruction.dossier', dossier_id=objet.id) }}">
+        le bureau d'instruction</a>.
+    </p>
+    {% if vue.points_manquants %}
+    <p class="small text-danger mb-0">
+      Points de recevabilité non satisfaits :
+      {{ vue.points_manquants | map(attribute=1) | join(', ') }}</p>
+    {% endif %}
+    {% endif %}
+
+    <hr>
+    <p class="small text-muted mb-1"><strong>Parcours du dossier</strong></p>
+    <ul class="small mb-0">
+      {% for j in vue.jalons %}
+      <li>{{ j.libelle }} — {{ j.date.strftime('%d/%m/%Y') }}</li>
+      {% else %}
+      <li class="text-muted">Aucun jalon enregistré.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3">
   <div class="col-lg-7">
     <div class="card">

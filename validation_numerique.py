@@ -38,13 +38,23 @@ CIRCUITS = {
     "visa_technique": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml"],
     "amm": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml",
             "secretaire_general_ms", "ministre_sante"],
+    # Licence d'établissement : instruite par le service Licences, signée par le
+    # directeur. Pas de commission à ce stade — la réglementation n'en prévoit
+    # pas ; le circuit reste prêt à en accueillir une le jour venu.
+    "licence": ["chef_service_licences", "sous_directeur_etablissements",
+                "directeur_dpml"],
 }
 
 LIBELLE_CIRCUIT = {
     "derogation": "Dérogation spéciale",
     "visa_technique": "Visa technique",
     "amm": "Autorisation de mise sur le marché",
+    "licence": "Licence d'établissement",
 }
+
+# Circuits qui passent par une commission d'évaluation. Les licences en sont
+# dispensées : leur instruction est purement administrative.
+CIRCUITS_AVEC_COMMISSION = {"amm"}
 
 
 # ---------------------------------------------------------------------------
