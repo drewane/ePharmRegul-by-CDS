@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Reliance CEEAC — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Reliance régionale CEEAC</h1>
+    <p class="text-muted mb-0">
+      Instance <strong>{{ pays_instance }}</strong> ·
+      contrat d'échange v{{ contrat }} ·
+      {% if hub_raccorde %}
+        Hub : <code>{{ url_hub }}</code>
+        <span class="badge bg-success ms-1">raccordé</span>
+      {% else %}
+        <span class="badge bg-warning text-dark">Hub non raccordé — file locale</span>
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('reliance.pays') }}">
+    <i class="bi bi-globe-africa"></i> Pays du réseau</a>
+</div>
+
+{% if not hub_raccorde %}
+<div class="alert alert-warning">
+  <strong>Hub régional non raccordé.</strong> L'instance nationale reste
+  <em>pleinement opérationnelle</em> : les échanges s'empilent dans la file locale
+  et seront transmis dès le raccordement (variable <code>SIREPH_HUB_URL</code>).
+  Rien n'est jamais présenté comme transmis alors qu'il ne l'est pas.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  {% set cartes = [
+    ('Requêtes entrantes à traiter', requetes_entrantes, 'bi-inbox', 'reliance.requetes', 'primary'),
+    ('Alertes reçues non traitées', alertes_non_traitees, 'bi-exclamation-triangle', 'reliance.alertes', 'danger'),
+    ('Décisions publiées par nos soins', decisions_publiees, 'bi-upload', 'reliance.publications', 'success'),
+    ('Décisions régionales consultables', decisions_regionales, 'bi-search', 'reliance.consultation', 'info'),
+    ('Messages en file', file_attente, 'bi-hourglass-split', 'reliance.file_echange', 'secondary'),
+  ] %}
+  {% for libelle, valeur, icone, route, couleur in cartes %}
+  <div class="col-6 col-lg">
+    <a class="text-decoration-none" href="{{ url_for(route) }}">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <i class="bi {{ icone }} fs-3 text-{{ couleur }}"></i>
+          <div class="h3 mb-0 mt-1">{{ valeur }}</div>
+          <div class="small text-muted">{{ libelle }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">Que permet la reliance ?</div>
+      <div class="card-body">
+        <div class="list-group list-group-flush">
+          <a class="list-group-item list-group-item-action"
+             href="{{ url_for('reliance.consultation') }}">
+            <strong><i class="bi bi-search me-1"></i> Consultation régionale</strong>
+            <div class="small text-muted">Ce produit est-il déjà homologué chez un pair ?
+              Appariement « même produit » par clé pivot.</div></a>
+          <a class="list-group-item list-group-item-action"
+             href="{{ url_for('reliance.requetes') }}">
+            <strong><i class="bi bi-envelope me-1"></i> Requête formelle</strong>
+            <div class="small text-muted">Demander un rapport d'évaluation ou une
+              clarification à une ARN homologue.</div></a>
+          <a class="list-group-item list-group-item-action"
+             href="{{ url_for('reliance.publications') }}">
+            <strong><i class="bi bi-upload me-1"></i> Publier une décision</strong>
+            <div class="small text-muted">Alimenter le registre régional avec nos AMM
+              octroyées (donnée publiable uniquement).</div></a>
+          <a class="list-group-item list-group-item-action"
+             href="{{ url_for('reliance.alertes') }}">
+            <strong><i class="bi bi-broadcast me-1"></i> Alertes transfrontalières</strong>
+            <div class="small text-muted">Diffuser un rappel de lot ou un produit
+              falsifié à toutes les ARN du réseau.</div></a>
+          <a class="list-group-item list-group-item-action"
+             href="{{ url_for('reliance.accords') }}">
+            <strong><i class="bi bi-shield-lock me-1"></i> Consentements de partage</strong>
+            <div class="small text-muted">Base légale de tout partage : sans accord
+              actif, aucun rapport ne quitte le pays.</div></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-shield-check me-1"></i> Souveraineté nationale</div>
+      <div class="card-body small">
+        <p class="mb-2">Trois niveaux de confidentialité, appliqués par le contrat
+           d'échange lui-même :</p>
+        <ul class="mb-2 ps-3">
+          <li><span class="badge bg-success">publiable</span> décision, statut d'AMM,
+              alerte — circule librement</li>
+          <li><span class="badge bg-warning text-dark">sous accord</span> rapport
+              d'évaluation — exige un consentement tracé</li>
+          <li><span class="badge bg-danger">national</span> pièces de dossier, ICC —
+              <strong>ne circule jamais</strong></li>
+        </ul>
+        <p class="mb-0 text-muted">Le blocage est structurel : une enveloppe
+           « national » est refusée à la construction, pas seulement déconseillée.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Pays partenaires ({{ partenaires|length }})</div>
+      <div class="card-body">
+        {% for p in partenaires %}
+        <span class="badge bg-light text-dark border me-1 mb-1" title="{{ p.autorite or '' }}">
+          {{ p.code_iso }} — {{ p.nom }}
+          {%- if p.statut == 'observateur' %} <em>(obs.)</em>{% endif %}
+        </span>
+        {% else %}
+        <p class="text-muted mb-0">Aucun pays partenaire configuré.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

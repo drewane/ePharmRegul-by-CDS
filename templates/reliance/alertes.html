@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Alertes transfrontalières — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Alertes transfrontalières</h1>
+<p class="text-muted">
+  Un rappel de lot ou un produit falsifié constaté ici concerne toute la
+  sous-région : l'alerte est diffusée à l'ensemble des ARN du réseau.
+</p>
+
+<div class="card mb-3">
+  <div class="card-header">Émettre une alerte</div>
+  <div class="card-body">
+    <form method="post" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="type_alerte">Nature</label>
+        <select class="form-select" id="type_alerte" name="type_alerte">
+          {% for code, libelle in types.items() %}
+          <option value="{{ code }}">{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="produit_nom">Produit</label>
+        <input class="form-control" id="produit_nom" name="produit_nom" required>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="numero_lot">Lot</label>
+        <input class="form-control" id="numero_lot" name="numero_lot">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="niveau_risque">Risque</label>
+        <select class="form-select" id="niveau_risque" name="niveau_risque">
+          <option value="">—</option>
+          <option value="I">I — grave</option>
+          <option value="II">II — modéré</option>
+          <option value="III">III — mineur</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-danger w-100" type="submit">
+          <i class="bi bi-broadcast me-1"></i> Diffuser</button>
+      </div>
+      <div class="col-12">
+        <label class="form-label" for="message">Message</label>
+        <textarea class="form-control" id="message" name="message" rows="2" required
+                  placeholder="Nature du défaut, conduite à tenir, coordonnées de contact…"></textarea>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-arrow-down-left me-1"></i> Reçues des ARN partenaires
+        <span class="badge bg-secondary">{{ recues|length }}</span>
+      </div>
+      {% if recues %}
+      <div class="list-group list-group-flush">
+        {% for a in recues %}
+        <div class="list-group-item {{ 'list-group-item-warning' if not a.traitee }}">
+          <div class="d-flex justify-content-between">
+            <strong><span class="badge bg-primary">{{ a.pays_emetteur }}</span>
+              {{ a.produit_nom }}</strong>
+            {% if a.niveau_risque %}
+            <span class="badge bg-danger">Risque {{ a.niveau_risque }}</span>{% endif %}
+          </div>
+          <div class="small text-muted">{{ types.get(a.type_alerte, a.type_alerte) }}
+            {%- if a.numero_lot %} · lot {{ a.numero_lot }}{% endif %}</div>
+          <div class="small mt-1">{{ a.message }}</div>
+          <div class="mt-2 d-flex gap-1">
+            {% if not a.accuse_le %}
+            <form method="post"
+                  action="{{ url_for('reliance.agir_alerte', alerte_id=a.id, action='accuser') }}">
+              <button class="btn btn-sm btn-outline-primary">Accuser réception</button>
+            </form>
+            {% else %}
+            <span class="small text-success align-self-center">
+              <i class="bi bi-check2"></i> accusée le {{ a.accuse_le.strftime('%d/%m/%Y') }}</span>
+            {% endif %}
+            {% if not a.traitee %}
+            <form method="post"
+                  action="{{ url_for('reliance.agir_alerte', alerte_id=a.id, action='traiter') }}">
+              <button class="btn btn-sm btn-outline-success">Marquer traitée</button>
+            </form>
+            {% else %}
+            <span class="badge bg-success align-self-center">traitée</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune alerte reçue.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-arrow-up-right me-1"></i> Émises par la DPML
+        <span class="badge bg-secondary">{{ emises|length }}</span>
+      </div>
+      {% if emises %}
+      <div class="list-group list-group-flush">
+        {% for a in emises %}
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <strong><code>{{ a.numero }}</code> {{ a.produit_nom }}</strong>
+            {% if a.niveau_risque %}
+            <span class="badge bg-danger">Risque {{ a.niveau_risque }}</span>{% endif %}
+          </div>
+          <div class="small text-muted">{{ types.get(a.type_alerte, a.type_alerte) }}
+            {%- if a.numero_lot %} · lot {{ a.numero_lot }}{% endif %}
+            · {{ a.date_creation.strftime('%d/%m/%Y') }}</div>
+          <div class="small mt-1">{{ a.message[:160] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune alerte émise.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

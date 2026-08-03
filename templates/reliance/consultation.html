@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Consultation régionale — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Consultation régionale</h1>
+<p class="text-muted">
+  Ce produit est-il déjà homologué chez une ARN de la sous-région ? La recherche
+  porte sur le registre régional des décisions publiées — jamais sur les dossiers
+  nationaux des pays partenaires.
+</p>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label" for="dci">Dénomination commune (DCI)</label>
+        <input class="form-control" id="dci" name="dci" value="{{ dci }}"
+               placeholder="ex. Amoxicilline">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="produit">Nom commercial</label>
+        <input class="form-control" id="produit" name="produit" value="{{ produit }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label" for="pays">Pays</label>
+        <select class="form-select" id="pays" name="pays">
+          <option value="">Tous</option>
+          {% for p in partenaires %}
+          <option value="{{ p.code_iso }}" {{ 'selected' if pays == p.code_iso }}>
+            {{ p.code_iso }} — {{ p.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" type="submit">
+          <i class="bi bi-search me-1"></i> Rechercher</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if recherche_lancee %}
+<div class="card">
+  <div class="card-header">
+    Résultats <span class="badge bg-secondary">{{ resultats|length }}</span>
+  </div>
+  {% if resultats %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Pays</th><th>Produit</th><th>DCI</th><th>Forme / dosage</th>
+        <th>Titulaire</th><th>Décision</th><th>Rapport</th>
+      </tr></thead>
+      <tbody>
+      {% for d in resultats %}
+        <tr>
+          <td><span class="badge bg-primary">{{ d.pays_origine }}</span></td>
+          <td><strong>{{ d.produit_nom }}</strong>
+            {% if d.reference_nationale %}
+            <br><code class="small">{{ d.reference_nationale }}</code>{% endif %}</td>
+          <td class="small">{{ d.dci or '—' }}</td>
+          <td class="small">{{ d.forme or '—' }}{% if d.dosage %} · {{ d.dosage }}{% endif %}</td>
+          <td class="small">{{ d.titulaire or '—' }}</td>
+          <td class="small">{{ d.type_decision }}<br>
+            <span class="text-muted">{{ d.date_publication.strftime('%d/%m/%Y') }}</span></td>
+          <td>
+            {% if d.rapport_partageable %}
+              <span class="badge bg-success">partageable</span>
+              <div class="small mt-1">
+                <a href="{{ url_for('reliance.requetes') }}">Demander</a></div>
+            {% else %}
+              <span class="text-muted small">non partagé</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">
+    Aucune décision régionale ne correspond à cette recherche.
+    {% if not resultats %}
+    <div class="small mt-2">
+      Le registre régional se remplit à mesure que les ARN publient leurs
+      décisions et que le Hub les relaie à cette instance.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

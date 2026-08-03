@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Requêtes de reliance — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Requêtes de reliance</h1>
+<p class="text-muted">Demandes formelles échangées avec les ARN homologues.</p>
+
+<div class="card mb-3">
+  <div class="card-header">Adresser une requête</div>
+  <div class="card-body">
+    <form method="post" class="row g-2 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label" for="pays_partenaire">ARN destinataire</label>
+        <select class="form-select" id="pays_partenaire" name="pays_partenaire" required>
+          {% for p in partenaires %}
+          <option value="{{ p.code_iso }}">{{ p.code_iso }} — {{ p.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="type_requete">Type</label>
+        <select class="form-select" id="type_requete" name="type_requete">
+          {% for code, libelle in types.items() %}
+          <option value="{{ code }}">{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label" for="objet">Objet</label>
+        <input class="form-control" id="objet" name="objet" required
+               placeholder="Rapport d'évaluation — Amoxidem 500 mg">
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100" name="transmettre" value="1" type="submit">
+          <i class="bi bi-send me-1"></i> Transmettre</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-arrow-up-right me-1"></i> Sortantes
+        <span class="badge bg-secondary">{{ sortantes|length }}</span>
+      </div>
+      {% if sortantes %}
+      <div class="list-group list-group-flush">
+        {% for r in sortantes %}
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <strong><code>{{ r.numero }}</code> → {{ r.pays_partenaire }}</strong>
+            <span class="badge bg-{{ 'success' if r.statut == 'repondue' else
+              ('danger' if r.statut == 'refusee' else 'secondary') }}">{{ r.statut }}</span>
+          </div>
+          <div class="small">{{ r.objet }}</div>
+          {% if r.statut == 'brouillon' %}
+          <form method="post" class="mt-1"
+                action="{{ url_for('reliance.agir_requete', requete_id=r.id, action='transmettre') }}">
+            <button class="btn btn-sm btn-outline-primary">Transmettre</button>
+          </form>
+          {% endif %}
+          {% if r.reponse %}
+          <div class="alert alert-success small mt-2 mb-0">{{ r.reponse }}</div>
+          {% elif r.motif_refus %}
+          <div class="alert alert-danger small mt-2 mb-0">Refus : {{ r.motif_refus }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune requête sortante.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-arrow-down-left me-1"></i> Entrantes
+        <span class="badge bg-secondary">{{ entrantes|length }}</span>
+      </div>
+      {% if entrantes %}
+      <div class="list-group list-group-flush">
+        {% for r in entrantes %}
+        <div class="list-group-item">
+          <div class="d-flex justify-content-between">
+            <strong>{{ r.pays_partenaire }} → <code>{{ r.numero }}</code></strong>
+            <span class="badge bg-{{ 'success' if r.statut == 'repondue' else
+              ('danger' if r.statut == 'refusee' else 'warning text-dark') }}">{{ r.statut }}</span>
+          </div>
+          <div class="small">{{ r.objet }}</div>
+
+          {% if r.statut == 'recue' %}
+          <form method="post" class="mt-2"
+                action="{{ url_for('reliance.agir_requete', requete_id=r.id, action='repondre') }}">
+            <textarea class="form-control form-control-sm mb-1" name="contenu" rows="2"
+                      placeholder="Contenu de la réponse…" required></textarea>
+            <div class="input-group input-group-sm">
+              <select class="form-select" name="accord_id">
+                <option value="">— sans consentement —</option>
+                {% for a in accords_actifs if a.pays_destinataire == r.pays_partenaire %}
+                <option value="{{ a.id }}">{{ a.numero }} · {{ a.portee }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-outline-success">Répondre</button>
+            </div>
+            <div class="form-text">Un rapport d'évaluation exige un consentement actif
+              visant ce pays.</div>
+          </form>
+          <form method="post" class="mt-1"
+                action="{{ url_for('reliance.agir_requete', requete_id=r.id, action='refuser') }}"
+                onsubmit="this.motif.value = prompt('Motif du refus :') || ''; return this.motif.value !== '';">
+            <input type="hidden" name="motif">
+            <button class="btn btn-sm btn-outline-danger">Refuser</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune requête entrante.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

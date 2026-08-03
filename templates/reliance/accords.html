@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Consentements de partage — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Consentements de partage</h1>
+<p class="text-muted">
+  Base légale de tout partage hors du pays. Sans accord actif, aucun rapport
+  d'évaluation ne peut être transmis à une ARN homologue — la protection des
+  informations commerciales confidentielles du titulaire en dépend.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Accorder un consentement</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="objet">Objet <span class="text-danger">*</span></label>
+            <input class="form-control" id="objet" name="objet" required
+                   placeholder="Rapport d'évaluation — Amoxidem 500 mg">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="pays_destinataire">
+              ARN destinataire <span class="text-danger">*</span></label>
+            <select class="form-select" id="pays_destinataire" name="pays_destinataire" required>
+              {% for p in partenaires %}
+              <option value="{{ p.code_iso }}">{{ p.code_iso }} — {{ p.nom }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="portee">Portée du partage</label>
+            <select class="form-select" id="portee" name="portee">
+              {% for code, libelle in portees.items() %}
+              <option value="{{ code }}">{{ libelle }}</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Le consentement ne vaut que pour la portée
+              et le pays indiqués.</div>
+          </div>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-shield-check me-1"></i> Accorder</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        Consentements <span class="badge bg-secondary">{{ accords|length }}</span>
+      </div>
+      {% if accords %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Référence</th><th>Objet</th><th>ARN</th><th>Portée</th>
+            <th>État</th><th></th>
+          </tr></thead>
+          <tbody>
+          {% for a in accords %}
+            <tr>
+              <td><code>{{ a.numero }}</code></td>
+              <td class="small">{{ a.objet[:50] }}</td>
+              <td><span class="badge bg-primary">{{ a.pays_destinataire }}</span></td>
+              <td class="small">{{ a.portee }}</td>
+              <td>
+                {% if a.revoque %}
+                  <span class="badge bg-danger">révoqué</span>
+                {% else %}
+                  <span class="badge bg-success">actif</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if not a.revoque %}
+                <form method="post" class="d-inline"
+                      action="{{ url_for('reliance.revoquer_accord', accord_id=a.id) }}"
+                      onsubmit="this.motif.value = prompt('Motif de la révocation :') || ''; return this.motif.value !== '';">
+                  <input type="hidden" name="motif">
+                  <button class="btn btn-sm btn-outline-danger">Révoquer</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucun consentement enregistré.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

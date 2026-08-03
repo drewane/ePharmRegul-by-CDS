@@ -67,6 +67,7 @@ from routes_derogation import derogation_bp  # noqa: E402
 from routes_visas import visas_bp  # noqa: E402
 from routes_paiement import bp as paiement_bp  # noqa: E402
 from routes_profils import bp as profils_bp  # noqa: E402
+from routes_reliance import bp as reliance_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -79,6 +80,7 @@ app.register_blueprint(derogation_bp)
 app.register_blueprint(visas_bp)
 app.register_blueprint(paiement_bp)
 app.register_blueprint(profils_bp)
+app.register_blueprint(reliance_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
@@ -112,7 +114,17 @@ def inject_globals():
         paiements_dus = sum(
             1 for p in paiements_du_redevable(u)
             if p.statut in ("en_attente", "initie", "rejete", "echoue", "expire"))
+    # Reliance régionale : accès et alertes reçues restant à traiter.
+    peut_reliance = alertes_reliance = 0
+    if u is not None:
+        from permissions import a_permission
+        peut_reliance = a_permission(u, "consulter_reliance")
+        if peut_reliance:
+            from models import AlerteTransfrontaliere
+            alertes_reliance = AlerteTransfrontaliere.query.filter_by(
+                sens="recue", traitee=False).count()
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
+                peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
                 wf=wf, STATUTS=wf.STATUTS,
                 TYPES_PROCEDURE=wf.TYPES_PROCEDURE, wfvl=wfvl, STATUTS_VL=wfvl.STATUTS,
                 TYPES_MESURE=wfvl.TYPES_MESURE, wfri=wfri, STATUTS_RI=wfri.STATUTS,

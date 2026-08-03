@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Registre régional — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Publication au registre régional</h1>
+<p class="text-muted">
+  Alimente le registre partagé de la CEEAC avec nos AMM octroyées. Seul le
+  <strong>fait de la décision</strong> est publié — jamais une pièce du dossier.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Publier une décision</div>
+      <div class="card-body">
+        {% if publiables %}
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="dossier_id">AMM octroyée</label>
+            <select class="form-select" id="dossier_id" name="dossier_id" required>
+              {% for d in publiables %}
+              <option value="{{ d.id }}">
+                {{ d.numero }} — {{ d.produit.libelle if d.produit else '—' }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="resume">Résumé public (facultatif)</label>
+            <textarea class="form-control" id="resume" name="resume" rows="2"
+                      placeholder="AMM octroyée — générique, bioéquivalence démontrée."></textarea>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="rapport_partageable"
+                   name="rapport_partageable">
+            <label class="form-check-label small" for="rapport_partageable">
+              Signaler que le rapport d'évaluation <em>peut</em> être demandé
+              <div class="text-muted">Cela n'autorise rien en soi : chaque
+                transmission restera soumise à un consentement explicite.</div>
+            </label>
+          </div>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-upload me-1"></i> Publier</button>
+        </form>
+        {% else %}
+        <p class="text-muted mb-0">Aucune AMM octroyée en attente de publication.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        Nos décisions publiées <span class="badge bg-secondary">{{ publiees|length }}</span>
+      </div>
+      {% if publiees %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Produit</th><th>DCI</th><th>Référence</th><th>Rapport</th><th>Publiée le</th>
+          </tr></thead>
+          <tbody>
+          {% for d in publiees %}
+            <tr>
+              <td><strong>{{ d.produit_nom }}</strong></td>
+              <td class="small">{{ d.dci or '—' }}</td>
+              <td><code class="small">{{ d.reference_nationale or '—' }}</code></td>
+              <td>
+                {% if d.rapport_partageable %}
+                  <span class="badge bg-success">signalé partageable</span>
+                {% else %}
+                  <span class="text-muted small">non signalé</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ d.date_publication.strftime('%d/%m/%Y') }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune décision publiée à ce jour.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

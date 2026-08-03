@@ -182,6 +182,19 @@
         </li>
         {% endif %}
 
+        {% if peut_reliance %}
+        <div class="sireph-sidebar-section">Reliance régionale</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/reliance') }}"
+             href="{{ url_for('reliance.tableau_bord') }}">
+            <i class="bi bi-globe-africa"></i> CEEAC
+            {%- if alertes_reliance %}
+            <span class="badge bg-danger ms-1">{{ alertes_reliance }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        {% endif %}
+
         {% if current_user.role_systeme == "administrateur_dpml" %}
         <div class="sireph-sidebar-section">Administration</div>
         <li class="nav-item">

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}File d'échange — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">File d'échange régional</h1>
+    <p class="text-muted mb-0">
+      {% if hub_raccorde %}
+        Hub : <code>{{ url_hub }}</code>
+      {% else %}
+        <span class="badge bg-warning text-dark">Hub non raccordé</span>
+        — les messages restent en file, sans perte.
+      {% endif %}
+    </p>
+  </div>
+  <form method="post" action="{{ url_for('reliance.synchroniser') }}">
+    <button class="btn btn-primary">
+      <i class="bi bi-arrow-repeat me-1"></i> Synchroniser</button>
+  </form>
+</div>
+
+<div class="alert alert-info small">
+  <strong>Résilience.</strong> L'instance nationale ne dépend jamais du Hub pour
+  fonctionner. Si le Hub est injoignable, les messages s'accumulent ici et sont
+  rejoués au rétablissement — sans doublon, chaque message portant un
+  identifiant unique.
+</div>
+
+<div class="card">
+  <div class="card-header">
+    Derniers messages <span class="badge bg-secondary">{{ messages|length }}</span>
+  </div>
+  {% if messages %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Identifiant</th><th>Sens</th><th>Type</th><th>Destinataire</th>
+        <th>Confidentialité</th><th>État</th><th>Date</th>
+      </tr></thead>
+      <tbody>
+      {% for m in messages %}
+        <tr>
+          <td><code class="small">{{ m.message_id[:22] }}…</code></td>
+          <td class="small">
+            {{ '⬆ sortant' if m.sens == 'sortant' else '⬇ entrant' }}</td>
+          <td><span class="tag small">{{ m.type_message }}</span></td>
+          <td>{{ m.destinataire }}</td>
+          <td class="small">
+            {% set conf = m.enveloppe.get('confidentialite', '—') %}
+            {% if conf == 'publiable' %}
+              <span class="badge bg-success">publiable</span>
+            {% elif conf == 'partageable_sous_accord' %}
+              <span class="badge bg-warning text-dark">sous accord</span>
+              {% if m.enveloppe.get('consentement_ref') %}
+              <br><code class="small">{{ m.enveloppe['consentement_ref'] }}</code>{% endif %}
+            {% else %}{{ conf }}{% endif %}
+          </td>
+          <td>
+            {% if m.statut == 'transmis' %}
+              <span class="badge bg-success">transmis</span>
+            {% elif m.statut == 'en_file' %}
+              <span class="badge bg-secondary">en file</span>
+            {% elif m.statut == 'recu' %}
+              <span class="badge bg-info text-dark">reçu</span>
+            {% else %}
+              <span class="badge bg-danger">{{ m.statut }}</span>
+            {% endif %}
+            {% if m.derniere_erreur %}
+            <div class="small text-danger">{{ m.derniere_erreur[:60] }}</div>{% endif %}
+          </td>
+          <td class="small text-muted">{{ m.date_creation.strftime('%d/%m %H:%M') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucun message échangé à ce jour.</div>
+  {% endif %}
+</div>
+{% endblock %}

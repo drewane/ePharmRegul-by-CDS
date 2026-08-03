@@ -636,3 +636,156 @@ class SequenceNumerotation(db.Model):
     dernier_numero = db.Column(db.Integer, nullable=False, default=0)
 
     __table_args__ = (db.UniqueConstraint("module", "annee", name="uq_sequence_module_annee"),)
+
+
+# ===========================================================================
+# VOLET RÉGIONAL — Reliance CEEAC
+# ===========================================================================
+# Principe non négociable : la souveraineté nationale. Aucune donnée de dossier
+# ne quitte le pays sans un consentement explicite et tracé. Le Hub régional ne
+# détient aucun dossier national : il n'assure qu'annuaire, routage et registre
+# des décisions publiées.
+class PaysCEEAC(db.Model):
+    """Liste des États membres — DONNÉE DE CONFIGURATION, jamais codée en dur.
+
+    Un pays peut être ajouté, retiré ou marqué « observateur » sans modifier le
+    code (le statut du Rwanda, notamment, est rapporté de façon incohérente
+    selon les sources).
+    """
+    __tablename__ = "pays_ceeac"
+    id = db.Column(db.Integer, primary_key=True)
+    code_iso = db.Column(db.String(2), unique=True, nullable=False)
+    nom = db.Column(db.String(120), nullable=False)
+    statut = db.Column(db.String(20), nullable=False, default="membre")
+    # membre | observateur | retire
+    autorite = db.Column(db.String(200))          # nom de l'ARN homologue
+    url_instance = db.Column(db.String(300))      # instance SIREPH du pays, si déployée
+    dans_reliance = db.Column(db.Boolean, default=True)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class AccordPartage(db.Model):
+    """Consentement explicite et tracé — base légale de tout partage hors du pays.
+
+    Sans accord actif, aucune donnée classée « partageable sous accord » ne peut
+    être transmise. Révocable à tout moment.
+    """
+    __tablename__ = "accord_partage"
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)  # ACC-{annee}-{seq4}
+    objet = db.Column(db.String(300), nullable=False)
+    dossier_amm_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), nullable=True)
+    pays_destinataire = db.Column(db.String(2), nullable=False)
+    portee = db.Column(db.String(50), nullable=False, default="rapport_evaluation")
+    # rapport_evaluation | decision_seule | dossier_complet
+    accorde_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    revoque = db.Column(db.Boolean, default=False)
+    motif_revocation = db.Column(db.Text)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_revocation = db.Column(db.DateTime)
+
+    dossier_amm = db.relationship("DossierAMM", foreign_keys=[dossier_amm_id])
+    accorde_par = db.relationship("Personne", foreign_keys=[accorde_par_id])
+
+    @property
+    def actif(self):
+        return not self.revoque
+
+
+class RequeteReliance(db.Model):
+    """Demande formelle adressée à une ARN homologue, ou reçue d'elle."""
+    __tablename__ = "requete_reliance"
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)  # REL-{annee}-{seq4}
+    sens = db.Column(db.String(10), nullable=False, default="sortante")  # sortante | entrante
+    pays_partenaire = db.Column(db.String(2), nullable=False)
+    type_requete = db.Column(db.String(40), nullable=False, default="rapport_evaluation")
+    # rapport_evaluation | clarification | statut_produit
+    objet = db.Column(db.String(300), nullable=False)
+    produit_id = db.Column(db.Integer, db.ForeignKey("produit.id"), nullable=True)
+    statut = db.Column(db.String(20), nullable=False, default="brouillon")
+    # brouillon | transmise | recue | repondue | refusee | close
+    reponse = db.Column(db.Text)
+    motif_refus = db.Column(db.Text)
+    accord_id = db.Column(db.Integer, db.ForeignKey("accord_partage.id"), nullable=True)
+    demandeur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+    delai_jours = db.Column(db.Integer, default=30)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_transmission = db.Column(db.DateTime)
+    date_reponse = db.Column(db.DateTime)
+
+    produit = db.relationship("Produit", foreign_keys=[produit_id])
+    accord = db.relationship("AccordPartage", foreign_keys=[accord_id])
+    demandeur = db.relationship("Personne", foreign_keys=[demandeur_id])
+
+
+class DecisionPubliee(db.Model):
+    """Décision publiée au registre régional, ou reçue d'une ARN homologue.
+
+    Ne contient QUE des données publiables : jamais de pièce de dossier.
+    """
+    __tablename__ = "decision_publiee"
+    id = db.Column(db.Integer, primary_key=True)
+    pays_origine = db.Column(db.String(2), nullable=False)
+    produit_nom = db.Column(db.String(300), nullable=False)
+    dci = db.Column(db.String(300))
+    forme = db.Column(db.String(150))
+    dosage = db.Column(db.String(150))
+    titulaire = db.Column(db.String(300))
+    # Clé pivot d'appariement « même produit » d'un pays à l'autre (esprit ISO IDMP)
+    cle_pivot = db.Column(db.String(300), index=True)
+    type_decision = db.Column(db.String(30), nullable=False, default="amm")
+    # amm | variation | renouvellement | retrait | rejet_partage
+    reference_nationale = db.Column(db.String(40))
+    resume = db.Column(db.Text)
+    rapport_partageable = db.Column(db.Boolean, default=False)
+    dossier_amm_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), nullable=True)
+    signature = db.Column(db.String(200))
+    date_decision = db.Column(db.DateTime)
+    date_publication = db.Column(db.DateTime, default=datetime.utcnow)
+
+    dossier_amm = db.relationship("DossierAMM", foreign_keys=[dossier_amm_id])
+
+
+class AlerteTransfrontaliere(db.Model):
+    """Rappel de lot ou produit falsifié diffusé aux ARN de la sous-région."""
+    __tablename__ = "alerte_transfrontaliere"
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)  # ALR-{annee}-{seq4}
+    sens = db.Column(db.String(10), nullable=False, default="emise")  # emise | recue
+    pays_emetteur = db.Column(db.String(2), nullable=False)
+    type_alerte = db.Column(db.String(30), nullable=False, default="rappel_lot")
+    # rappel_lot | produit_falsifie | signal_vigilance | retrait_amm
+    produit_nom = db.Column(db.String(300), nullable=False)
+    numero_lot = db.Column(db.String(120))
+    niveau_risque = db.Column(db.String(5))       # I | II | III
+    message = db.Column(db.Text, nullable=False)
+    signalement_id = db.Column(db.Integer, db.ForeignKey("signalement_qualite.id"), nullable=True)
+    accuse_le = db.Column(db.DateTime)            # accusé de réception (alerte reçue)
+    traitee = db.Column(db.Boolean, default=False)
+    signature = db.Column(db.String(200))
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+
+    signalement = db.relationship("SignalementQualite", foreign_keys=[signalement_id])
+
+
+class MessageReliance(db.Model):
+    """File d'échange avec le Hub — garantit la RÉSILIENCE.
+
+    L'instance nationale reste pleinement opérationnelle si le Hub est
+    injoignable : les messages sont mis en file, puis rejoués au rétablissement
+    (idempotence par identifiant de message).
+    """
+    __tablename__ = "message_reliance"
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.String(64), unique=True, nullable=False)
+    sens = db.Column(db.String(10), nullable=False)       # sortant | entrant
+    type_message = db.Column(db.String(40), nullable=False)
+    destinataire = db.Column(db.String(12), nullable=False)   # code pays ou REGIONAL
+    enveloppe = db.Column(db.JSON, nullable=False)
+    statut = db.Column(db.String(20), nullable=False, default="en_file")
+    # en_file | transmis | echec | recu
+    tentatives = db.Column(db.Integer, default=0)
+    derniere_erreur = db.Column(db.Text)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_transmission = db.Column(db.DateTime)
