@@ -64,6 +64,10 @@ def deposer(promoteur, titre, produit_etudie=None, sites=None, reference_comite_
     enregistrer_creation(protocole, promoteur, "Dépôt du protocole d'essai clinique")
     notifier_tous("agent_dros", "ct_nouveau_protocole", f"Nouveau protocole {protocole.numero} déposé.",
                   lien=f"/protocoles/{protocole.id}")
+    # Redevance d'autorisation d'essai clinique, à la charge du promoteur.
+    from paiements import exiger_paiement
+    exiger_paiement(protocole, [promoteur], f"/protocoles/{protocole.id}",
+                    f"l'autorisation de l'essai {protocole.numero}")
     return protocole
 
 

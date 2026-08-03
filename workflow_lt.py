@@ -71,13 +71,26 @@ def _conformite_parametre(resultat_mesure, specification):
     return "conforme" if val.lower() == spec.lower() else "non_conforme"
 
 
-def creer_echantillon(produit, acteur, origine="demande_directe", lot=None, origine_reference_id=None):
+def creer_echantillon(produit, acteur, origine="demande_directe", lot=None, origine_reference_id=None,
+                       demandeur=None):
     from numerotation import generer_numero
+    # Seule une demande directe d'un opérateur est facturée : un prélèvement
+    # d'office (inspection, signalement de marché) relève du contrôle public,
+    # et une analyse liée à une AMM ou une libération est couverte par la
+    # redevance de la procédure d'origine.
+    redevable = demandeur if origine == "demande_directe" else None
+    if redevable is None and origine == "demande_directe" and acteur is not None and acteur.est_externe:
+        redevable = acteur
     ech = Echantillon(numero=generer_numero("LAB"), produit_id=produit.id, lot_id=lot.id if lot else None,
-                       origine=origine, origine_reference_id=origine_reference_id, statut="recu")
+                       origine=origine, origine_reference_id=origine_reference_id, statut="recu",
+                       demandeur_id=redevable.id if redevable else None)
     db.session.add(ech)
     db.session.flush()
     enregistrer_creation(ech, acteur, f"Réception d'un échantillon ({ORIGINES.get(origine, origine)})")
+    if redevable is not None:
+        from paiements import exiger_paiement
+        exiger_paiement(ech, [redevable], f"/laboratoire/echantillons/{ech.id}",
+                        f"l'analyse de l'échantillon {ech.numero}")
     notifier_tous("agent_laboratoire", "lt_nouvel_echantillon",
                   f"Nouvel échantillon {ech.numero} reçu ({produit.libelle}).", lien=f"/echantillons/{ech.id}")
     return ech

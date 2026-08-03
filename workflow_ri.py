@@ -71,6 +71,19 @@ def planifier(etablissement, inspecteur, acteur, type_insp="routine", date_plani
     notifier(inspecteur, "inspection_planifiee",
              f"Inspection {insp.numero} planifiée chez {etablissement.raison_sociale}.",
              lien=f"/inspections/{insp.id}")
+    # Redevance d'inspection : nulle par défaut (paramètre RI/frais_inspection_xaf).
+    # Tant qu'elle vaut 0, aucune créance n'est créée et l'établissement n'est
+    # pas sollicité — la facturation s'active par simple paramétrage.
+    from paiements import _demandeur, exiger_paiement
+    paiement = exiger_paiement(insp, [], f"/inspections/{insp.id}",
+                               f"l'inspection {insp.numero}")
+    if paiement is not None:
+        redevable = _demandeur(paiement)
+        if redevable is not None:
+            notifier(redevable, "paiement_attendu",
+                     f"Frais de {paiement.montant} {paiement.devise} à régler pour "
+                     f"l'inspection {insp.numero} ({paiement.numero}).",
+                     lien=f"/inspections/{insp.id}")
     return insp
 
 

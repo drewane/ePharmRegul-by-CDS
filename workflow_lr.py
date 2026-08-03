@@ -57,6 +57,18 @@ def recevoir_dossier_lot(produit, lot, acteur, dossier_fabricant=""):
     db.session.add(liberation)
     db.session.flush()
     enregistrer_creation(liberation, acteur, "Réception du dossier de lot")
+    # Redevance de libération, à la charge du titulaire de l'AMM du produit :
+    # on notifie son représentant déclaré (résolu par la couche paiement).
+    from paiements import _demandeur, exiger_paiement
+    paiement = exiger_paiement(liberation, [], f"/liberations/{liberation.id}",
+                               f"la libération du lot {liberation.numero}")
+    if paiement is not None:
+        redevable = _demandeur(paiement)
+        if redevable is not None:
+            notifier(redevable, "paiement_attendu",
+                     f"Frais de {paiement.montant} {paiement.devise} à régler pour la "
+                     f"libération du lot {liberation.numero} ({paiement.numero}).",
+                     lien=f"/liberations/{liberation.id}")
     if produit.statut_amm_courant != "active":
         notifier_tous("agent_laboratoire", "lr_amm_non_active",
                       f"Dossier de lot {liberation.numero} reçu pour un produit sans AMM active "

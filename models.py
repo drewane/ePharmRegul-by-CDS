@@ -285,6 +285,9 @@ class Echantillon(db.Model):
     # dossier_amm | inspection | signalement_marche | demande_directe | liberation_lot
     origine_reference_id = db.Column(db.Integer, nullable=True)
     date_reception = db.Column(db.DateTime, default=datetime.utcnow)
+    # Redevable de l'analyse pour un échantillon reçu sur demande directe.
+    # Nul pour un prélèvement d'office (inspection, signalement) : non facturé.
+    demandeur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
     analyste_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
     validateur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
     resultats_json = db.Column(db.Text, default="[]")  # liste de ResultatParametre
@@ -295,6 +298,7 @@ class Echantillon(db.Model):
 
     produit = db.relationship("Produit", foreign_keys=[produit_id])
     lot = db.relationship("Lot", foreign_keys=[lot_id])
+    demandeur = db.relationship("Personne", foreign_keys=[demandeur_id])
     analyste = db.relationship("Personne", foreign_keys=[analyste_id])
     validateur = db.relationship("Personne", foreign_keys=[validateur_id])
 

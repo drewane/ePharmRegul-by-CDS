@@ -80,16 +80,15 @@ def deposer_demande(etablissement, acteur, type_demande="nouvelle", pieces_justi
     enregistrer_audit(etablissement, "Établissement placé en instruction (nouvelle demande de licence)",
                        acteur, ancien, etablissement.statut_licence)
 
-    montant = int(get_parametre("LI", "frais_dossier_xaf", default=150000))
-    paiement = creer_paiement(demande, montant)
-    for dest in _destinataires_etablissement(etablissement):
+    destinataires = _destinataires_etablissement(etablissement)
+    for dest in destinataires:
         notifier(dest, "li_demande_deposee",
                  f"Votre demande de licence {demande.numero} a été déposée avec succès.",
                  lien=f"/licences/{demande.id}")
-        notifier(dest, "paiement_attendu",
-                 f"Frais de dossier de {montant} XAF à régler pour {demande.numero} (paiement {paiement.numero}). "
-                 "Déposez votre preuve de paiement depuis la fiche de la demande.",
-                 lien=f"/licences/{demande.id}")
+    # Redevance de licence — montant tiré du barème, notification aux redevables.
+    from paiements import exiger_paiement
+    exiger_paiement(demande, destinataires, f"/licences/{demande.id}",
+                    f"la demande de licence {demande.numero}")
     return demande
 
 

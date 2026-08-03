@@ -57,15 +57,17 @@ def _demandeur(paiement):
         from models import ProtocoleEssaiClinique
         p = db.session.get(ProtocoleEssaiClinique, paiement.entite_id)
         return p.promoteur if p else None
-    if paiement.entite_type in ("Inspection", "LiberationLot"):
-        # Le redevable est l'établissement concerné : on notifie son représentant.
-        from models import Inspection, LiberationLot
-        modele = Inspection if paiement.entite_type == "Inspection" else LiberationLot
-        obj = db.session.get(modele, paiement.entite_id)
-        etab_id = getattr(obj, "etablissement_id", None) if obj else None
-        if not etab_id:
-            return None
-        return _representant_etablissement(etab_id)
+    if paiement.entite_type == "Inspection":
+        # Redevable : l'établissement inspecté, via son représentant déclaré.
+        from models import Inspection
+        insp = db.session.get(Inspection, paiement.entite_id)
+        return _representant_etablissement(insp.etablissement_id) if insp else None
+    if paiement.entite_type == "LiberationLot":
+        # Redevable : le titulaire de l'AMM du produit concerné.
+        from models import LiberationLot
+        lib = db.session.get(LiberationLot, paiement.entite_id)
+        etab_id = getattr(getattr(lib, "produit", None), "titulaire_amm_id", None) if lib else None
+        return _representant_etablissement(etab_id) if etab_id else None
     return None
 
 
@@ -81,6 +83,28 @@ def _representant_etablissement(etablissement_id):
                     Personne.role_systeme.in_(_PROFILS_REPRESENTANTS),
                     Personne.statut_compte == "actif")
             .first())
+
+
+def exiger_paiement(entite, destinataires, lien, libelle_acte=None, devise="XAF"):
+    """Crée la créance exigible pour un acte et en informe le ou les redevables.
+
+    Point d'entrée unique des workflows : le montant vient du barème, un acte
+    non facturé (montant 0) ne crée rien et ne notifie personne. Renvoie le
+    paiement créé, ou None si l'acte est gratuit.
+    """
+    paiement = creer_paiement_bareme(entite, devise=devise)
+    if paiement is None:
+        return None
+    acte = libelle_acte or LIBELLE_OBJET.get(entite.__class__.__name__, "cet acte")
+    for dest in destinataires or []:
+        if dest is None:
+            continue
+        notifier(dest, "paiement_attendu",
+                 f"Frais de {paiement.montant} {paiement.devise} à régler pour "
+                 f"{acte} ({paiement.numero}). Réglez en ligne depuis votre espace "
+                 "— mobile money, carte bancaire ou virement.",
+                 lien=lien)
+    return paiement
 
 
 def creer_paiement_bareme(entite, devise="XAF"):
