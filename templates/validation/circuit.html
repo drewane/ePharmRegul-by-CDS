@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Circuit de validation — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ libelle }}</h1>
+    <p class="text-muted mb-0">
+      <code>{{ objet.numero or objet.id }}</code>
+      {% if objet.produit is defined and objet.produit %}
+        — {{ objet.produit.libelle }}
+      {% endif %}
+    </p>
+  </div>
+  {% if acheve %}
+  <a class="btn btn-success"
+     href="{{ url_for('validation.document', entite_type=entite_type, entite_id=objet.id) }}">
+    <i class="bi bi-file-earmark-pdf me-1"></i> Télécharger le document signé</a>
+  {% endif %}
+</div>
+
+{% if refuse %}
+<div class="alert alert-danger">
+  <strong>Circuit interrompu.</strong> Un échelon a refusé la validation :
+  le dossier doit être corrigé avant d'être relancé.
+</div>
+{% elif acheve %}
+<div class="alert alert-success">
+  <strong>Circuit achevé.</strong> Tous les échelons ont signé — le document
+  officiel a été produit.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Chaîne de validation</div>
+      <div class="card-body">
+        {% if etapes %}
+        <ol class="list-unstyled mb-0">
+          {% for e in etapes %}
+          <li class="d-flex mb-3">
+            <div class="me-3 text-center" style="width:2.2rem">
+              {% if e.statut == 'validee' %}
+                <span class="badge rounded-pill bg-success">{{ e.ordre }}</span>
+              {% elif e.statut == 'refusee' %}
+                <span class="badge rounded-pill bg-danger">{{ e.ordre }}</span>
+              {% elif courante and courante.id == e.id %}
+                <span class="badge rounded-pill bg-primary">{{ e.ordre }}</span>
+              {% else %}
+                <span class="badge rounded-pill bg-light text-muted border">{{ e.ordre }}</span>
+              {% endif %}
+            </div>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between">
+                <strong class="{{ 'text-muted' if e.statut == 'en_attente' and
+                  not (courante and courante.id == e.id) }}">{{ e.libelle_role }}</strong>
+                {% if e.statut == 'validee' %}
+                  <span class="badge bg-success">signée</span>
+                {% elif e.statut == 'refusee' %}
+                  <span class="badge bg-danger">refusée</span>
+                {% elif courante and courante.id == e.id %}
+                  <span class="badge bg-primary">en attente de signature</span>
+                {% endif %}
+              </div>
+              {% if e.validateur %}
+              <div class="small text-muted">
+                {{ e.validateur.nom_complet }} —
+                {{ e.date_validation.strftime('%d/%m/%Y à %H:%M') if e.date_validation }}
+              </div>
+              {% endif %}
+              {% if e.commentaire %}
+              <div class="small {{ 'text-danger' if e.statut == 'refusee' }}">
+                {{ e.commentaire }}</div>
+              {% endif %}
+              {% if e.signature %}
+              <div class="small text-muted">
+                <code>{{ e.signature[:32] }}…</code></div>
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <p class="text-muted mb-2">Aucun circuit de validation n'est ouvert.</p>
+        {% if current_user and current_user.niveau >= 2 %}
+        <form method="post"
+              action="{{ url_for('validation.ouvrir', entite_type=entite_type,
+                                 entite_id=objet.id) }}">
+          <button class="btn btn-primary btn-sm">
+            <i class="bi bi-play-circle me-1"></i> Ouvrir le circuit de validation</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if peut_signer %}
+    <div class="card border-primary">
+      <div class="card-header bg-primary-subtle">
+        <i class="bi bi-pen me-1"></i> Votre signature est attendue
+      </div>
+      <div class="card-body">
+        <form method="post"
+              action="{{ url_for('validation.signer', entite_type=entite_type,
+                                 entite_id=objet.id) }}">
+          <div class="mb-3">
+            <label class="form-label small" for="commentaire">
+              Observation (facultative)</label>
+            <textarea class="form-control form-control-sm" id="commentaire"
+                      name="commentaire" rows="2"></textarea>
+          </div>
+          <button class="btn btn-success w-100">
+            <i class="bi bi-check2-circle me-1"></i> Apposer ma validation</button>
+        </form>
+        <hr>
+        <form method="post"
+              action="{{ url_for('validation.refuser', entite_type=entite_type,
+                                 entite_id=objet.id) }}">
+          <div class="mb-2">
+            <label class="form-label small" for="motif">
+              Motif du refus <span class="text-danger">*</span></label>
+            <textarea class="form-control form-control-sm" id="motif" name="motif"
+                      rows="2" required></textarea>
+          </div>
+          <button class="btn btn-outline-danger btn-sm w-100">
+            Refuser et interrompre le circuit</button>
+        </form>
+      </div>
+    </div>
+    {% elif courante %}
+    <div class="card">
+      <div class="card-body small text-muted">
+        Ce document attend la signature du
+        <strong>{{ courante.libelle_role }}</strong>.
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card mt-3">
+      <div class="card-body small text-muted">
+        <p class="mb-1"><strong>Comment fonctionne la validation numérique</strong></p>
+        <ul class="mb-0 ps-3">
+          <li>Chaque échelon signe à son tour : l'ordre est garanti par le système.</li>
+          <li>Chaque signature est nominative, horodatée et porte une empreinte
+              vérifiable.</li>
+          <li>Un refus, à n'importe quel échelon, interrompt le circuit.</li>
+          <li>Le document officiel n'est produit qu'à la dernière signature.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

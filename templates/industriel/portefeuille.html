@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Portefeuille — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Portefeuille réglementaire</h1>
+    <p class="text-muted mb-0">
+      {{ dossiers|length }} dossier(s) — société
+      {{ u.etablissement.raison_sociale if u.etablissement else u.nom_complet }}
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('industriel.nouvelle_demande') }}">
+    <i class="bi bi-plus-circle me-1"></i> Nouvelle demande</a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small mb-1" for="statut">Statut</label>
+        <select class="form-select form-select-sm" id="statut" name="statut">
+          <option value="">Tous</option>
+          {% for code, libelle in STATUTS.items() %}
+          <option value="{{ code }}" {{ 'selected' if statut == code }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-1" for="type">Type de procédure</label>
+        <select class="form-select form-select-sm" id="type" name="type">
+          <option value="">Tous</option>
+          {% for code, libelle in TYPES.items() %}
+          <option value="{{ code }}" {{ 'selected' if type_proc == code }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-sm btn-outline-primary w-100">Filtrer</button>
+      </div>
+      <div class="col-md-2">
+        <a class="btn btn-sm btn-link w-100"
+           href="{{ url_for('industriel.portefeuille') }}">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if dossiers %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Référence</th><th>Produit</th><th>Type</th><th>Statut</th>
+        <th>Déposé le</th><th>Validité</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for d in dossiers %}
+        <tr>
+          <td><code>{{ d.numero or '—' }}</code></td>
+          <td class="small">{{ d.produit.libelle if d.produit else '—' }}</td>
+          <td class="small">{{ TYPES.get(d.type_procedure, d.type_procedure) }}</td>
+          <td>
+            {% if d.statut == 'approuve' %}
+              <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
+            {% elif d.statut in ('rejete', 'irrecevable') %}
+              <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
+            {% elif d.statut == 'complement_requis' %}
+              <span class="badge bg-warning text-dark">{{ STATUTS[d.statut] }}</span>
+            {% elif d.statut == 'cloture_delai_depasse' %}
+              <span class="badge bg-dark">{{ STATUTS[d.statut] }}</span>
+            {% else %}
+              <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">
+            {{ d.date_depot.strftime('%d/%m/%Y') if d.date_depot else '—' }}</td>
+          <td class="small">
+            {{ d.date_validite_amm.strftime('%d/%m/%Y') if d.date_validite_amm else '—' }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary" href="/dossiers/{{ d.id }}">
+              Ouvrir</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucun dossier ne correspond à ces critères.</div>
+  {% endif %}
+</div>
+{% endblock %}

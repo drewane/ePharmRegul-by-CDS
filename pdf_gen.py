@@ -311,3 +311,188 @@ def generer_recu_paiement(paiement, chemin_sortie, objet="", redevable=None,
     c.showPage()
     c.save()
     return chemin_sortie
+
+
+def _bloc_signatures(c, largeur, y, etapes):
+    """Visa des signataires du circuit — trace la chaîne de responsabilité."""
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(20 * mm, y, "VISAS DE LA CHAÎNE DE VALIDATION")
+    y -= 6 * mm
+    c.setFont("Helvetica", 7.5)
+    for e in etapes:
+        if e.statut != "validee":
+            continue
+        nom = e.validateur.nom_complet if e.validateur else "—"
+        quand = e.date_validation.strftime("%d/%m/%Y %H:%M") if e.date_validation else "—"
+        c.drawString(22 * mm, y, f"{e.ordre}. {e.libelle_role}")
+        c.drawString(95 * mm, y, nom[:28])
+        c.drawString(140 * mm, y, quand)
+        y -= 4.5 * mm
+        if e.signature:
+            c.setFillColor(colors.HexColor("#777777"))
+            c.drawString(25 * mm, y, f"empreinte {e.signature[:40]}…")
+            c.setFillColor(colors.black)
+            y -= 4.5 * mm
+    return y
+
+
+def generer_amm(dossier, chemin_sortie, etapes_validation=(), base_url=""):
+    """Autorisation de mise sur le marché — signée par le Ministre de la Santé.
+
+    MODÈLE STANDARD, à remplacer par la version officielle de la DPML : la
+    structure et les mentions sont en place, seul l'habillage réglementaire
+    définitif reste à substituer.
+    """
+    c = canvas.Canvas(chemin_sortie, pagesize=A4)
+    largeur, hauteur = A4
+    produit = dossier.produit
+    _dessiner_entete(c, sous_titre="Direction de la Pharmacie, du Médicament "
+                                    "et des Laboratoires (DPML)")
+
+    y = hauteur - 42 * mm
+    c.setFont("Helvetica-Bold", 17)
+    c.drawCentredString(largeur / 2, y, "AUTORISATION DE MISE SUR LE MARCHÉ")
+    y -= 8 * mm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawCentredString(largeur / 2, y, f"N° {dossier.numero}")
+    y -= 12 * mm
+
+    c.setFont("Helvetica", 9.5)
+    c.drawCentredString(largeur / 2, y,
+                        "Le Ministre de la Santé publique, vu la réglementation "
+                        "pharmaceutique en vigueur,")
+    y -= 5 * mm
+    c.drawCentredString(largeur / 2, y,
+                        "vu le rapport d'évaluation de la Direction de la Pharmacie, "
+                        "du Médicament et des Laboratoires,")
+    y -= 9 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawCentredString(largeur / 2, y, "AUTORISE LA MISE SUR LE MARCHÉ DU PRODUIT :")
+    y -= 12 * mm
+
+    # Identification du produit
+    c.setFillColor(colors.HexColor("#eef3f8"))
+    c.rect(18 * mm, y - 42 * mm, largeur - 36 * mm, 46 * mm, fill=1, stroke=0)
+    c.setFillColor(colors.black)
+    yy = y
+    lignes = [
+        ("Nom commercial", produit.nom_commercial or "—"),
+        ("Dénomination commune (DCI)",
+         produit.denomination_commune_internationale or "—"),
+        ("Forme pharmaceutique", produit.forme_pharmaceutique or "—"),
+        ("Dosage", produit.dosage or "—"),
+        ("Titulaire de l'AMM",
+         produit.titulaire_amm.raison_sociale if produit.titulaire_amm else "—"),
+        ("Fabricant", getattr(produit, "fabricant_nom", None) or "—"),
+    ]
+    for label, valeur in lignes:
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(22 * mm, yy, f"{label} :")
+        c.setFont("Helvetica", 9)
+        c.drawString(78 * mm, yy, str(valeur)[:60])
+        yy -= 7 * mm
+    y -= 50 * mm
+
+    c.setFont("Helvetica", 9.5)
+    if dossier.date_validite_amm:
+        c.drawString(20 * mm, y, f"Validité : jusqu'au "
+                                  f"{dossier.date_validite_amm.strftime('%d/%m/%Y')}")
+        y -= 6 * mm
+    if dossier.date_decision:
+        c.drawString(20 * mm, y, f"Date de décision : "
+                                  f"{dossier.date_decision.strftime('%d/%m/%Y')}")
+        y -= 6 * mm
+    c.drawString(20 * mm, y, "La présente autorisation est délivrée sous réserve du "
+                             "respect des obligations réglementaires du titulaire.")
+    y -= 12 * mm
+
+    if etapes_validation:
+        y = _bloc_signatures(c, largeur, y, etapes_validation)
+
+    # Empreinte du document + QR de vérification
+    empreinte = calculer_hash(dossier, "ministre_sante",
+                              dossier.date_decision or datetime.utcnow())
+    y -= 4 * mm
+    c.setFont("Helvetica", 7)
+    c.drawString(20 * mm, y, f"Empreinte du document : {empreinte}")
+
+    if base_url:
+        url = f"{base_url.rstrip('/')}/verification/{dossier.numero}"
+        try:
+            c.drawImage(ImageReader(_qr_verification(url)), largeur - 48 * mm,
+                        22 * mm, width=26 * mm, height=26 * mm)
+            c.setFont("Helvetica", 6.5)
+            c.drawCentredString(largeur - 35 * mm, 19 * mm, "Vérifier ce document")
+        except Exception:
+            pass
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(largeur / 2, 12 * mm,
+                        "Document produit par SIREPH après validation numérique de "
+                        "l'ensemble des échelons du circuit.")
+    c.showPage()
+    c.save()
+    return chemin_sortie
+
+
+def generer_decision_signee(entite, chemin_sortie, titre, lignes,
+                             etapes_validation=(), mention=""):
+    """Document de décision signé au terme d'un circuit (dérogation, visa…).
+
+    Générique : le titre, les mentions et les lignes d'identification sont
+    fournis par le module appelant, la mise en forme et les visas sont communs.
+    """
+    c = canvas.Canvas(chemin_sortie, pagesize=A4)
+    largeur, hauteur = A4
+    _dessiner_entete(c, sous_titre="Direction de la Pharmacie, du Médicament "
+                                    "et des Laboratoires (DPML)")
+
+    y = hauteur - 45 * mm
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(largeur / 2, y, titre.upper())
+    y -= 8 * mm
+    numero = getattr(entite, "numero", "")
+    if numero:
+        c.setFont("Helvetica-Bold", 11)
+        c.drawCentredString(largeur / 2, y, f"N° {numero}")
+        y -= 14 * mm
+
+    c.setFont("Helvetica", 10)
+    for label, valeur in lignes:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(22 * mm, y, f"{label} :")
+        c.setFont("Helvetica", 10)
+        c.drawString(78 * mm, y, str(valeur)[:65])
+        y -= 7 * mm
+
+    if mention:
+        y -= 6 * mm
+        c.setFont("Helvetica-Oblique", 9)
+        for ligne in _decouper(mention, 95):
+            c.drawString(22 * mm, y, ligne)
+            y -= 5 * mm
+
+    y -= 10 * mm
+    if etapes_validation:
+        y = _bloc_signatures(c, largeur, y, etapes_validation)
+
+    c.setFont("Helvetica-Oblique", 7)
+    c.drawCentredString(largeur / 2, 12 * mm,
+                        "Document produit par SIREPH après validation numérique de "
+                        "l'ensemble des échelons du circuit.")
+    c.showPage()
+    c.save()
+    return chemin_sortie
+
+
+def _decouper(texte, largeur_car):
+    mots, ligne, lignes = (texte or "").split(), "", []
+    for mot in mots:
+        if len(ligne) + len(mot) + 1 > largeur_car:
+            lignes.append(ligne)
+            ligne = mot
+        else:
+            ligne = f"{ligne} {mot}".strip()
+    if ligne:
+        lignes.append(ligne)
+    return lignes

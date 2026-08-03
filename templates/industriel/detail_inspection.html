@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}{{ d.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('industriel.inspections') }}">
+    <i class="bi bi-arrow-left"></i> Mes demandes d'inspection</a>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ d.numero }}</h1>
+    <p class="text-muted mb-0">{{ d.site_nom }} — {{ d.site_pays }}
+      {% if d.a_l_etranger %}
+      <span class="badge bg-info text-dark">site à l'étranger</span>{% endif %}
+    </p>
+  </div>
+  <span class="badge bg-{{ 'danger' if d.statut == 'irrecevable' else
+    ('success' if d.statut in ('recevable', 'planifiee', 'realisee') else 'secondary') }} fs-6">
+    {{ STATUTS.get(d.statut, d.statut) }}</span>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">Site à inspecter</div>
+      <div class="card-body">
+        <dl class="row mb-0">
+          <dt class="col-sm-4">Nom du site</dt><dd class="col-sm-8">{{ d.site_nom }}</dd>
+          <dt class="col-sm-4">Pays</dt><dd class="col-sm-8">{{ d.site_pays }}</dd>
+          <dt class="col-sm-4">Adresse</dt>
+          <dd class="col-sm-8">{{ d.site_adresse or '—' }}</dd>
+          <dt class="col-sm-4">Contact sur place</dt>
+          <dd class="col-sm-8">{{ d.site_contact or '—' }}</dd>
+          <dt class="col-sm-4">Période souhaitée</dt>
+          <dd class="col-sm-8">{{ d.periode_souhaitee or '—' }}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">Motif</div>
+      <div class="card-body">
+        <p class="mb-0">{{ d.motif }}</p>
+        {% if d.produits_concernes %}
+        <hr>
+        <p class="small text-muted mb-1">Produits concernés</p>
+        <p class="mb-0 small">{{ d.produits_concernes }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Suivi</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-6">Déposée le</dt>
+          <dd class="col-6">{{ d.date_creation.strftime('%d/%m/%Y') }}</dd>
+          <dt class="col-6">Décision</dt>
+          <dd class="col-6">
+            {{ d.date_decision.strftime('%d/%m/%Y') if d.date_decision else 'en attente' }}</dd>
+        </dl>
+        {% if d.motif_decision %}
+        <hr>
+        <p class="small text-muted mb-1">Motif de la décision</p>
+        <p class="small mb-0">{{ d.motif_decision }}</p>
+        {% endif %}
+        {% if d.inspection %}
+        <hr>
+        <p class="small mb-0">
+          Inspection planifiée : <code>{{ d.inspection.numero }}</code></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

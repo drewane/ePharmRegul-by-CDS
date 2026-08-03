@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Demandes d'inspection — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Demandes d'inspection</h1>
+<p class="text-muted">
+  Sollicitez la venue de l'autorité sur un site de fabrication — au Cameroun ou
+  à l'étranger — pour faire constater sa conformité.
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Nouvelle demande</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="site_nom">
+              Site à inspecter <span class="text-danger">*</span></label>
+            <input class="form-control" id="site_nom" name="site_nom" required
+                   placeholder="Usine de production — Lomé">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="site_pays">
+              Pays <span class="text-danger">*</span></label>
+            <input class="form-control" id="site_pays" name="site_pays" required
+                   placeholder="Togo">
+            <div class="form-text">Indiquez « Cameroun » pour un site national.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="site_adresse">Adresse du site</label>
+            <input class="form-control" id="site_adresse" name="site_adresse">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="site_contact">Contact sur place</label>
+            <input class="form-control" id="site_contact" name="site_contact"
+                   placeholder="Nom, téléphone, e-mail">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="motif">
+              Motif de la demande <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="motif" name="motif" rows="3" required
+                      placeholder="Inspection préalable à l'homologation, renouvellement de certificat BPF…"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="produits_concernes">Produits concernés</label>
+            <textarea class="form-control" id="produits_concernes"
+                      name="produits_concernes" rows="2"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="periode_souhaitee">Période souhaitée</label>
+            <input class="form-control" id="periode_souhaitee" name="periode_souhaitee"
+                   placeholder="ex. 2e trimestre 2026">
+          </div>
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-send me-1"></i> Déposer la demande</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        Mes demandes <span class="badge bg-secondary">{{ demandes|length }}</span>
+      </div>
+      {% if demandes %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Référence</th><th>Site</th><th>Pays</th><th>Statut</th><th>Déposée</th>
+          </tr></thead>
+          <tbody>
+          {% for d in demandes %}
+            <tr>
+              <td><a href="{{ url_for('industriel.detail_inspection', demande_id=d.id) }}">
+                <code>{{ d.numero }}</code></a></td>
+              <td class="small">{{ d.site_nom[:34] }}</td>
+              <td class="small">
+                {{ d.site_pays }}
+                {% if d.a_l_etranger %}
+                <span class="badge bg-info text-dark">étranger</span>{% endif %}
+              </td>
+              <td>
+                {% if d.statut == 'irrecevable' %}
+                  <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
+                {% elif d.statut in ('recevable', 'planifiee', 'realisee') %}
+                  <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ d.date_creation.strftime('%d/%m/%Y') }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune demande d'inspection déposée.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Mon portefeuille — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ societe }}</h1>
+    <p class="text-muted mb-0">
+      Portefeuille réglementaire de votre société — {{ s.total }} dossier(s)
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('industriel.nouvelle_demande') }}">
+    <i class="bi bi-plus-circle me-1"></i> Nouvelle demande</a>
+</div>
+
+{% if s.expirees %}
+<div class="alert alert-danger">
+  <strong>{{ s.expirees }} AMM expirée(s).</strong>
+  Un produit dont l'AMM a expiré ne peut plus être commercialisé.
+  <a href="{{ url_for('industriel.portefeuille', statut='approuve') }}">Voir</a>
+</div>
+{% endif %}
+
+<div class="row g-3 mb-3">
+  {% set tuiles = [
+    ('Dossiers en cours', s.en_cours, 'bi-hourglass-split', 'primary', ''),
+    ('AMM en vigueur', s.approuves, 'bi-patch-check', 'success', 'approuve'),
+    ('Compléments demandés', s.complement_requis, 'bi-exclamation-circle', 'warning', 'complement_requis'),
+    ('Rejetés', s.rejetes, 'bi-x-circle', 'danger', 'rejete'),
+    ('À renouveler', s.a_renouveler, 'bi-arrow-repeat', 'info', ''),
+    ('Brouillons', s.brouillons, 'bi-pencil', 'secondary', 'brouillon'),
+  ] %}
+  {% for libelle, valeur, icone, couleur, filtre in tuiles %}
+  <div class="col-6 col-lg-2">
+    <a class="text-decoration-none"
+       href="{{ url_for('industriel.portefeuille', statut=filtre) }}">
+      <div class="card h-100">
+        <div class="card-body text-center py-3">
+          <i class="bi {{ icone }} fs-4 text-{{ couleur }}"></i>
+          <div class="h3 mb-0 mt-1">{{ valeur }}</div>
+          <div class="small text-muted">{{ libelle }}</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between">
+        <span>Dossiers récents</span>
+        <a class="small" href="{{ url_for('industriel.portefeuille') }}">Tout voir</a>
+      </div>
+      {% if recents %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Référence</th><th>Produit</th><th>Type</th><th>Statut</th><th>MAJ</th>
+          </tr></thead>
+          <tbody>
+          {% for d in recents %}
+            <tr>
+              <td><a href="/dossiers/{{ d.id }}"><code>{{ d.numero or '—' }}</code></a></td>
+              <td class="small">{{ d.produit.libelle if d.produit else '—' }}</td>
+              <td class="small">{{ TYPES.get(d.type_procedure, d.type_procedure) }}</td>
+              <td>
+                {% if d.statut == 'approuve' %}
+                  <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
+                {% elif d.statut in ('rejete', 'irrecevable') %}
+                  <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
+                {% elif d.statut == 'complement_requis' %}
+                  <span class="badge bg-warning text-dark">{{ STATUTS[d.statut] }}</span>
+                {% else %}
+                  <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ d.date_maj.strftime('%d/%m/%Y') }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">
+        Aucun dossier à ce jour.
+        <a href="{{ url_for('industriel.nouvelle_demande') }}">Déposer une demande</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="bi bi-arrow-repeat me-1"></i> Renouvellements à prévoir
+      </div>
+      {% if a_renouveler %}
+      <div class="list-group list-group-flush">
+        {% for d, jours in a_renouveler %}
+        <div class="list-group-item py-2">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <code class="small">{{ d.numero }}</code><br>
+              <span class="small">{{ d.produit.libelle if d.produit else '—' }}</span>
+            </div>
+            <div class="text-end">
+              {% if jours < 0 %}
+                <span class="badge bg-danger">expirée</span>
+                <div class="small text-danger">depuis {{ -jours }} j</div>
+              {% elif jours < 60 %}
+                <span class="badge bg-warning text-dark">{{ jours }} j</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ jours }} j</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted small">
+        Aucune AMM n'arrive à échéance dans les 6 mois.
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span><i class="bi bi-clipboard-check me-1"></i> Demandes d'inspection</span>
+        <a class="small" href="{{ url_for('industriel.inspections') }}">Gérer</a>
+      </div>
+      {% if demandes_inspection %}
+      <div class="list-group list-group-flush">
+        {% for d in demandes_inspection %}
+        <a class="list-group-item list-group-item-action py-2"
+           href="{{ url_for('industriel.detail_inspection', demande_id=d.id) }}">
+          <div class="d-flex justify-content-between">
+            <span class="small"><code>{{ d.numero }}</code> {{ d.site_nom[:28] }}</span>
+            <span class="badge bg-secondary">{{ d.statut }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted small">Aucune demande d'inspection.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

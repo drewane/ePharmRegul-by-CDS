@@ -68,6 +68,8 @@ from routes_visas import visas_bp  # noqa: E402
 from routes_paiement import bp as paiement_bp  # noqa: E402
 from routes_profils import bp as profils_bp  # noqa: E402
 from routes_reliance import bp as reliance_bp  # noqa: E402
+from routes_industriel import bp as industriel_bp  # noqa: E402
+from routes_validation import bp as validation_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -81,6 +83,8 @@ app.register_blueprint(visas_bp)
 app.register_blueprint(paiement_bp)
 app.register_blueprint(profils_bp)
 app.register_blueprint(reliance_bp)
+app.register_blueprint(industriel_bp)
+app.register_blueprint(validation_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
@@ -123,8 +127,15 @@ def inject_globals():
             from models import AlerteTransfrontaliere
             alertes_reliance = AlerteTransfrontaliere.query.filter_by(
                 sens="recue", traitee=False).count()
+    # Parapheur : documents attendant précisément la signature de cet échelon.
+    signatures_attendues = 0
+    if u is not None and u.niveau >= 2:
+        from models import EtapeValidation
+        signatures_attendues = EtapeValidation.query.filter_by(
+            role_requis=u.role_systeme, statut="en_attente").count()
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
                 peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
+                signatures_attendues=signatures_attendues,
                 wf=wf, STATUTS=wf.STATUTS,
                 TYPES_PROCEDURE=wf.TYPES_PROCEDURE, wfvl=wfvl, STATUTS_VL=wfvl.STATUTS,
                 TYPES_MESURE=wfvl.TYPES_MESURE, wfri=wfri, STATUTS_RI=wfri.STATUTS,
@@ -181,6 +192,12 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
+    # L'industriel dispose d'un tableau de bord cloisonne a sa societe : il ne
+    # doit voir ni les dossiers des autres titulaires, ni les indicateurs
+    # globaux de la DPML.
+    _u = current_user()
+    if _u is not None and _u.role_systeme == "demandeur_externe":
+        return redirect(url_for("industriel.tableau_bord"))
     executer_verifications_delais()
     executer_verifications_delais_vl()
     executer_verifications_delais_ri()

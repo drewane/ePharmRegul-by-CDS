@@ -58,13 +58,43 @@
           <a class="nav-link {{ 'active' if request.path == '/' }}" href="{{ url_for('dashboard') }}">
             <i class="bi bi-speedometer2"></i> Tableau de bord</a>
         </li>
+        {% if current_user.role_systeme == "demandeur_externe" %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/industriel/portefeuille' }}"
+             href="{{ url_for('industriel.portefeuille') }}">
+            <i class="bi bi-briefcase"></i> Mon portefeuille</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/industriel/nouvelle-demande' }}"
+             href="{{ url_for('industriel.nouvelle_demande') }}">
+            <i class="bi bi-plus-circle"></i> Nouvelle demande</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/industriel/inspections') }}"
+             href="{{ url_for('industriel.inspections') }}">
+            <i class="bi bi-clipboard-check"></i> Demandes d'inspection</a>
+        </li>
+        {% endif %}
+
         {% if current_user.est_externe %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if request.path == '/mon-espace' }}"
              href="{{ url_for('profils.mon_espace') }}">
-            <i class="bi bi-person-badge"></i> Mon espace
+            <i class="bi bi-person-badge"></i> Mes paiements
             {%- if paiements_dus %}
             <span class="badge bg-danger ms-1">{{ paiements_dus }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        {% endif %}
+
+        {% if signatures_attendues is defined and current_user.niveau >= 2 %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/validation/parapheur' }}"
+             href="{{ url_for('validation.parapheur') }}">
+            <i class="bi bi-pen"></i> Parapheur
+            {%- if signatures_attendues %}
+            <span class="badge bg-danger ms-1">{{ signatures_attendues }}</span>
             {%- endif %}
           </a>
         </li>

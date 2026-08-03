@@ -789,3 +789,76 @@ class MessageReliance(db.Model):
     derniere_erreur = db.Column(db.Text)
     date_creation = db.Column(db.DateTime, default=datetime.utcnow)
     date_transmission = db.Column(db.DateTime)
+
+
+# ===========================================================================
+# VALIDATION NUMÉRIQUE — circuit de signature hiérarchique
+# ===========================================================================
+class EtapeValidation(db.Model):
+    """Une étape du circuit de signature d'un document.
+
+    Le circuit est matérialisé par une suite ordonnée d'étapes, chacune
+    attribuée à un rôle précis. Une étape ne peut être signée que si toutes
+    celles qui la précèdent l'ont été : l'ordre hiérarchique est garanti par
+    construction, pas seulement par l'interface.
+    """
+    __tablename__ = "etape_validation"
+    id = db.Column(db.Integer, primary_key=True)
+    # Document concerné (AMM, dérogation, visa technique…)
+    entite_type = db.Column(db.String(50), nullable=False)
+    entite_id = db.Column(db.Integer, nullable=False)
+    circuit = db.Column(db.String(30), nullable=False)      # amm | derogation | visa_technique
+    ordre = db.Column(db.Integer, nullable=False)           # 1, 2, 3…
+    role_requis = db.Column(db.String(40), nullable=False)
+    libelle_role = db.Column(db.String(120), nullable=False)
+    statut = db.Column(db.String(20), nullable=False, default="en_attente")
+    # en_attente | validee | refusee
+    validateur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+    commentaire = db.Column(db.Text)
+    # Empreinte de la signature numérique : rend l'apposition vérifiable
+    signature = db.Column(db.String(120))
+    date_validation = db.Column(db.DateTime)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+
+    validateur = db.relationship("Personne", foreign_keys=[validateur_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("entite_type", "entite_id", "ordre",
+                            name="uq_etape_entite_ordre"),
+    )
+
+
+class DemandeInspection(db.Model):
+    """Demande d'inspection sollicitée par un industriel.
+
+    Un titulaire d'AMM peut solliciter la venue de l'autorité sur son site de
+    fabrication — y compris à l'étranger — pour faire constater sa conformité.
+    Une fois recevable, la DPML planifie l'inspection via le module RI.
+    """
+    __tablename__ = "demande_inspection"
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)  # DIN-{annee}-{seq4}
+    demandeur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    etablissement_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=True)
+    # Site à inspecter — souvent distinct du siège du demandeur
+    site_nom = db.Column(db.String(300), nullable=False)
+    site_pays = db.Column(db.String(120), nullable=False)
+    site_adresse = db.Column(db.String(500))
+    site_contact = db.Column(db.String(300))
+    motif = db.Column(db.Text, nullable=False)
+    produits_concernes = db.Column(db.Text)
+    periode_souhaitee = db.Column(db.String(200))
+    statut = db.Column(db.String(30), nullable=False, default="soumise")
+    # soumise | recevable | irrecevable | planifiee | realisee | close
+    motif_decision = db.Column(db.Text)
+    inspection_id = db.Column(db.Integer, db.ForeignKey("inspection.id"), nullable=True)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_decision = db.Column(db.DateTime)
+
+    demandeur = db.relationship("Personne", foreign_keys=[demandeur_id])
+    etablissement = db.relationship("Etablissement", foreign_keys=[etablissement_id])
+    inspection = db.relationship("Inspection", foreign_keys=[inspection_id])
+
+    @property
+    def a_l_etranger(self):
+        return (self.site_pays or "").strip().lower() not in ("cameroun", "cm")

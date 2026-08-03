@@ -52,7 +52,11 @@ ROLES_REGULATEUR = {
     "agent_dros": "Agent DROS (essais cliniques)",
     "responsable_qualite_labo": "Responsable Qualité Laboratoire",
     "chef_service_amm": "Chef de service Homologation",
+    "sous_directeur_medicament": "Sous-directeur du Médicament",
     "directeur_dpml": "Directeur DPML",
+    # Signataires du ministère : l'AMM est signée par le ministre de la Santé.
+    "secretaire_general_ms": "Secrétaire général du Ministère de la Santé",
+    "ministre_sante": "Ministre de la Santé publique",
     "administrateur_dpml": "Administrateur DPML",
 }
 
@@ -75,9 +79,14 @@ NIVEAU_PAR_ROLE = {
     # Niveau 2 — validation technique
     "responsable_qualite_labo": 2,
     "chef_service_amm": 2,
-    # Niveau 3 — décision / signature
-    "directeur_dpml": 3,
-    # Niveau 4 — administration du système
+    # Niveau 3 — sous-direction
+    "sous_directeur_medicament": 3,
+    # Niveau 4 — direction : signature des dérogations et visas techniques
+    "directeur_dpml": 4,
+    # Niveaux 5 et 6 — ministère : signature de l'AMM
+    "secretaire_general_ms": 5,
+    "ministre_sante": 6,
+    # Administration du système : droits techniques, pas un échelon hiérarchique
     "administrateur_dpml": 4,
 }
 
@@ -85,8 +94,10 @@ LIBELLE_NIVEAU = {
     0: "Externe",
     1: "Agent instructeur",
     2: "Responsable de service",
-    3: "Direction",
-    4: "Administration système",
+    3: "Sous-direction",
+    4: "Direction",
+    5: "Secrétariat général",
+    6: "Ministre",
 }
 
 ROLES_ACTIFS = {**ROLES_EXTERNES, **ROLES_REGULATEUR}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Parapheur — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Parapheur</h1>
+<p class="text-muted">
+  Documents attendant précisément votre signature, en qualité de
+  <strong>{{ u.role_label }}</strong>.
+</p>
+
+<div class="card mb-4">
+  <div class="card-header">
+    <i class="bi bi-pen me-1"></i> À signer
+    <span class="badge bg-danger">{{ a_signer|length }}</span>
+  </div>
+  {% if a_signer %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Document</th><th>Référence</th><th>Nature</th><th>Progression</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for item in a_signer %}
+        <tr>
+          <td>{{ item.libelle }}</td>
+          <td><code>{{ item.objet.numero or item.objet.id }}</code></td>
+          <td class="small text-muted">échelon {{ item.etape.ordre }} —
+            {{ item.etape.libelle_role }}</td>
+          <td style="min-width:8rem">
+            <div class="progress" style="height:.5rem">
+              <div class="progress-bar bg-success"
+                   style="width: {{ (100 * item.faits / item.total) | round }}%"></div>
+            </div>
+            <span class="small text-muted">{{ item.faits }}/{{ item.total }}</span>
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-primary"
+               href="{{ url_for('validation.circuit',
+                        entite_type=item.etape.entite_type,
+                        entite_id=item.etape.entite_id) }}">
+              Examiner</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">
+    Aucun document n'attend votre signature.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header">Mes dernières signatures</div>
+  {% if signees %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Document</th><th>Échelon</th><th>Décision</th><th>Date</th><th>Empreinte</th>
+      </tr></thead>
+      <tbody>
+      {% for e in signees %}
+        <tr>
+          <td class="small">
+            <a href="{{ url_for('validation.circuit', entite_type=e.entite_type,
+                                entite_id=e.entite_id) }}">
+              {{ documents.get(e.entite_type, [None, None, e.entite_type])[2] }}
+              #{{ e.entite_id }}</a></td>
+          <td class="small text-muted">{{ e.ordre }} — {{ e.libelle_role }}</td>
+          <td>
+            {% if e.statut == 'validee' %}
+              <span class="badge bg-success">validée</span>
+            {% else %}
+              <span class="badge bg-danger">refusée</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted">
+            {{ e.date_validation.strftime('%d/%m/%Y %H:%M') if e.date_validation else '—' }}</td>
+          <td><code class="small">{{ (e.signature or '')[:16] }}…</code></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucune signature à votre actif pour l'instant.</div>
+  {% endif %}
+</div>
+{% endblock %}
