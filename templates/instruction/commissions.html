@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Commissions — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Commissions d'évaluation</h1>
+<p class="text-muted">
+  {% if est_chef %}Convoquez une séance et inscrivez-y les dossiers à examiner.
+  {% else %}Séances auxquelles vous êtes appelé à siéger.{% endif %}
+</p>
+
+<div class="row g-3">
+  {% if est_chef %}
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header">Convoquer une séance</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="intitule">
+              Intitulé <span class="text-danger">*</span></label>
+            <input class="form-control" id="intitule" name="intitule" required
+                   placeholder="Séance ordinaire — dossiers d'homologation">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="type_commission">Commission</label>
+            <select class="form-select" id="type_commission" name="type_commission">
+              <option value="specialisee">Commission spécialisée</option>
+              <option value="nationale">Commission nationale</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="date_seance">Date de séance</label>
+            <input class="form-control" type="date" id="date_seance" name="date_seance">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="lieu">Lieu</label>
+            <input class="form-control" id="lieu" name="lieu">
+          </div>
+          <button class="btn btn-primary">
+            <i class="bi bi-megaphone me-1"></i> Convoquer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="col-lg-{{ 8 if est_chef else 12 }}">
+    <div class="card">
+      <div class="card-header">
+        Séances <span class="badge bg-secondary">{{ seances|length }}</span>
+      </div>
+      {% if seances %}
+      <div class="table-responsive">
+        <table class="table table-sm mb-0 align-middle">
+          <thead><tr>
+            <th>Séance</th><th>Commission</th><th>Intitulé</th><th>Date</th>
+            <th>Dossiers</th><th>Statut</th>
+          </tr></thead>
+          <tbody>
+          {% for s in seances %}
+            <tr>
+              <td><a href="{{ url_for('instruction.seance', session_id=s.id) }}">
+                <code>{{ s.numero }}</code></a></td>
+              <td class="small">{{ s.type_commission }}</td>
+              <td class="small">{{ s.intitule[:44] }}</td>
+              <td class="small text-muted">
+                {{ s.date_seance.strftime('%d/%m/%Y') if s.date_seance else '—' }}</td>
+              <td>{{ s.inscriptions|length }}</td>
+              <td>
+                {% if s.statut == 'close' %}
+                  <span class="badge bg-success">close</span>
+                {% elif s.statut == 'en_cours' %}
+                  <span class="badge bg-primary">en cours</span>
+                {% else %}
+                  <span class="badge bg-secondary">convoquée</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucune séance.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

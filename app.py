@@ -70,6 +70,7 @@ from routes_profils import bp as profils_bp  # noqa: E402
 from routes_reliance import bp as reliance_bp  # noqa: E402
 from routes_industriel import bp as industriel_bp  # noqa: E402
 from routes_validation import bp as validation_bp  # noqa: E402
+from routes_instruction import bp as instruction_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -85,6 +86,7 @@ app.register_blueprint(profils_bp)
 app.register_blueprint(reliance_bp)
 app.register_blueprint(industriel_bp)
 app.register_blueprint(validation_bp)
+app.register_blueprint(instruction_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
@@ -133,9 +135,21 @@ def inject_globals():
         from models import EtapeValidation
         signatures_attendues = EtapeValidation.query.filter_by(
             role_requis=u.role_systeme, statut="en_attente").count()
+    # Instruction : charge de travail du chef de service et des évaluateurs.
+    dossiers_a_examiner = evaluations_a_rendre = 0
+    if u is not None:
+        if u.role_systeme in ("chef_service_amm", "administrateur_dpml"):
+            dossiers_a_examiner = DossierAMM.query.filter_by(statut="soumis").count()
+        elif u.role_systeme == "evaluateur_interne":
+            from models import AssignationEvaluation
+            evaluations_a_rendre = AssignationEvaluation.query.filter(
+                AssignationEvaluation.evaluateur_id == u.id,
+                AssignationEvaluation.statut != "terminee").count()
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
                 peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
                 signatures_attendues=signatures_attendues,
+                dossiers_a_examiner=dossiers_a_examiner,
+                evaluations_a_rendre=evaluations_a_rendre,
                 wf=wf, STATUTS=wf.STATUTS,
                 TYPES_PROCEDURE=wf.TYPES_PROCEDURE, wfvl=wfvl, STATUTS_VL=wfvl.STATUTS,
                 TYPES_MESURE=wfvl.TYPES_MESURE, wfri=wfri, STATUTS_RI=wfri.STATUTS,

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}{{ s.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('instruction.commissions') }}">
+    <i class="bi bi-arrow-left"></i> Commissions</a>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ s.intitule }}</h1>
+    <p class="text-muted mb-0">
+      <code>{{ s.numero }}</code> · commission {{ s.type_commission }}
+      {%- if s.date_seance %} · {{ s.date_seance.strftime('%d/%m/%Y') }}{% endif %}
+      {%- if s.lieu %} · {{ s.lieu }}{% endif %}
+    </p>
+  </div>
+  <div class="text-end">
+    {% if s.statut == 'close' %}
+      <span class="badge bg-success fs-6">séance close</span>
+    {% elif est_chef %}
+      <form method="post" class="d-inline"
+            onsubmit="return confirm('Clore la séance et synthétiser les avis ?');">
+        <button class="btn btn-success btn-sm" name="action" value="clore">
+          <i class="bi bi-check2-all me-1"></i> Clore et synthétiser</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if est_chef and s.statut != 'close' %}
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="post" class="row g-2 align-items-end">
+      <div class="col-md-8">
+        <label class="form-label small mb-1" for="dossier_id">
+          Inscrire un dossier à l'ordre du jour</label>
+        <select class="form-select form-select-sm" id="dossier_id" name="dossier_id">
+          {% for d in disponibles %}
+          <option value="{{ d.id }}">{{ d.numero }} —
+            {{ d.produit.libelle if d.produit else '—' }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button class="btn btn-sm btn-outline-primary w-100" name="action"
+                value="inscrire">Inscrire</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<h2 class="h6 text-muted">Ordre du jour — {{ s.inscriptions|length }} dossier(s)</h2>
+
+{% for ds in s.inscriptions %}
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between">
+    <span><code>{{ ds.dossier.numero }}</code> —
+      {{ ds.dossier.produit.libelle if ds.dossier.produit else '—' }}</span>
+    {% if ds.avis_global %}
+    <span class="badge bg-{{ 'success' if ds.avis_global == 'favorable'
+      else ('warning text-dark' if ds.avis_global == 'complement_requis' else 'danger') }}">
+      {{ AVIS.get(ds.avis_global, ds.avis_global) }}</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+
+    {% if ds.synthese %}
+    <div class="alert alert-light border">
+      <strong class="small">Synthèse des avis</strong>
+      <pre class="small mb-0 mt-1" style="white-space:pre-wrap">{{ ds.synthese }}</pre>
+    </div>
+    {% endif %}
+
+    {% if est_membre and s.statut != 'close' %}
+    {% set mon_avis = mes_avis.get(ds.id) %}
+    <form method="post" action="{{ url_for('instruction.saisir_avis', ds_id=ds.id) }}">
+      <p class="small text-muted mb-2">
+        Grille d'évaluation — votre avis
+        {% if mon_avis %}<span class="badge bg-success">déjà saisi, modifiable</span>{% endif %}
+      </p>
+      {% for code, question in grille %}
+      <div class="row g-2 align-items-center mb-1">
+        <div class="col-md-7 small">{{ question }}</div>
+        <div class="col-md-5">
+          <div class="btn-group btn-group-sm w-100" role="group">
+            {% for val, lib in (('oui', 'Oui'), ('non', 'Non'), ('sans_objet', 'S.O.')) %}
+            <input type="radio" class="btn-check" name="q_{{ code }}"
+                   id="{{ ds.id }}-{{ code }}-{{ val }}" value="{{ val }}"
+                   {{ 'checked' if mon_avis and mon_avis.reponses.get(code) == val }}>
+            <label class="btn btn-outline-secondary"
+                   for="{{ ds.id }}-{{ code }}-{{ val }}">{{ lib }}</label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <div class="row g-2 mt-2">
+        <div class="col-md-4">
+          <label class="form-label small mb-1" for="avis-{{ ds.id }}">Mon avis</label>
+          <select class="form-select form-select-sm" id="avis-{{ ds.id }}" name="avis"
+                  required>
+            {% for code, libelle in AVIS.items() %}
+            <option value="{{ code }}"
+                    {{ 'selected' if mon_avis and mon_avis.avis == code }}>
+              {{ libelle }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label small mb-1" for="motif-{{ ds.id }}">
+            Motif (obligatoire si défavorable ou complément)</label>
+          <input class="form-control form-control-sm" id="motif-{{ ds.id }}" name="motif"
+                 value="{{ mon_avis.motif if mon_avis and mon_avis.motif else '' }}">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary btn-sm w-100">Enregistrer</button>
+        </div>
+      </div>
+    </form>
+    {% endif %}
+
+    {% if est_chef and not ds.synthese %}
+    <p class="small text-muted mb-0">
+      <i class="bi bi-info-circle me-1"></i>
+      Les avis des membres sont consolidés automatiquement à la clôture de la séance.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-muted">
+  Aucun dossier inscrit à l'ordre du jour.</div></div>
+{% endfor %}
+{% endblock %}

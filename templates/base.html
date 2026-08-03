@@ -88,6 +88,45 @@
         </li>
         {% endif %}
 
+        {% if current_user.role_systeme in ("chef_service_amm", "administrateur_dpml") %}
+        <div class="sireph-sidebar-section">Instruction</div>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/instruction/' }}"
+             href="{{ url_for('instruction.bureau') }}">
+            <i class="bi bi-clipboard2-check"></i> Bureau d'instruction
+            {%- if dossiers_a_examiner %}
+            <span class="badge bg-danger ms-1">{{ dossiers_a_examiner }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/instruction/commissions') }}"
+             href="{{ url_for('instruction.commissions') }}">
+            <i class="bi bi-people"></i> Commissions</a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme == "evaluateur_interne" %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/instruction/mes-evaluations' }}"
+             href="{{ url_for('instruction.mes_evaluations') }}">
+            <i class="bi bi-clipboard2-check"></i> Mes évaluations
+            {%- if evaluations_a_rendre %}
+            <span class="badge bg-danger ms-1">{{ evaluations_a_rendre }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        {% endif %}
+
+        {% if current_user.role_systeme in ("membre_commission_specialisee",
+                                            "membre_commission_nationale") %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/instruction/commissions') }}"
+             href="{{ url_for('instruction.commissions') }}">
+            <i class="bi bi-people"></i> Mes séances</a>
+        </li>
+        {% endif %}
+
         {% if signatures_attendues is defined and current_user.niveau >= 2 %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if request.path == '/validation/parapheur' }}"

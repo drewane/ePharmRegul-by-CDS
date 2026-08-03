@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Bureau d'instruction — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Bureau d'instruction — Homologation</h1>
+<p class="text-muted">Recevabilité, évaluation interne et travaux de commission.</p>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-inbox me-1"></i> Dossiers à examiner
+        <span class="badge bg-danger">{{ a_examiner|length }}</span>
+      </div>
+      {% if a_examiner %}
+      <div class="list-group list-group-flush">
+        {% for d in a_examiner %}
+        <a class="list-group-item list-group-item-action"
+           href="{{ url_for('instruction.dossier', dossier_id=d.id) }}">
+          <div class="d-flex justify-content-between">
+            <strong><code>{{ d.numero }}</code></strong>
+            <span class="badge bg-warning text-dark">recevabilité à examiner</span>
+          </div>
+          <div class="small text-muted">
+            {{ d.produit.libelle if d.produit else '—' }} ·
+            {{ d.demandeur.nom_complet if d.demandeur else '—' }}</div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucun dossier en attente de recevabilité.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-hourglass-split me-1"></i> Dossiers en évaluation
+        <span class="badge bg-secondary">{{ en_evaluation|length }}</span>
+      </div>
+      {% if en_evaluation %}
+      <div class="list-group list-group-flush">
+        {% for d, etat in en_evaluation %}
+        <a class="list-group-item list-group-item-action"
+           href="{{ url_for('instruction.dossier', dossier_id=d.id) }}">
+          <div class="d-flex justify-content-between">
+            <strong><code>{{ d.numero }}</code></strong>
+            <span class="small text-muted">
+              {{ etat.evaluations_remises }}/{{ etat.assignations|length }} évaluation(s)
+            </span>
+          </div>
+          <div class="small text-muted">
+            {{ d.produit.libelle if d.produit else '—' }}
+            {%- if etat.rapport %} · <span class="text-success">rapport transmis</span>
+            {%- elif etat.inscriptions %} · inscrit en commission{% endif %}
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="card-body text-muted">Aucun dossier en évaluation.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header d-flex justify-content-between">
+    <span><i class="bi bi-people me-1"></i> Séances de commission</span>
+    <a class="small" href="{{ url_for('instruction.commissions') }}">Gérer</a>
+  </div>
+  {% if seances %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr><th>Séance</th><th>Type</th><th>Intitulé</th><th>Dossiers</th>
+        <th>Statut</th></tr></thead>
+      <tbody>
+      {% for s in seances %}
+        <tr>
+          <td><a href="{{ url_for('instruction.seance', session_id=s.id) }}">
+            <code>{{ s.numero }}</code></a></td>
+          <td class="small">{{ s.type_commission }}</td>
+          <td class="small">{{ s.intitule[:44] }}</td>
+          <td>{{ s.inscriptions|length }}</td>
+          <td>
+            {% if s.statut == 'close' %}<span class="badge bg-success">close</span>
+            {% elif s.statut == 'en_cours' %}<span class="badge bg-primary">en cours</span>
+            {% else %}<span class="badge bg-secondary">convoquée</span>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucune séance convoquée.</div>
+  {% endif %}
+</div>
+{% endblock %}

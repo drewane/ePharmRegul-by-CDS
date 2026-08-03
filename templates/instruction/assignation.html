@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Évaluation {{ a.dossier.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('instruction.mes_evaluations') }}">
+    <i class="bi bi-arrow-left"></i> Mes évaluations</a>
+</nav>
+
+<h1 class="h4 mb-1">{{ a.dossier.numero }}</h1>
+<p class="text-muted">
+  {{ a.dossier.produit.libelle if a.dossier.produit else '—' }} ·
+  confié par {{ a.assigne_par.nom_complet }}
+  le {{ a.date_assignation.strftime('%d/%m/%Y') }}
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header">
+        {{ 'Rapport remis' if a.statut == 'terminee' else "Rapport d'évaluation interne" }}
+      </div>
+      <div class="card-body">
+        {% if a.statut == 'terminee' %}
+        <p><strong>{{ AVIS.get(a.conclusion, a.conclusion) }}</strong>
+          — remis le {{ a.date_remise.strftime('%d/%m/%Y à %H:%M') }}</p>
+        <hr>
+        <p style="white-space:pre-wrap">{{ a.rapport }}</p>
+        {% else %}
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label" for="rapport">
+              Rapport <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="rapport" name="rapport" rows="12" required
+                      placeholder="Analyse du dossier : qualité, sécurité, efficacité, points d'attention à porter devant la commission…"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="conclusion">
+              Conclusion <span class="text-danger">*</span></label>
+            <select class="form-select" id="conclusion" name="conclusion" required>
+              {% for code, libelle in AVIS.items() %}
+              <option value="{{ code }}">{{ libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn btn-primary">
+            <i class="bi bi-send me-1"></i> Remettre au chef de service</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Consigne</div>
+      <div class="card-body">
+        <p class="small mb-0">{{ a.consigne or "Aucune consigne particulière." }}</p>
+        {% if a.date_echeance %}
+        <hr>
+        <p class="small mb-0">
+          Échéance : <strong>{{ a.date_echeance.strftime('%d/%m/%Y') }}</strong></p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-body">
+        <a class="btn btn-outline-secondary btn-sm w-100"
+           href="/dossiers/{{ a.dossier_id }}">Consulter le dossier complet</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -170,6 +170,8 @@ class DossierAMM(db.Model):
     date_limite_reponse_complement = db.Column(db.DateTime, nullable=True)
     date_limite_retrait_document = db.Column(db.Date, nullable=True)  # décision favorable uniquement
 
+    # Liste de contrôle de recevabilité renseignée par le chef de service
+    checklist_recevabilite = db.Column(db.JSON, default=dict)
     representant_local_nom = db.Column(db.String(200), nullable=True)
     representant_local_contact = db.Column(db.String(200), nullable=True)
 
@@ -862,3 +864,128 @@ class DemandeInspection(db.Model):
     @property
     def a_l_etranger(self):
         return (self.site_pays or "").strip().lower() not in ("cameroun", "cm")
+
+
+# ===========================================================================
+# INSTRUCTION DES DOSSIERS — évaluation interne puis commission
+# ===========================================================================
+class AssignationEvaluation(db.Model):
+    """Dossier confié à un évaluateur interne par le chef de service.
+
+    L'évaluation interne prépare les travaux de commission : elle ne décide de
+    rien, elle instruit.
+    """
+    __tablename__ = "assignation_evaluation"
+    id = db.Column(db.Integer, primary_key=True)
+    dossier_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), nullable=False)
+    evaluateur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    assigne_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    consigne = db.Column(db.Text)
+    statut = db.Column(db.String(20), nullable=False, default="assignee")
+    # assignee | en_cours | terminee
+    rapport = db.Column(db.Text)
+    conclusion = db.Column(db.String(30))
+    # favorable | defavorable | complement_requis
+    date_assignation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_echeance = db.Column(db.DateTime)
+    date_remise = db.Column(db.DateTime)
+
+    dossier = db.relationship("DossierAMM", foreign_keys=[dossier_id])
+    evaluateur = db.relationship("Personne", foreign_keys=[evaluateur_id])
+    assigne_par = db.relationship("Personne", foreign_keys=[assigne_par_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("dossier_id", "evaluateur_id",
+                            name="uq_assignation_dossier_evaluateur"),
+    )
+
+
+class SessionCommission(db.Model):
+    """Séance de commission convoquée par le chef de service."""
+    __tablename__ = "session_commission"
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)  # COM-{annee}-{seq4}
+    type_commission = db.Column(db.String(30), nullable=False, default="specialisee")
+    # specialisee | nationale
+    intitule = db.Column(db.String(300), nullable=False)
+    date_seance = db.Column(db.DateTime)
+    lieu = db.Column(db.String(300))
+    convoquee_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    statut = db.Column(db.String(20), nullable=False, default="convoquee")
+    # convoquee | en_cours | close
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_cloture = db.Column(db.DateTime)
+
+    convoquee_par = db.relationship("Personne", foreign_keys=[convoquee_par_id])
+    inscriptions = db.relationship("DossierSession", back_populates="session",
+                                    cascade="all, delete-orphan")
+
+    @property
+    def role_membre(self):
+        return ("membre_commission_nationale" if self.type_commission == "nationale"
+                else "membre_commission_specialisee")
+
+
+class DossierSession(db.Model):
+    """Inscription d'un dossier à l'ordre du jour d'une séance."""
+    __tablename__ = "dossier_session"
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Integer, db.ForeignKey("session_commission.id"),
+                           nullable=False)
+    dossier_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), nullable=False)
+    # Synthèse automatique des avis des membres, produite à la clôture
+    synthese = db.Column(db.Text)
+    avis_global = db.Column(db.String(30))
+    # favorable | defavorable | complement_requis
+    recommandations = db.Column(db.Text)
+
+    session = db.relationship("SessionCommission", back_populates="inscriptions")
+    dossier = db.relationship("DossierAMM", foreign_keys=[dossier_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("session_id", "dossier_id", name="uq_session_dossier"),
+    )
+
+
+class AvisCommission(db.Model):
+    """Avis individuel d'un membre, saisi en séance depuis sa tablette."""
+    __tablename__ = "avis_commission"
+    id = db.Column(db.Integer, primary_key=True)
+    dossier_session_id = db.Column(db.Integer, db.ForeignKey("dossier_session.id"),
+                                   nullable=False)
+    membre_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    # Réponses à la grille d'évaluation : {code_question: oui|non|sans_objet}
+    reponses = db.Column(db.JSON, default=dict)
+    avis = db.Column(db.String(30), nullable=False)
+    # favorable | defavorable | complement_requis
+    motif = db.Column(db.Text)
+    date_saisie = db.Column(db.DateTime, default=datetime.utcnow)
+
+    dossier_session = db.relationship("DossierSession", foreign_keys=[dossier_session_id])
+    membre = db.relationship("Personne", foreign_keys=[membre_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("dossier_session_id", "membre_id",
+                            name="uq_avis_membre_dossier"),
+    )
+
+
+class RapportInstruction(db.Model):
+    """Rapport du chef de service transmis à la direction.
+
+    Consolide l'évaluation interne et l'avis de commission ; c'est lui qui
+    déclenche le circuit de signature.
+    """
+    __tablename__ = "rapport_instruction"
+    id = db.Column(db.Integer, primary_key=True)
+    dossier_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), unique=True,
+                           nullable=False)
+    redige_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    avis_propose = db.Column(db.String(30), nullable=False)
+    # favorable | defavorable | complement_requis
+    motif = db.Column(db.Text)
+    synthese = db.Column(db.Text)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+
+    dossier = db.relationship("DossierAMM", foreign_keys=[dossier_id])
+    redige_par = db.relationship("Personne", foreign_keys=[redige_par_id])

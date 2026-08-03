@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Mes évaluations — SIREPH{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Mes évaluations</h1>
+<p class="text-muted">
+  Dossiers qui vous sont confiés pour évaluation interne. Votre rapport prépare
+  les travaux de commission ; il ne vaut pas décision.
+</p>
+
+<div class="card">
+  {% if assignations %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Dossier</th><th>Produit</th><th>Assigné le</th><th>Échéance</th>
+        <th>État</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for a in assignations %}
+        <tr>
+          <td><code>{{ a.dossier.numero }}</code></td>
+          <td class="small">{{ a.dossier.produit.libelle if a.dossier.produit else '—' }}</td>
+          <td class="small text-muted">{{ a.date_assignation.strftime('%d/%m/%Y') }}</td>
+          <td class="small">
+            {% if a.date_echeance %}
+              {% if a.statut != 'terminee' and a.date_echeance < now %}
+                <span class="text-danger">{{ a.date_echeance.strftime('%d/%m/%Y') }}</span>
+              {% else %}{{ a.date_echeance.strftime('%d/%m/%Y') }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if a.statut == 'terminee' %}
+              <span class="badge bg-success">remise</span>
+              <div class="small text-muted">{{ AVIS.get(a.conclusion, '') }}</div>
+            {% else %}
+              <span class="badge bg-warning text-dark">à évaluer</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-{{ 'outline-secondary' if a.statut == 'terminee'
+               else 'primary' }}"
+               href="{{ url_for('instruction.assignation', assignation_id=a.id) }}">
+              {{ 'Consulter' if a.statut == 'terminee' else 'Évaluer' }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">Aucun dossier ne vous est confié pour l'instant.</div>
+  {% endif %}
+</div>
+{% endblock %}

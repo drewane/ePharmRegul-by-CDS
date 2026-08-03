@@ -51,9 +51,20 @@ ROLES_REGULATEUR = {
     "agent_surveillance_marche": "Agent Surveillance du marché",
     "agent_dros": "Agent DROS (essais cliniques)",
     "responsable_qualite_labo": "Responsable Qualité Laboratoire",
+    "cadre_dpml": "Cadre DPML",
+    "evaluateur_interne": "Évaluateur interne",
+    "membre_commission_specialisee": "Membre de commission spécialisée",
+    "membre_commission_nationale": "Membre de la commission nationale",
     "chef_service_amm": "Chef de service Homologation",
+    "chef_service_licences": "Chef de service Licences et Établissements",
+    "chef_service_inspection": "Chef de service Inspection",
+    "chef_service_labo": "Chef de service Laboratoire et Contrôle qualité",
     "sous_directeur_medicament": "Sous-directeur du Médicament",
+    "sous_directeur_etablissements": "Sous-directeur des Établissements",
     "directeur_dpml": "Directeur DPML",
+    # L'agence du médicament, appelée à succéder à la direction, est dirigée par
+    # un directeur général qui pourra signer l'AMM en lieu et place du ministre.
+    "directeur_general_agence": "Directeur général de l'Agence du Médicament",
     # Signataires du ministère : l'AMM est signée par le ministre de la Santé.
     "secretaire_general_ms": "Secrétaire général du Ministère de la Santé",
     "ministre_sante": "Ministre de la Santé publique",
@@ -69,7 +80,11 @@ NIVEAU_PAR_ROLE = {
     "pharmacien": 0,
     "promoteur_essai": 0,
     # Niveau 1 — instruction
+    "cadre_dpml": 1,
     "evaluateur_amm": 1,
+    "evaluateur_interne": 1,
+    "membre_commission_specialisee": 1,
+    "membre_commission_nationale": 1,
     "agent_vigilance": 1,
     "inspecteur_igspl": 1,
     "agent_licences": 1,
@@ -79,11 +94,16 @@ NIVEAU_PAR_ROLE = {
     # Niveau 2 — validation technique
     "responsable_qualite_labo": 2,
     "chef_service_amm": 2,
+    "chef_service_licences": 2,
+    "chef_service_inspection": 2,
+    "chef_service_labo": 2,
     # Niveau 3 — sous-direction
     "sous_directeur_medicament": 3,
+    "sous_directeur_etablissements": 3,
     # Niveau 4 — direction : signature des dérogations et visas techniques
     "directeur_dpml": 4,
     # Niveaux 5 et 6 — ministère : signature de l'AMM
+    "directeur_general_agence": 5,
     "secretaire_general_ms": 5,
     "ministre_sante": 6,
     # Administration du système : droits techniques, pas un échelon hiérarchique

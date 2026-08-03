@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Instruction {{ d.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav class="mb-2">
+  <a class="small" href="{{ url_for('instruction.bureau') }}">
+    <i class="bi bi-arrow-left"></i> Bureau d'instruction</a>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ d.numero }}</h1>
+    <p class="text-muted mb-0">
+      {{ d.produit.libelle if d.produit else '—' }} ·
+      {{ d.demandeur.nom_complet if d.demandeur else '—' }}</p>
+  </div>
+  <span class="badge bg-secondary fs-6">{{ STATUTS.get(d.statut, d.statut) }}</span>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+
+    {% if d.statut == 'soumis' %}
+    <div class="card border-primary">
+      <div class="card-header bg-primary-subtle">
+        <i class="bi bi-check2-square me-1"></i> Liste de contrôle de recevabilité
+      </div>
+      <div class="card-body">
+        <p class="small text-muted">
+          Les points marqués <span class="text-danger">*</span> sont bloquants : la
+          recevabilité ne peut pas être prononcée tant qu'ils ne sont pas satisfaits.
+        </p>
+        <form method="post">
+          {% for code, libelle, bloquant in checklist %}
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="{{ code }}"
+                   id="c-{{ code }}" {{ 'checked' if coches.get(code) }}>
+            <label class="form-check-label" for="c-{{ code }}">
+              {{ libelle }}
+              {% if bloquant %}<span class="text-danger">*</span>{% endif %}
+            </label>
+          </div>
+          {% endfor %}
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-outline-secondary btn-sm" name="action" value="checklist">
+              Enregistrer</button>
+            <button class="btn btn-success btn-sm" name="action" value="recevable">
+              <i class="bi bi-check2-circle me-1"></i> Déclarer recevable</button>
+          </div>
+        </form>
+        <hr>
+        <form method="post"
+              onsubmit="return this.motif.value.trim() !== '' || (alert('Motivez l\'irrecevabilité.'), false);">
+          <label class="form-label small" for="motif">Motif d'irrecevabilité</label>
+          <textarea class="form-control form-control-sm mb-2" id="motif" name="motif"
+                    rows="2"></textarea>
+          <button class="btn btn-outline-danger btn-sm" name="action" value="irrecevable">
+            Déclarer irrecevable</button>
+        </form>
+      </div>
+    </div>
+
+    {% elif d.statut == 'evaluation_en_cours' %}
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-person-check me-1"></i> Évaluation interne
+      </div>
+      <div class="card-body">
+        {% if etat.assignations %}
+        <ul class="list-unstyled mb-3">
+          {% for a in etat.assignations %}
+          <li class="d-flex justify-content-between border-bottom py-2">
+            <div>
+              <strong class="small">{{ a.evaluateur.nom_complet }}</strong>
+              {% if a.conclusion %}
+              <div class="small text-muted">{{ AVIS.get(a.conclusion, a.conclusion) }}</div>
+              {% endif %}
+            </div>
+            <div class="text-end">
+              {% if a.statut == 'terminee' %}
+                <span class="badge bg-success">remise</span>
+                <div class="small"><a href="{{ url_for('instruction.assignation',
+                     assignation_id=a.id) }}">lire</a></div>
+              {% else %}
+                <span class="badge bg-secondary">en cours</span>
+                {% if a.date_echeance %}
+                <div class="small text-muted">
+                  éch. {{ a.date_echeance.strftime('%d/%m') }}</div>{% endif %}
+              {% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="small text-muted">Aucun évaluateur assigné pour l'instant.</p>
+        {% endif %}
+
+        {% if evaluateurs %}
+        <form method="post" class="border-top pt-3">
+          <div class="mb-2">
+            <label class="form-label small" for="evaluateur_id">Confier à</label>
+            <select class="form-select form-select-sm" id="evaluateur_id"
+                    name="evaluateur_id" required>
+              {% for e in evaluateurs %}
+              <option value="{{ e.id }}">{{ e.nom_complet }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="consigne">Consigne (facultative)</label>
+            <input class="form-control form-control-sm" id="consigne" name="consigne">
+          </div>
+          <button class="btn btn-primary btn-sm" name="action" value="assigner">
+            Assigner</button>
+        </form>
+        {% else %}
+        <p class="small text-danger mb-0">
+          Aucun évaluateur interne enregistré sur la plateforme.</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-6">
+    {% if etat.inscriptions %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-people me-1"></i> Commission</div>
+      <div class="card-body">
+        {% for ds in etat.inscriptions %}
+        <div class="mb-2">
+          <a href="{{ url_for('instruction.seance', session_id=ds.session_id) }}">
+            <code>{{ ds.session.numero }}</code></a>
+          — {{ ds.session.intitule[:40] }}
+          {% if ds.avis_global %}
+          <span class="badge bg-{{ 'success' if ds.avis_global == 'favorable'
+            else ('warning text-dark' if ds.avis_global == 'complement_requis' else 'danger') }}">
+            {{ AVIS.get(ds.avis_global, ds.avis_global) }}</span>
+          {% endif %}
+          {% if ds.synthese %}
+          <pre class="small bg-light p-2 mt-1 mb-0"
+               style="white-space:pre-wrap">{{ ds.synthese }}</pre>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if d.statut == 'evaluation_en_cours' and not etat.rapport %}
+    <div class="card border-success">
+      <div class="card-header bg-success-subtle">
+        <i class="bi bi-file-earmark-text me-1"></i> Rapport à la direction
+      </div>
+      <div class="card-body">
+        <p class="small text-muted">
+          Le rapport clôt l'instruction. Un avis favorable ou défavorable ouvre le
+          circuit de signature ; un complément renvoie le dossier au déposant.
+        </p>
+        <form method="post">
+          <div class="mb-2">
+            <label class="form-label small" for="avis_propose">Avis proposé</label>
+            <select class="form-select form-select-sm" id="avis_propose"
+                    name="avis_propose" required>
+              {% for code, libelle in AVIS.items() %}
+              <option value="{{ code }}">{{ libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="synthese">Synthèse de l'instruction</label>
+            <textarea class="form-control form-control-sm" id="synthese" name="synthese"
+                      rows="3"></textarea>
+          </div>
+          <div class="mb-2">
+            <label class="form-label small" for="motif_rapport">
+              Motif (obligatoire si défavorable ou complément)</label>
+            <textarea class="form-control form-control-sm" id="motif_rapport"
+                      name="motif" rows="2"></textarea>
+          </div>
+          <button class="btn btn-success btn-sm" name="action" value="rapport">
+            Transmettre à la direction</button>
+        </form>
+      </div>
+    </div>
+    {% elif etat.rapport %}
+    <div class="card">
+      <div class="card-header">Rapport transmis</div>
+      <div class="card-body">
+        <p class="mb-1"><strong>{{ AVIS.get(etat.rapport.avis_propose,
+          etat.rapport.avis_propose) }}</strong>
+          — {{ etat.rapport.redige_par.nom_complet }}
+          le {{ etat.rapport.date_creation.strftime('%d/%m/%Y') }}</p>
+        {% if etat.rapport.synthese %}
+        <p class="small mb-1">{{ etat.rapport.synthese }}</p>{% endif %}
+        {% if etat.rapport.motif %}
+        <p class="small text-danger mb-1">{{ etat.rapport.motif }}</p>{% endif %}
+        <a class="btn btn-sm btn-outline-primary mt-2"
+           href="{{ url_for('validation.circuit', entite_type='DossierAMM',
+                            entite_id=d.id) }}">Suivre le circuit de signature</a>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
