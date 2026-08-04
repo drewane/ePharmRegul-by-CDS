@@ -39,6 +39,18 @@ from pieces import enregistrer_piece
 # Libellé lisible du fait générateur, par type d'entité (dérivé du barème)
 LIBELLE_OBJET = {ent: lib for _c, (ent, _m, _k, _d, lib) in bareme.BAREME.items()}
 
+# Libellé affichable d'un statut de paiement : le redevable n'a pas à décoder
+# notre vocabulaire interne.
+LIBELLE_STATUT = {
+    "en_attente": "À régler",
+    "initie": "Paiement en cours",
+    "preuve_deposee": "Preuve déposée, en vérification",
+    "confirme": "Encaissé",
+    "rejete": "Preuve rejetée",
+    "echoue": "Paiement échoué",
+    "expire": "Expiré",
+}
+
 
 def _demandeur(paiement):
     if paiement.entite_type == "DossierAMM":

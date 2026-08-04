@@ -9,11 +9,13 @@ from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    url_for)
 
 import espace_industriel as esp
+import paiements as pmt
+import suivi
 import workflow_demande_inspection as wfdi
 import workflow_ma as wf
 from auth import current_user, login_required
 from erreurs import ErreurWorkflow
-from models import DemandeInspection, DossierAMM, db
+from models import DemandeInspection, DossierAMM, Paiement, db
 
 bp = Blueprint("industriel", __name__, url_prefix="/industriel")
 
@@ -70,6 +72,48 @@ def portefeuille():
         dossiers=q.order_by(DossierAMM.date_maj.desc()).all(),
         statut=statut, type_proc=type_proc,
         STATUTS=wf.STATUTS, TYPES=wf.TYPES_PROCEDURE)
+
+
+# ---------------------------------------------------------------------------
+# Suivi unifié — « où en est mon dossier ? »
+# ---------------------------------------------------------------------------
+@bp.route("/suivi")
+@login_required
+def suivi_liste():
+    """Vue transversale : l'état de chaque dossier et son délai d'instruction."""
+    u = _verifier_profil()
+    lignes = []
+    for d in esp.dossiers_de_la_societe(u).order_by(DossierAMM.date_maj.desc()).all():
+        lignes.append({
+            "dossier": d,
+            "etat": suivi.etat_visible(d),
+            "delai": suivi.etat_delai(d, suivi.delai_legal(d)),
+            "legal": suivi.delai_legal(d),
+        })
+    return render_template(
+        "industriel/suivi.html", u=u, lignes=lignes,
+        LIBELLE_ETAT=suivi.LIBELLE_ETAT, TYPES=wf.TYPES_PROCEDURE,
+        en_retard=sum(1 for l in lignes if l["delai"]["depasse"]),
+        suspendus=sum(1 for l in lignes if l["delai"]["suspendu"]))
+
+
+@bp.route("/suivi/<int:dossier_id>")
+@login_required
+def suivi_dossier(dossier_id):
+    """Parcours détaillé d'un dossier : étapes franchies, délai, historique."""
+    u, d = _dossier_de_ma_societe(dossier_id)
+    legal = suivi.delai_legal(d)
+    paiements = (Paiement.query
+                 .filter_by(entite_type="DossierAMM", entite_id=d.id)
+                 .order_by(Paiement.id.desc()).all())
+    return render_template(
+        "industriel/suivi_dossier.html", u=u, d=d,
+        etapes=suivi.etapes_parcours(d), etat=suivi.etat_visible(d),
+        delai=suivi.etat_delai(d, legal), legal=legal,
+        fonction=suivi.LIBELLE_FONCTION[suivi.fonction_du_dossier(d)],
+        jalons=suivi.jalons_publics(d), paiements=paiements,
+        LIBELLE_ETAT=suivi.LIBELLE_ETAT, LIBELLE_PAIEMENT=pmt.LIBELLE_STATUT,
+        TYPES=wf.TYPES_PROCEDURE, STATUTS=wf.STATUTS)
 
 
 # ---------------------------------------------------------------------------

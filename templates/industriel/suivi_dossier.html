@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Suivi {{ d.numero_suivi or d.numero }} — SIREPH{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('industriel.suivi_liste') }}">Suivi de mes dossiers</a></li>
+    <li class="breadcrumb-item active" aria-current="page">
+      {{ d.numero_suivi or d.numero }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ d.produit.libelle if d.produit else 'Dossier' }}</h1>
+    <p class="text-muted mb-0 small">
+      {{ fonction }} — {{ TYPES.get(d.type_procedure, d.type_procedure) }}<br>
+      Numéro national de suivi <code>{{ d.numero_suivi or '—' }}</code>
+      {% if d.numero %}<span class="ms-2">réf. interne {{ d.numero }}</span>{% endif %}
+    </p>
+  </div>
+  <a class="btn btn-outline-secondary" href="/dossiers/{{ d.id }}">Ouvrir le dossier</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold">Parcours de votre demande</div>
+      <ul class="list-group list-group-flush">
+        {% for e in etapes %}
+        <li class="list-group-item d-flex gap-3
+                   {{ 'bg-body-tertiary' if e.courant }}">
+          <div class="pt-1">
+            {% if e.courant %}
+              <i class="bi bi-record-circle text-primary fs-5"></i>
+            {% elif e.atteint %}
+              <i class="bi bi-check-circle-fill text-success fs-5"></i>
+            {% else %}
+              <i class="bi bi-circle text-muted fs-5"></i>
+            {% endif %}
+          </div>
+          <div>
+            <div class="{{ 'fw-semibold' if e.courant }}
+                        {{ 'text-muted' if not (e.courant or e.atteint) }}">
+              {{ e.libelle }}
+              {% if e.courant %}
+              <span class="badge bg-primary ms-1">étape en cours</span>{% endif %}
+            </div>
+            <div class="small text-muted">{{ e.description }}</div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-header py-2 fw-semibold">Historique de la procédure</div>
+      {% if jalons %}
+      <ul class="list-group list-group-flush">
+        {% for j in jalons %}
+        <li class="list-group-item py-2 small d-flex justify-content-between gap-3">
+          <span>{{ j.action }}</span>
+          <span class="text-muted text-nowrap">
+            {{ j.horodatage.strftime('%d/%m/%Y à %H:%M') if j.horodatage else '—' }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">
+        Aucun événement à afficher pour l'instant.</div>
+      {% endif %}
+      <div class="card-footer small text-muted py-2">
+        Seuls les actes qui vous concernent figurent ici ; la délibération
+        interne relève du secret de l'instruction.
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold">Délai réglementaire</div>
+      <div class="card-body">
+        {% if not delai.demarre %}
+        <p class="mb-1"><i class="bi bi-hourglass text-muted me-1"></i>
+          {{ delai.libelle }}</p>
+        {% if not delai.anterieur %}
+        <p class="small text-muted mb-0">
+          Le décompte ne démarre qu'à l'encaissement de la redevance : tant que
+          le paiement n'est pas validé, l'administration n'est pas saisie.
+        </p>
+        {% endif %}
+        {% else %}
+        {% set pct = (delai.jours * 100 // legal) if legal else 0 %}
+        <div class="d-flex justify-content-between align-items-baseline mb-1">
+          <span class="h4 mb-0 {{ 'text-danger' if delai.depasse }}">
+            {{ delai.jours }}</span>
+          <span class="small text-muted">sur {{ legal }} jours</span>
+        </div>
+        <div class="progress mb-2" style="height:8px">
+          <div class="progress-bar {{ 'bg-danger' if delai.depasse else ('bg-warning' if pct > 75 else 'bg-success') }}"
+               style="width:{{ 100 if pct > 100 else pct }}%"></div>
+        </div>
+        {% if delai.suspendu %}
+        <div class="alert alert-warning py-2 small mb-2">
+          <i class="bi bi-pause-circle me-1"></i>
+          <strong>Délai suspendu.</strong> Des renseignements complémentaires
+          vous ont été demandés. Le temps que vous prenez pour répondre ne
+          s'impute pas sur le délai de l'administration — mais il retarde
+          d'autant la décision.
+        </div>
+        {% elif delai.depasse %}
+        <div class="alert alert-danger py-2 small mb-2">
+          Le délai réglementaire est dépassé de {{ -delai.restant }} jour(s).
+        </div>
+        {% elif delai.restant is not none %}
+        <p class="small text-muted mb-2">
+          {{ delai.restant }} jour(s) restants avant l'échéance réglementaire.</p>
+        {% endif %}
+        <dl class="row small mb-0">
+          <dt class="col-7 fw-normal text-muted">Départ du délai</dt>
+          <dd class="col-5 text-end">
+            {{ d.clock_debut.strftime('%d/%m/%Y') if d.clock_debut else '—' }}</dd>
+          {% if delai.jours_suspendus %}
+          <dt class="col-7 fw-normal text-muted">Jours neutralisés</dt>
+          <dd class="col-5 text-end">{{ delai.jours_suspendus }}</dd>
+          {% endif %}
+        </dl>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header py-2 fw-semibold">Redevances</div>
+      {% if paiements %}
+      <ul class="list-group list-group-flush">
+        {% for p in paiements %}
+        <li class="list-group-item py-2 small">
+          <div class="d-flex justify-content-between">
+            <code>{{ p.numero }}</code>
+            {% set libelle = LIBELLE_PAIEMENT.get(p.statut, p.statut) %}
+            {% if p.statut == 'confirme' %}
+            <span class="badge bg-success">{{ libelle }}</span>
+            {% elif p.statut in ('echoue', 'rejete', 'expire') %}
+            <span class="badge bg-danger">{{ libelle }}</span>
+            {% else %}
+            <span class="badge bg-secondary">{{ libelle }}</span>
+            {% endif %}
+          </div>
+          <div class="text-muted">
+            {{ '{:,.0f}'.format(p.montant).replace(',', ' ') }} {{ p.devise }}
+            {% if p.statut == 'confirme' %}
+            — <a href="{{ url_for('paiement.recu', paiement_id=p.id) }}">reçu</a>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body small text-muted">
+        Aucune redevance enregistrée pour ce dossier.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

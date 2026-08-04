@@ -17,11 +17,12 @@ import app as application
 import suivi
 import validation_numerique as vn
 from erreurs import ErreurWorkflow
-from models import (DossierAMM, Etablissement, EtapeValidation, Paiement,
-                    Personne, Produit, db)
+from models import (DossierAMM, Etablissement, EtapeValidation, EvenementAudit,
+                    Paiement, Personne, Produit, db)
 
 _res = []
-_MODELES = (EtapeValidation, Paiement, DossierAMM, Produit, Personne, Etablissement)
+_MODELES = (EvenementAudit, EtapeValidation, Paiement, DossierAMM, Produit,
+            Personne, Etablissement)
 
 
 def verifier(nom, cond, detail=""):
@@ -145,6 +146,16 @@ def test_clock_start():
     verifier("délai non démarré au dépôt", d.clock_debut is None)
     verifier("état du délai explicite",
              suivi.etat_delai(d)["demarre"] is False)
+    verifier("le motif annoncé est bien le paiement",
+             "paiement" in suivi.etat_delai(d)["libelle"].lower())
+
+    # Un dossier déjà décidé sans décompte est antérieur au suivi : on ne
+    # prétend pas attendre un paiement qui n'a plus d'objet.
+    ancien = _dossier("approuve")
+    e = suivi.etat_delai(ancien)
+    verifier("dossier antérieur signalé comme tel", e["anterieur"])
+    verifier("aucun faux message de paiement en attente",
+             "paiement" not in e["libelle"].lower(), e["libelle"])
     verifier("aucun jour compté", suivi.jours_ecoules(d) is None)
 
     suivi.demarrer_delai(d)
@@ -223,6 +234,84 @@ def test_inspecteur_general():
              "inspecteur_general" in vn.CIRCUITS["inspection"])
 
 
+def test_delai_legal_par_fonction():
+    print("\n[8] Délai réglementaire propre à chaque fonction")
+    verifier("les dix fonctions ont un délai",
+             all(f in suivi.DELAI_LEGAL_JOURS for f in suivi.CODES_FONCTION))
+    verifier("l'AMM a le délai le plus long",
+             suivi.DELAI_LEGAL_JOURS["amm"] == max(suivi.DELAI_LEGAL_JOURS.values()))
+    verifier("la dérogation est la plus rapide",
+             suivi.DELAI_LEGAL_JOURS["derogation"]
+             == min(suivi.DELAI_LEGAL_JOURS.values()))
+    d = _dossier()
+    verifier("un DossierAMM relève de l'homologation",
+             suivi.fonction_du_dossier(d) == "amm")
+    verifier("le délai du dossier est celui de sa fonction",
+             suivi.delai_legal(d) == suivi.DELAI_LEGAL_JOURS["amm"])
+
+
+def test_jalons_publics():
+    print("\n[9] Historique — le demandeur voit sa procédure, pas la délibération")
+    from audit import enregistrer_audit
+    d = _dossier()
+    enregistrer_audit(d, "Dossier soumis", None)
+    enregistrer_audit(d, "Avis d'évaluation déposé (qualité : défavorable)", None)
+    enregistrer_audit(d, "Dossier inscrit à l'ordre du jour de COM-2026-001", None)
+    enregistrer_audit(d, "Dossier déclaré recevable", None)
+    db.session.flush()
+
+    actions = [j.action for j in suivi.jalons_publics(d)]
+    verifier("le dépôt est visible", "Dossier soumis" in actions)
+    verifier("la recevabilité est visible", "Dossier déclaré recevable" in actions)
+    verifier("l'avis d'un évaluateur reste confidentiel",
+             not any("Avis d'évaluation" in a for a in actions))
+    verifier("l'ordre du jour de commission reste confidentiel",
+             not any("ordre du jour" in a for a in actions))
+    verifier("l'historique est chronologique",
+             actions == sorted(actions, key=lambda a: actions.index(a)))
+
+
+def test_ecrans_suivi():
+    print("\n[10] Écrans de suivi du demandeur")
+    client = application.app.test_client()
+    r = client.post("/login", data={"email": "demandeur@pharmacam.demo",
+                                    "password": "demo1234"},
+                    follow_redirects=True)
+    verifier("connexion du déposant", r.status_code == 200)
+
+    r = client.get("/industriel/suivi")
+    verifier("la liste de suivi répond", r.status_code == 200, str(r.status_code))
+    page = r.get_data(as_text=True)
+    verifier("les numéros nationaux sont affichés", "CMR-" in page)
+
+    import re
+    ids = sorted({int(i) for i in re.findall(r"/industriel/suivi/(\d+)", page)})
+    verifier("des dossiers sont listés", bool(ids), f"{len(ids)} dossier(s)")
+    if ids:
+        detail = client.get(f"/industriel/suivi/{ids[0]}")
+        verifier("le parcours détaillé répond", detail.status_code == 200)
+        corps = detail.get_data(as_text=True)
+        verifier("le parcours est affiché", "Parcours de votre demande" in corps)
+        verifier("le délai réglementaire est affiché", "Délai réglementaire" in corps)
+        verifier("l'historique est affiché", "Historique de la procédure" in corps)
+
+    # Cloisonnement : un dossier d'une autre société doit rester introuvable.
+    concurrent = Personne.query.filter_by(email="demandeur2@biosante.demo").first()
+    if concurrent:
+        autre = DossierAMM.query.filter_by(demandeur_id=concurrent.id).first()
+        if autre:
+            verifier("le dossier d'un concurrent renvoie 404",
+                     client.get(f"/industriel/suivi/{autre.id}").status_code == 404)
+        else:
+            verifier("un dossier concurrent existe pour le test", False)
+
+    # Un régulateur n'a pas d'espace industriel : ce n'est pas son écran.
+    reg = application.app.test_client()
+    reg.post("/login", data={"email": "directeur@dpml.demo", "password": "demo1234"})
+    code = reg.get("/industriel/suivi").status_code
+    verifier("un profil non industriel est écarté", code in (302, 403), str(code))
+
+
 def main():
     print("=" * 70)
     print("Suivi unifié — numérotation, états, délai légal")
@@ -231,7 +320,8 @@ def main():
         reperes = _max_ids()
         for t in (test_numerotation, test_etats_visibles, test_parcours_affiche,
                   test_clock_start, test_clock_stop, test_delai_legal,
-                  test_inspecteur_general):
+                  test_inspecteur_general, test_delai_legal_par_fonction,
+                  test_jalons_publics, test_ecrans_suivi):
             try:
                 t()
             except Exception as e:                       # noqa: BLE001

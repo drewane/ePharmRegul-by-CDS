@@ -65,6 +65,11 @@
             <i class="bi bi-briefcase"></i> Mon portefeuille</a>
         </li>
         <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/industriel/suivi') }}"
+             href="{{ url_for('industriel.suivi_liste') }}">
+            <i class="bi bi-signpost-split"></i> Suivi de mes dossiers</a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {{ 'active' if request.path.startswith('/demandes') }}"
              href="{{ url_for('demandes.accueil') }}">
             <i class="bi bi-plus-circle"></i> Demande</a>

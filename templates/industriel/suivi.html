@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Suivi de mes dossiers — SIREPH{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Où en sont mes dossiers&nbsp;?</h1>
+    <p class="text-muted mb-0 small">
+      Chaque dossier porte un numéro national de suivi. Le délai d'instruction
+      court à compter de la validation du paiement et se suspend tant que
+      l'administration attend votre réponse.
+    </p>
+  </div>
+</div>
+
+{% if lignes %}
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="small text-muted">Dossiers suivis</div>
+      <div class="h5 mb-0">{{ lignes|length }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="small text-muted">En attente de votre réponse</div>
+      <div class="h5 mb-0 {{ 'text-warning' if suspendus }}">{{ suspendus }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="small text-muted">Délai légal dépassé</div>
+      <div class="h5 mb-0 {{ 'text-danger' if en_retard }}">{{ en_retard }}</div>
+    </div></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  {% if lignes %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Numéro de suivi</th><th>Objet</th><th>Étape</th>
+        <th>Délai d'instruction</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for l in lignes %}
+        {% set d = l.dossier %}
+        <tr>
+          <td>
+            <code>{{ d.numero_suivi or d.numero or '—' }}</code>
+            {% if d.numero_suivi and d.numero %}
+            <div class="small text-muted">réf. interne {{ d.numero }}</div>
+            {% endif %}
+          </td>
+          <td class="small">
+            {{ d.produit.libelle if d.produit else '—' }}
+            <div class="text-muted">{{ TYPES.get(d.type_procedure, d.type_procedure) }}</div>
+          </td>
+          <td>
+            {% if l.etat == 'decision' %}
+              <span class="badge bg-success">{{ LIBELLE_ETAT[l.etat] }}</span>
+            {% elif l.etat == 'clock_stop' %}
+              <span class="badge bg-warning text-dark">{{ LIBELLE_ETAT[l.etat] }}</span>
+            {% elif l.etat == 'soumis' %}
+              <span class="badge bg-secondary">{{ LIBELLE_ETAT[l.etat] }}</span>
+            {% else %}
+              <span class="badge bg-primary">{{ LIBELLE_ETAT[l.etat] }}</span>
+            {% endif %}
+          </td>
+          <td class="small">
+            {% if not l.delai.demarre %}
+              <span class="text-muted">{{ l.delai.libelle }}</span>
+            {% else %}
+              {% set pct = (l.delai.jours * 100 // l.legal) if l.legal else 0 %}
+              <div class="d-flex align-items-center gap-2">
+                <div class="progress flex-grow-1" style="height:6px;min-width:80px">
+                  <div class="progress-bar {{ 'bg-danger' if l.delai.depasse else ('bg-warning' if pct > 75 else 'bg-success') }}"
+                       style="width:{{ 100 if pct > 100 else pct }}%"></div>
+                </div>
+                <span class="{{ 'text-danger fw-semibold' if l.delai.depasse }}">
+                  {{ l.delai.jours }}/{{ l.legal }} j</span>
+              </div>
+              {% if l.delai.suspendu %}
+              <span class="text-warning">Suspendu — nous attendons votre réponse</span>
+              {% elif l.delai.depasse %}
+              <span class="text-danger">{{ -l.delai.restant }} jour(s) au-delà du délai</span>
+              {% endif %}
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary"
+               href="{{ url_for('industriel.suivi_dossier', dossier_id=d.id) }}">
+              Suivre</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">
+    Vous n'avez encore déposé aucun dossier.
+    <a href="{{ url_for('industriel.nouvelle_demande') }}">Déposer une demande</a>.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

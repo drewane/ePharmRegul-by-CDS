@@ -154,6 +154,44 @@ def _a_eu_clock_stop(dossier):
 
 
 # ---------------------------------------------------------------------------
+# Historique opposable au demandeur
+# ---------------------------------------------------------------------------
+# Le demandeur a droit à la traçabilité de SA procédure, non à la délibération
+# interne. On publie donc une liste blanche de jalons : ce qui lui a été
+# notifié ou ce qui engage l'administration à son égard. Tout le reste — avis
+# d'évaluateurs, ordres du jour de commission, listes de contrôle internes —
+# reste dans l'espace régulateur.
+JALONS_PUBLICS = (
+    "Dossier soumis",
+    "Dossier déclaré recevable",
+    "Dossier déclaré irrecevable",
+    "Complément de dossier demandé",
+    "Passage en complément requis",
+    "Réponse au complément déposée",
+    "Passage automatique en évaluation",
+    "Délai légal d'instruction démarré",
+    "Délai suspendu",
+    "Délai repris",
+    "Dossier approuvé",
+    "Dossier rejeté",
+    "Dossier de retrait approuvé",
+    "Clôture automatique",
+)
+
+
+def jalons_publics(dossier):
+    """Historique horodaté que le demandeur peut légitimement consulter."""
+    from models import EvenementAudit
+
+    evenements = (EvenementAudit.query
+                  .filter_by(entite_type=dossier.__class__.__name__,
+                             entite_id=dossier.id)
+                  .order_by(EvenementAudit.horodatage.asc()).all())
+    return [e for e in evenements
+            if any(e.action.startswith(p) for p in JALONS_PUBLICS)]
+
+
+# ---------------------------------------------------------------------------
 # Délai légal : Clock Start / Clock Stop
 # ---------------------------------------------------------------------------
 def demarrer_delai(dossier, acteur=None, motif="Paiement validé"):
@@ -222,11 +260,53 @@ def jours_ecoules(dossier):
     return max(0, brut - suspendu)
 
 
+# Délai réglementaire d'instruction, en jours, par fonction. Valeurs de
+# référence ; l'administrateur pourra les ajuster par paramètre de module.
+DELAI_LEGAL_JOURS = {
+    "amm": 270,
+    "licence": 90,
+    "controle_qualite": 30,
+    "liberation_lot": 30,
+    "surveillance": 60,
+    "vigilance": 60,
+    "inspection": 90,
+    "essai_clinique": 60,
+    "derogation": 15,
+    "visa_technique": 30,
+}
+
+
+def fonction_du_dossier(dossier):
+    """Fonction réglementaire dont relève un dossier.
+
+    Un DossierAMM porte plusieurs procédures (octroi, renouvellement,
+    variation) qui relèvent toutes de l'homologation ; les autres entités
+    déclarent leur fonction explicitement.
+    """
+    fonction = getattr(dossier, "fonction_reglementaire", None)
+    if fonction in CODES_FONCTION:
+        return fonction
+    if dossier.__class__.__name__ == "DossierAMM":
+        return "amm"
+    return "amm"
+
+
+def delai_legal(dossier):
+    return DELAI_LEGAL_JOURS.get(fonction_du_dossier(dossier))
+
+
 def etat_delai(dossier, delai_legal_jours=None):
     """Situation du délai, pour affichage au demandeur comme à l'agent."""
     debut = getattr(dossier, "clock_debut", None)
     if debut is None:
-        return {"demarre": False, "libelle": "En attente de validation du paiement",
+        # Un dossier déjà instruit sans décompte est antérieur au Clock Start :
+        # annoncer « en attente de paiement » serait faux. On le dit tel quel.
+        anterieur = ORDRE_ETATS.index(etat_visible(dossier)) > \
+            ORDRE_ETATS.index("paiement_valide")
+        return {"demarre": False, "anterieur": anterieur,
+                "libelle": ("Décompte non applicable — dossier antérieur au suivi "
+                            "des délais" if anterieur
+                            else "En attente de validation du paiement"),
                 "jours": None, "restant": None, "suspendu": False, "depasse": False}
     suspendu = getattr(dossier, "clock_suspendu_depuis", None) is not None
     ecoules = jours_ecoules(dossier)
