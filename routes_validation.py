@@ -15,7 +15,7 @@ from flask import (Blueprint, abort, flash, redirect, render_template, request,
 import pdf_gen
 import validation_numerique as vn
 from audit import enregistrer_audit
-from auth import current_user, login_required
+from auth import current_user, login_required, niveau_requis
 from erreurs import ErreurWorkflow
 from models import (DemandeDerogation, DossierAMM, EtapeValidation, VisaTechnique,
                     db)
@@ -41,12 +41,36 @@ def _entite(entite_type, entite_id):
     return obj
 
 
+def _entite_lisible(entite_type, entite_id):
+    """Charge l'entité en vérifiant que l'utilisateur a le droit de la lire.
+
+    Le circuit d'un dossier n'est pas une pièce publique : un agent y accède au
+    titre de l'instruction, le déposant au titre du dossier qui est le sien. Un
+    usager ou un concurrent n'y a rien à voir — sans ce contrôle, l'espace de
+    validation contournerait le cloisonnement garanti par l'espace industriel.
+    """
+    from permissions import a_niveau
+
+    obj = _entite(entite_type, entite_id)
+    u = current_user()
+    if a_niveau(u, 1):
+        return obj
+
+    import espace_industriel as esp
+    demandeur = getattr(obj, "demandeur_id", None)
+    if demandeur is not None and demandeur in esp.personnes_de_la_societe(u):
+        return obj
+    abort(404)      # 404 plutôt que 403 : ne révèle pas l'existence du dossier
+
+
 # ---------------------------------------------------------------------------
 # Parapheur : ce qui attend MA signature
 # ---------------------------------------------------------------------------
 @bp.route("/parapheur")
 @login_required
+@niveau_requis(1)
 def parapheur():
+    """Un parapheur n'a de sens que pour un agent : les externes n'en ont pas."""
     u = current_user()
     attente = (EtapeValidation.query
                .filter_by(role_requis=u.role_systeme, statut="en_attente")
@@ -81,7 +105,7 @@ def parapheur():
 @bp.route("/<entite_type>/<int:entite_id>")
 @login_required
 def circuit(entite_type, entite_id):
-    obj = _entite(entite_type, entite_id)
+    obj = _entite_lisible(entite_type, entite_id)
     # Chaque échelon voit ce qui lui est utile pour décider : le ministre
     # vérifie le parcours, le chef de service relit la technique.
     vue = None
@@ -192,7 +216,7 @@ def _finaliser(obj, entite_type, acteur):
 @login_required
 def document(entite_type, entite_id):
     """Télécharge le document officiel — uniquement si le circuit est achevé."""
-    obj = _entite(entite_type, entite_id)
+    obj = _entite_lisible(entite_type, entite_id)
     if not vn.circuit_acheve(obj):
         flash("Le document officiel n'est produit qu'au terme du circuit de "
               "validation.", "warning")

@@ -40,6 +40,7 @@ source venv/bin/activate        # Windows : venv\Scripts\activate
 pip install -r requirements.txt
 
 python seed.py                  # crée la base SQLite + comptes et données de démonstration
+python seed_comptes.py          # complète : un compte par rôle du référentiel
 python app.py                   # lance le serveur sur http://localhost:5000
 ```
 
@@ -50,6 +51,19 @@ voir **[SETUP.md](SETUP.md)**.
 
 ## Comptes de démonstration
 Mot de passe pour tous : `demo1234`
+
+**L'annuaire complet — un compte pour chacun des 31 rôles, groupés par niveau
+de responsabilité — est consultable dans l'application à
+`/comptes-demonstration`**, avec pour chaque profil ce qu'il permet d'éprouver.
+Il est produit par `seed_comptes.py`, qui garantit qu'aucun rôle ne reste sans
+compte : un échelon sans titulaire rend la chaîne de signature intestable.
+
+La page n'existe qu'en mode démonstration. Positionner `SIREPH_PRODUCTION=1`
+la fait disparaître, ainsi que le lien sur l'écran de connexion — publier des
+identifiants n'a de sens que sur un poste d'essai. Avant tout déploiement
+réel, `seed_comptes.verifier_avant_production()` liste les comptes à purger.
+
+Les principaux, pour mémoire :
 
 | Rôle | E-mail |
 |---|---|
@@ -67,6 +81,28 @@ Mot de passe pour tous : `demo1234`
 | Demandeur (BioSanté Distribution) — pour vérifier l'isolement des portées | demandeur2@biosante.demo |
 | Demandeur (Pharmacie Bafoussam Centre) — demande de licence tout juste déposée | demandeur3@bafoussam.demo |
 | Demandeur (Nouveau Grossiste Attente SARL) — auto-inscription **en attente de validation**, ne peut pas se reconnecter tant qu'un `administrateur_dpml` ne l'a pas validée dans `/admin/utilisateurs` | attente@nouveaugrossiste.demo |
+
+Les échelons de la chaîne de signature et les profils externes ajoutés par
+`seed_comptes.py` :
+
+| Niveau | Rôle | E-mail |
+|---|---|---|
+| 0 | Usager | usager@sireph.demo |
+| 0 | Laboratoire privé | labo.prive@sireph.demo |
+| 0 | Pharmacien d'officine | pharmacien@officine.demo |
+| 0 | Promoteur d'essai clinique | promoteur@essai.demo |
+| 1 | Évaluateur interne | evaluateur1@dpml.demo |
+| 1 | Membre de commission spécialisée | commission1@dpml.demo |
+| 2 | Chef de bureau — recevabilité | chefbureau@dpml.demo |
+| 3 | Chef de service Homologation | chefservice@dpml.demo |
+| 4 | Sous-directeur du Médicament | sousdirecteur@dpml.demo |
+| 5 | Directeur DPML | directeur@dpml.demo |
+| 6 | Inspecteur général | ig@minsante.demo |
+| 7 | Secrétaire général du Ministère | sg@minsante.demo |
+| 8 | Ministre de la Santé publique | ministre@minsante.demo |
+
+Pour éprouver le circuit AMM de bout en bout, signer successivement avec les
+niveaux 3 → 4 → 5 → 6 → 7 → 8 depuis `/validation/parapheur`.
 
 `seed.py` crée des données couvrant les statuts significatifs de chacun des
 8 circuits (MA, VL, RI, LI, LT, MC, CT, LR), pour rejouer immédiatement les
@@ -592,6 +628,8 @@ numerotation.py    génération des numéros de dossier/cas/inspection/demande/�
 delais.py          paramètres configurables + vérification des délais (clôture auto, rappels, alertes, expiration)
 pdf_gen.py         génération des certificats AMM et laboratoire (PDF + QR + sceau SHA-256)
 seed.py            comptes et données de démonstration pour les 8 circuits métier
+seed_comptes.py    un compte actif par rôle du référentiel + annuaire des niveaux d'accès
+suivi.py           suivi unifié : numéro national, états visibles, Clock Start/Stop
 run_lan.py          lancement réseau local (Waitress) pour l'accès depuis un autre appareil — voir SETUP.md
 SETUP.md            accès local / réseau Wi-Fi / mobile, configuration du pare-feu Windows
 templates/          gabarits HTML (Jinja + Bootstrap 5) ; un sous-dossier par module :

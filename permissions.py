@@ -207,7 +207,47 @@ PERMISSIONS_TRANSVERSES = {
 }
 
 
+# ---------------------------------------------------------------------------
+# 4. Permissions de CONSULTATION ouvertes par le niveau hiérarchique
+# ---------------------------------------------------------------------------
+# Les listes ci-dessus énumèrent des métiers ; elles ont été écrites avant que
+# la hiérarchie à huit niveaux n'existe. Résultat observé en éprouvant les
+# comptes : un évaluateur consultait la reliance régionale quand le directeur
+# général, l'inspecteur général et le ministre en étaient exclus — l'inverse de
+# la règle voulue.
+#
+# On corrige par le niveau plutôt qu'en rallongeant les listes. Le seuil est
+# le chef de bureau (2) et non le chef de service : chacune de ces consultations
+# est déjà ouverte nominativement à un cadre de niveau 1, et il serait absurde
+# que le chef de bureau qui l'encadre en soit privé. La monotonie — un supérieur
+# voit au moins ce que voit son subordonné — est vérifiée par test_acces_profils.
+#
+# Les actes ENGAGEANTS (instruire, suspendre, confirmer un paiement, gérer la
+# reliance) gardent leur liste nominative : ils relèvent d'une attribution, pas
+# d'un rang. Aucun niveau, si élevé soit-il, ne les confère.
+NIVEAU_MINIMAL_CONSULTATION = {
+    "voir_tous_dossiers_ma": 2,
+    "voir_tous_cas_vigilance": 2,
+    "voir_toutes_inspections": 2,
+    "voir_toutes_licences": 2,
+    "voir_tous_echantillons": 2,
+    "voir_tous_signalements": 2,
+    "voir_tous_protocoles": 2,
+    "voir_toutes_liberations": 2,
+    "consulter_reliance": 2,
+}
+
+
 def a_permission(user, cle_permission):
+    """La permission est acquise par attribution métier OU par rang hiérarchique.
+
+    Le rang n'ouvre que la consultation : aucun niveau, si élevé soit-il, ne
+    confère à lui seul le droit d'instruire ou de décider à la place du service
+    compétent.
+    """
     if user is None:
         return False
-    return user.role_systeme in PERMISSIONS_TRANSVERSES.get(cle_permission, [])
+    if user.role_systeme in PERMISSIONS_TRANSVERSES.get(cle_permission, []):
+        return True
+    minimum = NIVEAU_MINIMAL_CONSULTATION.get(cle_permission)
+    return minimum is not None and a_niveau(user, minimum)

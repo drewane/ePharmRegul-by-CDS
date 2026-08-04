@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Comptes de démonstration — SIREPH{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h1 class="h4 mb-1">Comptes de démonstration</h1>
+  <p class="text-muted mb-0">
+    Un compte par rôle du référentiel, pour éprouver chaque niveau d'accès et
+    de responsabilité. Mot de passe commun&nbsp;:
+    <code class="fs-6">{{ mot_de_passe }}</code>
+  </p>
+</div>
+
+<div class="alert alert-warning d-flex gap-2 align-items-start">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <div>
+    <strong>Ces comptes sont réservés à la démonstration.</strong>
+    Ils partagent un mot de passe unique et doivent être supprimés avant tout
+    déploiement réel. Cette page disparaît lorsque la variable d'environnement
+    <code>SIREPH_PRODUCTION=1</code> est positionnée.
+  </div>
+</div>
+
+{% if manquants %}
+<div class="alert alert-danger">
+  <strong>Rôles sans compte&nbsp;:</strong> {{ manquants|join(', ') }}.
+  Ces niveaux ne peuvent pas être testés — lancer
+  <code>python seed_comptes.py</code>.
+</div>
+{% endif %}
+
+<p class="small text-muted">
+  Le niveau conditionne les actes engageants indépendamment du métier&nbsp;:
+  un agent instruit, un chef de service arbitre et ouvre la signature, une
+  direction décide, le ministre signe. Un échelon ne peut jamais signer avant
+  celui qui le précède.
+</p>
+
+{% for g in groupes %}
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">
+      <span class="badge {{ 'bg-secondary' if g.niveau == 0 else ('bg-primary' if g.niveau < 5 else 'bg-dark') }} me-1">
+        Niveau {{ g.niveau }}</span>
+      {{ g.libelle }}
+    </span>
+    <span class="small text-muted">{{ g.comptes|length }} compte(s)</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th style="width:22rem">Identifiant</th>
+        <th>Rôle</th>
+        <th>Ce que ce profil permet d'éprouver</th>
+      </tr></thead>
+      <tbody>
+      {% for c in g.comptes %}
+        <tr>
+          <td>
+            <code>{{ c.email }}</code>
+            {% if not c.actif %}
+            <span class="badge bg-danger ms-1">inactif</span>
+            {% endif %}
+            {% if c.etablissement %}
+            <div class="small text-muted">{{ c.etablissement }}</div>
+            {% endif %}
+          </td>
+          <td class="small">{{ c.libelle }}</td>
+          <td class="small text-muted">{{ c.a_eprouver }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

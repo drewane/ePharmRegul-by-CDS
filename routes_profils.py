@@ -140,6 +140,27 @@ def inscription(profil):
                            valeurs=valeurs)
 
 
+@bp.route("/comptes-demonstration")
+def comptes_demonstration():
+    """Annuaire des comptes d'essai, groupés par niveau de responsabilité.
+
+    Publier des identifiants n'a de sens que sur un poste de démonstration :
+    la page n'existe que si MODE_DEMONSTRATION est vrai, et disparaît dès que
+    SIREPH_PRODUCTION=1 est positionné.
+    """
+    from flask import current_app
+
+    import seed_comptes
+
+    if not current_app.config.get("MODE_DEMONSTRATION"):
+        abort(404)
+    return render_template(
+        "profils/comptes_demonstration.html",
+        groupes=seed_comptes.annuaire(),
+        manquants=seed_comptes.roles_sans_compte(),
+        mot_de_passe=seed_comptes.MOT_DE_PASSE)
+
+
 @bp.route("/mon-espace")
 @login_required
 def mon_espace():

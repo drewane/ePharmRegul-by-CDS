@@ -52,6 +52,10 @@ PAGE_SIZE = 50
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sireph-demo-secret-a-changer-en-production"
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'sireph.db')}"
+# Mode démonstration : publie l'annuaire des comptes d'essai et leur mot de
+# passe commun. À METTRE À FAUX avant tout déploiement — la variable
+# d'environnement SIREPH_PRODUCTION=1 suffit à le faire.
+app.config["MODE_DEMONSTRATION"] = os.environ.get("SIREPH_PRODUCTION") != "1"
 db.init_app(app)
 
 # Après db.init_app, pour éviter tout import circulaire.
