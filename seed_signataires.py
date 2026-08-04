@@ -37,6 +37,10 @@ COMPTES = [
     ("sd.etablissements@dpml.demo", "Sous-directeur des Établissements",
      "sous_directeur_etablissements"),
     ("cadre@dpml.demo", "Cadre DPML", "cadre_dpml"),
+    # Hiérarchie MIRA : le chef de bureau assure la recevabilité administrative
+    # et l'attribution des dossiers ; l'inspecteur général contrôle l'intégrité.
+    ("chefbureau@dpml.demo", "Chef de bureau — Homologation", "chef_bureau"),
+    ("ig@minsante.demo", "Inspecteur général — Pharmacie", "inspecteur_general"),
 ]
 
 

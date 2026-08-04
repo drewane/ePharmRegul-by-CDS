@@ -17,10 +17,23 @@ from models import (AssignationEvaluation, AvisCommission, DossierAMM,
 
 bp = Blueprint("instruction", __name__, url_prefix="/instruction")
 
+# Hiérarchie MIRA : la recevabilité administrative et l'attribution relèvent du
+# chef de bureau ; l'arbitrage technique, la commission et le rapport relèvent
+# du chef de service.
+ROLES_BUREAU = ("chef_bureau", "chef_service_amm", "administrateur_dpml")
 ROLES_CHEF = ("chef_service_amm", "administrateur_dpml")
 
 
+def _bureau():
+    """Recevabilité et attribution — chef de bureau."""
+    u = current_user()
+    if u is None or u.role_systeme not in ROLES_BUREAU:
+        abort(403)
+    return u
+
+
 def _chef():
+    """Arbitrage technique, commission, rapport — chef de service."""
     u = current_user()
     if u is None or u.role_systeme not in ROLES_CHEF:
         abort(403)
@@ -33,7 +46,7 @@ def _chef():
 @bp.route("/")
 @login_required
 def bureau():
-    u = _chef()
+    u = _bureau()
     a_examiner = DossierAMM.query.filter_by(statut="soumis").all()
     en_evaluation = DossierAMM.query.filter_by(statut="evaluation_en_cours").all()
     return render_template(
@@ -50,7 +63,7 @@ def bureau():
 @bp.route("/dossiers/<int:dossier_id>", methods=["GET", "POST"])
 @login_required
 def dossier(dossier_id):
-    u = _chef()
+    u = _bureau()
     d = db.session.get(DossierAMM, dossier_id) or abort(404)
 
     if request.method == "POST":
@@ -73,6 +86,7 @@ def dossier(dossier_id):
                 wfi.assigner(d, ev, u, request.form.get("consigne"))
                 flash(f"Dossier confié à {ev.nom_complet}.", "success")
             elif action == "rapport":
+                _chef()          # le rapport engage le chef de service
                 wfi.rediger_rapport(d, u, request.form.get("avis_propose", ""),
                                     request.form.get("synthese"),
                                     request.form.get("motif"))

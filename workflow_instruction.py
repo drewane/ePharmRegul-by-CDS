@@ -68,10 +68,16 @@ def points_manquants(dossier):
             if bloquant and not coches.get(code)]
 
 
+# La recevabilité administrative et l'attribution relèvent du chef de bureau ;
+# le chef de service intervient plus tard, sur l'arbitrage technique et la LoQ.
+ROLES_RECEVABILITE = ("chef_bureau", "chef_service_amm", "administrateur_dpml")
+
+
 def enregistrer_checklist(dossier, acteur, coches):
     """Mémorise l'état de la liste de contrôle, sans prononcer la recevabilité."""
-    if acteur.role_systeme not in ("chef_service_amm", "administrateur_dpml"):
-        raise ErreurWorkflow("Seul le chef de service peut renseigner cette liste.")
+    if acteur.role_systeme not in ROLES_RECEVABILITE:
+        raise ErreurWorkflow(
+            "La recevabilité administrative relève du chef de bureau.")
     dossier.checklist_recevabilite = {
         code: bool(coches.get(code)) for code, _l, _b in CHECKLIST_RECEVABILITE}
     enregistrer_audit(dossier, "Liste de contrôle de recevabilité mise à jour", acteur)
@@ -88,8 +94,9 @@ def prononcer_recevabilite(dossier, acteur, recevable, motif=None):
         raise ErreurWorkflow(
             "La recevabilité ne s'examine que sur un dossier soumis "
             f"(statut actuel : {dossier.statut}).")
-    if acteur.role_systeme not in ("chef_service_amm", "administrateur_dpml"):
-        raise ErreurWorkflow("Seul le chef de service prononce la recevabilité.")
+    if acteur.role_systeme not in ROLES_RECEVABILITE:
+        raise ErreurWorkflow(
+            "La recevabilité administrative relève du chef de bureau.")
 
     if recevable:
         manquants = points_manquants(dossier)
@@ -136,8 +143,8 @@ def evaluateurs_disponibles():
 def assigner(dossier, evaluateur, acteur, consigne=None, delai_jours=15):
     if dossier.statut != "evaluation_en_cours":
         raise ErreurWorkflow("Seul un dossier en évaluation peut être assigné.")
-    if acteur.role_systeme not in ("chef_service_amm", "administrateur_dpml"):
-        raise ErreurWorkflow("Seul le chef de service assigne les dossiers.")
+    if acteur.role_systeme not in ROLES_RECEVABILITE:
+        raise ErreurWorkflow("L'attribution des dossiers relève du chef de bureau.")
     if evaluateur.role_systeme != "evaluateur_interne":
         raise ErreurWorkflow(
             "Le dossier ne peut être confié qu'à un évaluateur interne.")
@@ -145,6 +152,21 @@ def assigner(dossier, evaluateur, acteur, consigne=None, delai_jours=15):
             dossier_id=dossier.id, evaluateur_id=evaluateur.id).first():
         raise ErreurWorkflow(
             f"{evaluateur.nom_complet} est déjà assigné à ce dossier.")
+
+    # Croisement obligatoire avec les déclarations d'intérêts. Un lien majeur
+    # ferme l'attribution ET prononce le déport : le contrôle ne se contourne pas.
+    import dpi
+    majeurs = dpi.controler_avant_attribution(evaluateur, dossier, acteur)
+    if majeurs:
+        organismes = ", ".join(sorted({l.organisme for l in majeurs}))
+        raise ErreurWorkflow(
+            f"Attribution impossible : {evaluateur.nom_complet} a déclaré un lien "
+            f"d'intérêt avec {organismes}. Un déport a été prononcé et l'accès au "
+            "dossier lui est fermé.")
+    if dpi.est_assujetti(evaluateur) and dpi.declaration_en_vigueur(evaluateur) is None:
+        raise ErreurWorkflow(
+            f"{evaluateur.nom_complet} n'a pas de déclaration d'intérêts en vigueur. "
+            "Le dossier ne peut pas lui être confié tant qu'elle n'est pas déposée.")
 
     a = AssignationEvaluation(
         dossier_id=dossier.id, evaluateur_id=evaluateur.id, assigne_par_id=acteur.id,
@@ -212,6 +234,18 @@ def convoquer_commission(acteur, intitule, type_commission="specialisee",
     return s
 
 
+def controler_deports_seance(session, acteur):
+    """Croise les membres avec les dossiers inscrits, avant la séance."""
+    import dpi
+    prononces = dpi.controler_seance(session, acteur)
+    if prononces:
+        enregistrer_audit(
+            session,
+            f"{len(prononces)} déport(s) prononcé(s) au titre des liens d'intérêts",
+            acteur)
+    return prononces
+
+
 def inscrire_dossier(session, dossier, acteur):
     if session.statut == "close":
         raise ErreurWorkflow("Cette séance est close.")
@@ -236,6 +270,13 @@ def saisir_avis(dossier_session, membre, reponses, avis, motif=None):
     if membre.role_systeme != session.role_membre:
         raise ErreurWorkflow(
             "Votre profil ne vous permet pas de siéger à cette commission.")
+    # Un membre déporté ne délibère pas : le blocage vaut aussi en séance.
+    # Nom distinct de `motif` : celui-ci porte la motivation de l'avis du membre.
+    import dpi
+    autorise, motif_refus_acces = dpi.acces_autorise(membre, dossier_session.dossier)
+    if not autorise:
+        raise ErreurWorkflow(
+            f"Vous ne pouvez pas vous prononcer sur ce dossier. {motif_refus_acces}")
     if avis not in AVIS:
         raise ErreurWorkflow("Avis inconnu.")
     if avis in ("defavorable", "complement_requis") and not (motif or "").strip():
@@ -302,6 +343,9 @@ def clore_seance(session, acteur):
         raise ErreurWorkflow("Cette séance est déjà close.")
     for ds in session.inscriptions:
         synthetiser(ds)
+    # Le procès-verbal doit porter mention des déports constatés.
+    import dpi
+    session.mention_deports = dpi.mention_proces_verbal(session)
     session.statut = "close"
     session.date_cloture = datetime.utcnow()
     enregistrer_audit(session, f"Séance {session.numero} close — avis synthétisés", acteur)

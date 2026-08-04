@@ -55,6 +55,7 @@ ROLES_REGULATEUR = {
     "evaluateur_interne": "Évaluateur interne",
     "membre_commission_specialisee": "Membre de commission spécialisée",
     "membre_commission_nationale": "Membre de la commission nationale",
+    "chef_bureau": "Chef de bureau (recevabilité et attribution)",
     "chef_service_amm": "Chef de service Homologation",
     "chef_service_licences": "Chef de service Licences et Établissements",
     "chef_service_inspection": "Chef de service Inspection",
@@ -65,6 +66,8 @@ ROLES_REGULATEUR = {
     # L'agence du médicament, appelée à succéder à la direction, est dirigée par
     # un directeur général qui pourra signer l'AMM en lieu et place du ministre.
     "directeur_general_agence": "Directeur général de l'Agence du Médicament",
+    # Contrôle d'intégrité transversal : lecture sur tout, audit trail complet.
+    "inspecteur_general": "Inspecteur général (Pharmacie / Services médicaux)",
     # Signataires du ministère : l'AMM est signée par le ministre de la Santé.
     "secretaire_general_ms": "Secrétaire général du Ministère de la Santé",
     "ministre_sante": "Ministre de la Santé publique",
@@ -91,33 +94,40 @@ NIVEAU_PAR_ROLE = {
     "agent_laboratoire": 1,
     "agent_surveillance_marche": 1,
     "agent_dros": 1,
-    # Niveau 2 — validation technique
-    "responsable_qualite_labo": 2,
-    "chef_service_amm": 2,
-    "chef_service_licences": 2,
-    "chef_service_inspection": 2,
-    "chef_service_labo": 2,
-    # Niveau 3 — sous-direction
-    "sous_directeur_medicament": 3,
-    "sous_directeur_etablissements": 3,
-    # Niveau 4 — direction : signature des dérogations et visas techniques
-    "directeur_dpml": 4,
-    # Niveaux 5 et 6 — ministère : signature de l'AMM
-    "directeur_general_agence": 5,
-    "secretaire_general_ms": 5,
-    "ministre_sante": 6,
+    # Niveau 2 — chef de bureau : recevabilité administrative et attribution
+    "chef_bureau": 2,
+    # Niveau 3 — chefs de service : arbitrage technique, validation de la LoQ
+    "responsable_qualite_labo": 3,
+    "chef_service_amm": 3,
+    "chef_service_licences": 3,
+    "chef_service_inspection": 3,
+    "chef_service_labo": 3,
+    # Niveau 4 — sous-direction : cohérence et supervision
+    "sous_directeur_medicament": 4,
+    "sous_directeur_etablissements": 4,
+    # Niveau 5 — direction
+    "directeur_dpml": 5,
+    # Niveau 6 — inspection générale : audit et contrôle d'intégrité
+    "inspecteur_general": 6,
+    # Niveau 7 — secrétariat général et direction générale de l'agence
+    "directeur_general_agence": 7,
+    "secretaire_general_ms": 7,
+    # Niveau 8 — ministre : signature des actes
+    "ministre_sante": 8,
     # Administration du système : droits techniques, pas un échelon hiérarchique
-    "administrateur_dpml": 4,
+    "administrateur_dpml": 5,
 }
 
 LIBELLE_NIVEAU = {
     0: "Externe",
-    1: "Agent instructeur",
-    2: "Responsable de service",
-    3: "Sous-direction",
-    4: "Direction",
-    5: "Secrétariat général",
-    6: "Ministre",
+    1: "Cadre — évaluateur / instructeur scientifique",
+    2: "Chef de bureau",
+    3: "Chef de service",
+    4: "Sous-direction",
+    5: "Direction",
+    6: "Inspection générale",
+    7: "Secrétariat général",
+    8: "Ministre",
 }
 
 ROLES_ACTIFS = {**ROLES_EXTERNES, **ROLES_REGULATEUR}

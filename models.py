@@ -918,6 +918,8 @@ class SessionCommission(db.Model):
     # convoquee | en_cours | close
     date_creation = db.Column(db.DateTime, default=datetime.utcnow)
     date_cloture = db.Column(db.DateTime)
+    # Mention des déports portée au procès-verbal, figée à la clôture.
+    mention_deports = db.Column(db.Text)
 
     convoquee_par = db.relationship("Personne", foreign_keys=[convoquee_par_id])
     inscriptions = db.relationship("DossierSession", back_populates="session",
@@ -1016,3 +1018,94 @@ class CourrielSortant(db.Model):
     date_envoi = db.Column(db.DateTime)
 
     destinataire = db.relationship("Personne", foreign_keys=[destinataire_id])
+
+
+# ===========================================================================
+# DÉCLARATIONS PUBLIQUES D'INTÉRÊTS (DPI) ET DÉPORTS
+# ===========================================================================
+class DeclarationInteret(db.Model):
+    """Déclaration publique d'intérêts d'un agent ou d'un expert externe.
+
+    Une DPI couvre les cinq dernières années. Elle est versionnée : une
+    nouvelle déclaration remplace la précédente sans l'effacer, car
+    l'historique des liens déclarés fait partie de la traçabilité.
+    """
+    __tablename__ = "declaration_interet"
+    id = db.Column(db.Integer, primary_key=True)
+    personne_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    version = db.Column(db.Integer, nullable=False, default=1)
+    # Une seule déclaration est en vigueur à la fois pour une personne.
+    en_vigueur = db.Column(db.Boolean, default=True)
+    # Déclaration « néant » : l'absence de lien doit être déclarée
+    # explicitement, elle ne se déduit pas d'un silence.
+    aucun_lien = db.Column(db.Boolean, default=False)
+    date_declaration = db.Column(db.DateTime, default=datetime.utcnow)
+    date_expiration = db.Column(db.DateTime)          # à renouveler annuellement
+    commentaire = db.Column(db.Text)
+
+    personne = db.relationship("Personne", foreign_keys=[personne_id])
+    liens = db.relationship("LienInteret", back_populates="declaration",
+                             cascade="all, delete-orphan")
+
+    @property
+    def expiree(self):
+        return bool(self.date_expiration and self.date_expiration < datetime.utcnow())
+
+
+class LienInteret(db.Model):
+    """Un lien d'intérêt déclaré : avec qui, de quelle nature, quand."""
+    __tablename__ = "lien_interet"
+    id = db.Column(db.Integer, primary_key=True)
+    declaration_id = db.Column(db.Integer, db.ForeignKey("declaration_interet.id"),
+                               nullable=False)
+    # Organisme concerné — le rapprochement se fait sur ce nom, normalisé.
+    organisme = db.Column(db.String(300), nullable=False)
+    organisme_normalise = db.Column(db.String(300), index=True)
+    etablissement_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"),
+                                 nullable=True)
+    nature = db.Column(db.String(40), nullable=False)
+    # remuneration | conseil | actions | participation | essai_clinique
+    # | invitation | parent_proche | autre
+    description = db.Column(db.Text)
+    montant_indicatif = db.Column(db.Integer)
+    annee_debut = db.Column(db.Integer)
+    annee_fin = db.Column(db.Integer)                 # nul = toujours en cours
+    # Gravité retenue pour le lien : pilote le blocage automatique.
+    gravite = db.Column(db.String(20), nullable=False, default="majeur")
+    # majeur (déport obligatoire) | mineur (déclaration suffisante)
+
+    declaration = db.relationship("DeclarationInteret", back_populates="liens")
+    etablissement = db.relationship("Etablissement", foreign_keys=[etablissement_id])
+
+
+class Deport(db.Model):
+    """Déport constaté : une personne est écartée d'un dossier ou d'une séance.
+
+    Le déport n'est pas qu'une mention au procès-verbal : il verrouille
+    effectivement l'accès au dossier dans la GED.
+    """
+    __tablename__ = "deport"
+    id = db.Column(db.Integer, primary_key=True)
+    personne_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    # Objet du déport : un dossier, une séance de commission…
+    entite_type = db.Column(db.String(50), nullable=False)
+    entite_id = db.Column(db.Integer, nullable=False)
+    lien_interet_id = db.Column(db.Integer, db.ForeignKey("lien_interet.id"),
+                                nullable=True)
+    motif = db.Column(db.Text, nullable=False)
+    origine = db.Column(db.String(20), nullable=False, default="automatique")
+    # automatique (croisement DPI) | declare (l'agent se déporte) | impose
+    leve = db.Column(db.Boolean, default=False)       # levé après examen
+    motif_levee = db.Column(db.Text)
+    leve_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_levee = db.Column(db.DateTime)
+
+    personne = db.relationship("Personne", foreign_keys=[personne_id])
+    lien_interet = db.relationship("LienInteret", foreign_keys=[lien_interet_id])
+    leve_par = db.relationship("Personne", foreign_keys=[leve_par_id])
+
+    __table_args__ = (
+        db.UniqueConstraint("personne_id", "entite_type", "entite_id",
+                            name="uq_deport_personne_entite"),
+    )
