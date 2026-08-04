@@ -249,6 +249,28 @@ def initier_en_ligne(paiement, code_fournisseur, contexte, acteur):
     return initiation
 
 
+def _entite_du_paiement(paiement):
+    """L'objet métier auquel se rattache la créance."""
+    from models import (DemandeLicence, DossierAMM, Echantillon, Inspection,
+                        LiberationLot, ProtocoleEssaiClinique)
+    modeles = {"DossierAMM": DossierAMM, "DemandeLicence": DemandeLicence,
+               "Echantillon": Echantillon, "Inspection": Inspection,
+               "LiberationLot": LiberationLot,
+               "ProtocoleEssaiClinique": ProtocoleEssaiClinique}
+    modele = modeles.get(paiement.entite_type)
+    return db.session.get(modele, paiement.entite_id) if modele else None
+
+
+def _demarrer_delai_legal(paiement, acteur):
+    """Déclenche le décompte du délai sur l'entité concernée, si elle le porte."""
+    entite = _entite_du_paiement(paiement)
+    if entite is None or not hasattr(entite, "clock_debut"):
+        return
+    import suivi
+    suivi.demarrer_delai(entite, acteur,
+                         motif=f"paiement {paiement.numero} confirmé")
+
+
 def _appliquer_resultat(paiement, resultat, acteur, origine):
     """Applique une issue de paiement (notification, interrogation, rapprochement)."""
     ancien = paiement.statut
@@ -264,6 +286,9 @@ def _appliquer_resultat(paiement, resultat, acteur, origine):
         paiement.statut = "confirme"
         paiement.date_confirmation = datetime.utcnow()
         paiement.reference_transaction = resultat.reference_transaction
+        # Clock Start : le délai légal d'instruction ne court qu'à compter de
+        # l'encaissement de la redevance — avant, l'administration n'est pas saisie.
+        _demarrer_delai_legal(paiement, acteur)
         enregistrer_audit(
             paiement,
             f"Paiement confirmé — {libelle_f} ({origine}, transaction "

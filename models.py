@@ -175,6 +175,13 @@ class DossierAMM(db.Model):
 
     # Liste de contrôle de recevabilité renseignée par le chef de service
     checklist_recevabilite = db.Column(db.JSON, default=dict)
+    # Numéro national de suivi communiqué au demandeur (CMR-AMM-2026-00123)
+    numero_suivi = db.Column(db.String(40), unique=True)
+    # Délai légal d'instruction : démarre à la validation du paiement, se
+    # suspend pendant que le demandeur répond aux questions (Clock Stop).
+    clock_debut = db.Column(db.DateTime)
+    clock_suspendu_depuis = db.Column(db.DateTime)
+    clock_total_suspendu_jours = db.Column(db.Integer, default=0)
     representant_local_nom = db.Column(db.String(200), nullable=True)
     representant_local_contact = db.Column(db.String(200), nullable=True)
 

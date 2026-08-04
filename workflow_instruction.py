@@ -389,6 +389,14 @@ def rediger_rapport(dossier, acteur, avis_propose, synthese=None, motif=None):
         dossier.statut = "complement_requis"
         jours = int(get_parametre("MA", "delai_reponse_complement_jours", default=90))
         dossier.date_limite_reponse_complement = datetime.utcnow() + timedelta(days=jours)
+        # Clock Stop : le temps de réponse du demandeur ne s'impute pas sur le
+        # délai de l'administration.
+        import suivi
+        try:
+            suivi.suspendre_delai(dossier, acteur,
+                                  motif="complément de dossier demandé")
+        except ErreurWorkflow:
+            pass          # le délai n'avait pas démarré : rien à suspendre
         enregistrer_audit(dossier, "Complément de dossier demandé au déposant", acteur,
                           ancien, dossier.statut)
         if dossier.demandeur:

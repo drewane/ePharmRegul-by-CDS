@@ -248,7 +248,7 @@ def test_rapport_ouvre_le_circuit():
     verifier("rapport enregistré",
              RapportInstruction.query.filter_by(dossier_id=d.id).first() is not None)
     verifier("circuit de signature ouvert", vn.circuit_ouvert(d))
-    verifier("circuit AMM à 5 échelons", len(vn.etapes(d)) == 5)
+    verifier("circuit AMM à 6 échelons (audit IG inclus)", len(vn.etapes(d)) == 6)
     verifier("premier échelon = chef de service",
              vn.etape_courante(d).role_requis == "chef_service_amm")
     verifier("double rapport refusé",

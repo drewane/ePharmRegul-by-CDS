@@ -36,17 +36,19 @@ from permissions import ROLES
 CIRCUITS = {
     "derogation": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml"],
     "visa_technique": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml"],
+    # L'inspecteur général exerce un audit d'intégrité avant que le dossier ne
+    # quitte la direction pour le ministère.
     "amm": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml",
-            "secretaire_general_ms", "ministre_sante"],
+            "inspecteur_general", "secretaire_general_ms", "ministre_sante"],
     # Licence d'établissement : instruite par le service Licences, signée par le
     # directeur. Pas de commission à ce stade — la réglementation n'en prévoit
     # pas ; le circuit reste prêt à en accueillir une le jour venu.
     "licence": ["chef_service_licences", "sous_directeur_etablissements",
-                "directeur_dpml"],
+                "directeur_dpml", "secretaire_general_ms", "ministre_sante"],
     # Essai clinique : instruit par le service Homologation, examiné en
     # commission spécialisée, autorisé par le directeur.
     "essai_clinique": ["chef_service_amm", "sous_directeur_medicament",
-                       "directeur_dpml"],
+                       "directeur_dpml", "secretaire_general_ms", "ministre_sante"],
     # Contrôle qualité : le certificat d'analyse engage le laboratoire, puis la
     # direction. Pas de commission — la conclusion est analytique.
     "controle_qualite": ["chef_service_labo", "sous_directeur_medicament",
@@ -54,7 +56,7 @@ CIRCUITS = {
     # Inspection : le rapport et ses suites sont validés par la voie
     # hiérarchique de l'inspection.
     "inspection": ["chef_service_inspection", "sous_directeur_etablissements",
-                   "directeur_dpml"],
+                   "inspecteur_general", "directeur_dpml"],
 }
 
 LIBELLE_CIRCUIT = {

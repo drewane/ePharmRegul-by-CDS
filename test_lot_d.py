@@ -71,20 +71,20 @@ def _dossier():
 
 
 def test_circuit_licence():
-    print("\n[1] Circuit licence — trois échelons, sans commission")
+    print("\n[1] Circuit licence — cinq échelons, sans commission")
     verifier("circuit licence déclaré", "licence" in vn.CIRCUITS)
-    verifier("trois échelons", len(vn.CIRCUITS["licence"]) == 3,
+    verifier("cinq échelons jusqu'au ministre", len(vn.CIRCUITS["licence"]) == 5,
              str(len(vn.CIRCUITS["licence"])))
     verifier("instruit par le service Licences",
              vn.CIRCUITS["licence"][0] == "chef_service_licences")
     verifier("passe par le sous-directeur des Établissements",
              vn.CIRCUITS["licence"][1] == "sous_directeur_etablissements")
-    verifier("signé par le directeur DPML",
-             vn.CIRCUITS["licence"][-1] == "directeur_dpml")
+    verifier("signée par le ministre",
+             vn.CIRCUITS["licence"][-1] == "ministre_sante")
     verifier("pas de commission pour les licences",
              "licence" not in vn.CIRCUITS_AVEC_COMMISSION)
     verifier("l'AMM garde sa commission", "amm" in vn.CIRCUITS_AVEC_COMMISSION)
-    verifier("l'AMM reste le circuit le plus long",
+    verifier("l'AMM reste le circuit le plus long (audit IG)",
              len(vn.CIRCUITS["amm"]) > len(vn.CIRCUITS["licence"]))
 
 
@@ -94,8 +94,10 @@ def test_signature_licence():
     cs = _r("chef_service_licences")
     sd = _r("sous_directeur_etablissements")
     dr = _r("directeur_dpml")
-    if not (cs and sd and dr):
-        verifier("comptes des trois échelons disponibles", False)
+    sg = _r("secretaire_general_ms")
+    mn = _r("ministre_sante")
+    if not all((cs, sd, dr, sg, mn)):
+        verifier("comptes des cinq échelons disponibles", False)
         return
 
     vn.ouvrir_circuit(d, "licence", cs)
@@ -105,16 +107,16 @@ def test_signature_licence():
     verifier("le chef Homologation ne signe pas une licence",
              leve(lambda: vn.signer(d, _r("chef_service_amm")), "revient au"))
 
-    for acteur in (cs, sd):
+    for acteur in (cs, sd, dr, sg):
         _e, acheve = vn.signer(d, acteur)
         db.session.flush()
         verifier(f"{acteur.role_systeme} a signé, circuit non achevé", not acheve)
-    _e, acheve = vn.signer(d, dr)
+    _e, acheve = vn.signer(d, mn)
     db.session.flush()
-    verifier("signature du directeur = circuit achevé", acheve)
-    verifier("trois signatures apposées", vn.progression(d) == (3, 3))
-    verifier("le ministre n'intervient pas",
-             all(e.role_requis != "ministre_sante" for e in vn.etapes(d)))
+    verifier("signature du ministre = circuit achevé", acheve)
+    verifier("cinq signatures apposées", vn.progression(d) == (5, 5))
+    verifier("aucune commission pour la licence",
+             "licence" not in vn.CIRCUITS_AVEC_COMMISSION)
 
 
 def test_profondeur_par_profil():

@@ -4,3 +4,4 @@ __pycache__/
 instance/*.db-journal
 *.log
 .DS_Store
+instance/*.avant-migration-*

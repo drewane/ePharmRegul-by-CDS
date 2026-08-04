@@ -293,6 +293,8 @@ def soumettre(dossier, acteur):
     from numerotation import generer_numero
     ancien = dossier.statut
     dossier.numero = generer_numero("AMM")
+    # Numéro national de suivi communiqué au demandeur (CMR-AMM-2026-00123)
+    attribuer_numero_suivi(dossier)
     dossier.statut = "soumis"
     dossier.date_depot = datetime.utcnow()
     if dossier.produit.statut_amm_courant == "aucune":
@@ -311,6 +313,15 @@ def soumettre(dossier, acteur):
                  f"Frais de dossier de {montant} XAF à régler pour {dossier.numero} (paiement {paiement.numero}). "
                  "Déposez votre preuve de paiement depuis la fiche du dossier.",
                  lien=f"/dossiers/{dossier.id}")
+
+
+def attribuer_numero_suivi(dossier):
+    """Numéro national communiqué au demandeur, attribué une seule fois."""
+    if getattr(dossier, "numero_suivi", None):
+        return dossier.numero_suivi
+    import suivi
+    dossier.numero_suivi = suivi.numero_suivi("amm")
+    return dossier.numero_suivi
 
 
 def _generer_accuse_reception(dossier):
@@ -461,6 +472,10 @@ def deposer_reponse_complement(dossier, acteur, donnees_ctd=None):
     ancien = dossier.statut
     dossier.statut = "evaluation_en_cours"
     dossier.date_limite_reponse_complement = None
+    # Le délai légal repart : le temps de réponse du demandeur ne s'impute pas
+    # sur celui de l'administration.
+    import suivi
+    suivi.reprendre_delai(dossier, acteur, motif="réponse au complément déposée")
     enregistrer_audit(dossier, "Réponse au complément déposée, retour en évaluation", acteur, ancien, dossier.statut)
     notifier_tous("evaluateur_amm", "reponse_complement_recue",
                   f"Réponse au complément reçue sur le dossier {dossier.numero}.", lien=f"/dossiers/{dossier.id}")

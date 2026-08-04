@@ -144,21 +144,23 @@ def test_demande_inspection():
 
 
 def test_circuit_amm_ordre():
-    print("\n[4] Circuit AMM — 5 échelons, ordre garanti")
+    print("\n[4] Circuit AMM — 6 échelons, ordre garanti")
     _e, comptes, dossier = _societe("CIRCUIT")
     chef = Personne.query.filter_by(role_systeme="chef_service_amm").first()
     sd = Personne.query.filter_by(role_systeme="sous_directeur_medicament").first()
     dir_ = Personne.query.filter_by(role_systeme="directeur_dpml").first()
+    ig = Personne.query.filter_by(role_systeme="inspecteur_general").first()
     sg = Personne.query.filter_by(role_systeme="secretaire_general_ms").first()
     ministre = Personne.query.filter_by(role_systeme="ministre_sante").first()
-    if not all((chef, sd, dir_, sg, ministre)):
-        verifier("comptes des cinq échelons disponibles", False,
+    if not all((chef, sd, dir_, ig, sg, ministre)):
+        verifier("comptes des six échelons disponibles", False,
                  "lancer seed_signataires.py")
         return
 
     vn.ouvrir_circuit(dossier, "amm", chef)
     db.session.flush()
-    verifier("circuit AMM à 5 échelons", len(vn.etapes(dossier)) == 5)
+    verifier("circuit AMM à 6 échelons (audit IG inclus)",
+             len(vn.etapes(dossier)) == 6)
     verifier("premier échelon = chef de service",
              vn.etape_courante(dossier).role_requis == "chef_service_amm")
 
@@ -170,7 +172,8 @@ def test_circuit_amm_ordre():
 
     for acteur, attendu in ((chef, "sous_directeur_medicament"),
                             (sd, "directeur_dpml"),
-                            (dir_, "secretaire_general_ms"),
+                            (dir_, "inspecteur_general"),
+                            (ig, "secretaire_general_ms"),
                             (sg, "ministre_sante")):
         _etape, acheve = vn.signer(dossier, acteur)
         db.session.flush()
@@ -181,7 +184,7 @@ def test_circuit_amm_ordre():
     _etape, acheve = vn.signer(dossier, ministre)
     db.session.flush()
     verifier("signature du ministre = circuit achevé", acheve)
-    verifier("les 5 signatures sont apposées", vn.progression(dossier) == (5, 5))
+    verifier("les 6 signatures sont apposées", vn.progression(dossier) == (6, 6))
     verifier("chaque signature porte une empreinte",
              all(e.signature for e in vn.etapes(dossier)))
     verifier("chaque signature est nominative",
