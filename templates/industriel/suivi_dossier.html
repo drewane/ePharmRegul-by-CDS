@@ -20,8 +20,40 @@
       {% if d.numero %}<span class="ms-2">réf. interne {{ d.numero }}</span>{% endif %}
     </p>
   </div>
-  <a class="btn btn-outline-secondary" href="/dossiers/{{ d.id }}">Ouvrir le dossier</a>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if amm_signee %}
+    <a class="btn btn-success"
+       href="{{ url_for('pieces.telecharger', piece_id=amm_signee.id) }}">
+      <i class="bi bi-file-earmark-pdf me-1"></i> Télécharger mon AMM</a>
+    {% endif %}
+    <a class="btn btn-outline-secondary" href="/dossiers/{{ d.id }}">Ouvrir le dossier</a>
+  </div>
 </div>
+
+{% if amm_signee %}
+<div class="alert alert-success d-flex gap-2 align-items-start">
+  <i class="bi bi-patch-check-fill"></i>
+  <div>
+    <strong>Votre autorisation est en ligne.</strong>
+    Signée par le ministre le
+    {{ amm_signee.date_televersement.strftime('%d/%m/%Y')
+       if amm_signee.date_televersement else '—' }}
+    {% if d.date_validite_amm %}
+    et valable jusqu'au <strong>{{ d.date_validite_amm.strftime('%d/%m/%Y') }}</strong>.
+    Un rappel de renouvellement vous sera adressé six mois avant l'échéance.
+    {% endif %}
+  </div>
+</div>
+{% elif d.statut == 'approuve' %}
+<div class="alert alert-info d-flex gap-2 align-items-start">
+  <i class="bi bi-hourglass-split"></i>
+  <div>
+    <strong>Décision favorable.</strong> Votre autorisation a été signée par le
+    ministre. Le service procède à sa mise en ligne&nbsp;; vous pourrez la
+    télécharger ici dès qu'elle sera disponible.
+  </div>
+</div>
+{% endif %}
 
 <div class="row g-3">
   <div class="col-lg-7">

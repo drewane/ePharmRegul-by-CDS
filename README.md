@@ -136,6 +136,27 @@ bloqué sur ce seul point, puis :
 | 2 | `finances@dpml.demo` | `/paiements/approbation` | approbation de la créance |
 | 3 | `chefservice@dpml.demo` | même écran | la case est attestée, la recevabilité passe, le délai court |
 
+### Deux documents en fin de circuit
+
+À la dernière signature, le système produit un **certificat d'homologation**.
+C'est un support **interne** : tout agent le consulte, à tout échelon, mais il
+n'est jamais remis au titulaire. Un certificat généré, sans signature
+manuscrite ni sceau, se présenterait trop aisément comme l'autorisation
+elle-même auprès d'un douanier ou d'un acheteur.
+
+Le chef de service dépose ensuite l'**AMM signée de la main du ministre**
+(scan de l'acte) depuis l'écran du circuit. C'est le seul document que le
+titulaire télécharge, depuis `/industriel/suivi/<id>`.
+
+Le dépôt exige la **durée de validité**. Elle fixe l'échéance de
+l'autorisation et arme les rappels de renouvellement adressés au titulaire à
+J-180 — soit six mois avant l'expiration — puis J-90 et J-30. La durée n'est
+plus présumée à cinq ans à la signature : elle est celle que porte l'acte.
+
+Les **pièces du dossier** sont consultables par tout agent (niveau ≥ 1) et
+listées sur l'écran du circuit, à chaque échelon. Un sous-directeur, un
+inspecteur général ou le ministre signent au vu du dossier, non d'un résumé.
+
 `seed.py` crée des données couvrant les statuts significatifs de chacun des
 8 circuits (MA, VL, RI, LI, LT, MC, CT, LR), pour rejouer immédiatement les
 critères d'acceptation ci-dessous — y compris les chaînes inter-modules
@@ -665,6 +686,7 @@ seed_scenario_financier.py   dossier de démonstration bloqué en attente d'appr
 suivi.py           suivi unifié : numéro national, états visibles, Clock Start/Stop
 DEMARRER.bat        lanceur : prépare tout et démarre le serveur en mode réseau
 acces.py            adresses du poste et du réseau, QR code mobile, contrôle du pare-feu
+amm_signee.py       certificat interne vs acte signé du ministre, durée de validité
 run_lan.py          lancement réseau local (Waitress) pour l'accès depuis un autre appareil — voir SETUP.md
 SETUP.md            accès local / réseau Wi-Fi / mobile, configuration du pare-feu Windows
 templates/          gabarits HTML (Jinja + Bootstrap 5) ; un sous-dossier par module :

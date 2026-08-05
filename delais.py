@@ -30,7 +30,9 @@ DEFAUTS_MA = {
         "5", "Durée de validité (années) d'une AMM approuvée."),
     "rappel_renouvellement_j_avant": (
         "180,90,30", "Jours avant expiration d'une AMM active où un rappel de "
-        "renouvellement est notifié au titulaire (liste séparée par des virgules)."),
+        "renouvellement est notifié au titulaire (liste séparée par des "
+        "virgules). Le premier seuil, 180 jours, est le rappel « six mois "
+        "avant l'échéance »."),
     "rappel_complement_j_avant_cloture": (
         "15", "Jours avant clôture automatique où un rappel est notifié au demandeur."),
     "frais_nouvelle_demande_xaf": (

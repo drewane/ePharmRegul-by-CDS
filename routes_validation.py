@@ -7,7 +7,7 @@ dernier échelon.
 """
 import os
 import tempfile
-from datetime import datetime
+from datetime import date, datetime
 
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    send_file, url_for)
@@ -106,17 +106,68 @@ def parapheur():
 @login_required
 def circuit(entite_type, entite_id):
     obj = _entite_lisible(entite_type, entite_id)
+    u = current_user()
     # Chaque échelon voit ce qui lui est utile pour décider : le ministre
     # vérifie le parcours, le chef de service relit la technique.
     vue = None
     if entite_type == "DossierAMM":
         import vue_par_profil
-        vue = vue_par_profil.dossier_amm(obj, current_user())
+        vue = vue_par_profil.dossier_amm(obj, u)
+
+    # Les pièces du dossier accompagnent le circuit d'un bout à l'autre : on
+    # ne signe pas sur la foi d'un résumé. Le demandeur, lui, ne voit ici que
+    # l'acte signé — le reste de l'instruction ne le regarde pas.
+    from permissions import a_niveau
+    import amm_signee
+    from pieces import lister_pieces
+
+    signee = amm_signee.piece_signee(obj) if entite_type == "DossierAMM" else None
+    pieces = lister_pieces(obj) if a_niveau(u, 1) else (
+        [signee] if signee is not None else [])
+
     return render_template(
         "validation/circuit.html", objet=obj, entite_type=entite_type,
         libelle=DOCUMENTS[entite_type][2], etapes=vn.etapes(obj), vue=vue,
         courante=vn.etape_courante(obj), acheve=vn.circuit_acheve(obj),
-        refuse=vn.circuit_refuse(obj), peut_signer=vn.peut_signer(obj, current_user()))
+        refuse=vn.circuit_refuse(obj), peut_signer=vn.peut_signer(obj, u),
+        pieces=pieces, signee=signee, agent=a_niveau(u, 1),
+        peut_deposer_signee=(entite_type == "DossierAMM"
+                             and amm_signee.peut_deposer(obj, u)),
+        duree_defaut=amm_signee.duree_par_defaut(),
+        duree_max=amm_signee.DUREE_MAX_ANNEES,
+        aujourdhui=date.today().isoformat())
+
+
+@bp.route("/DossierAMM/<int:entite_id>/amm-signee", methods=["POST"])
+@login_required
+def deposer_amm_signee(entite_id):
+    """Le chef de service dépose l'acte signé du ministre et fixe sa validité."""
+    import amm_signee
+
+    obj = _entite("DossierAMM", entite_id)
+    lien = url_for("validation.circuit", entite_type="DossierAMM",
+                   entite_id=entite_id)
+    date_signature = None
+    saisie = (request.form.get("date_signature") or "").strip()
+    if saisie:
+        try:
+            date_signature = datetime.strptime(saisie, "%Y-%m-%d").date()
+        except ValueError:
+            flash("Date de signature illisible (format attendu : AAAA-MM-JJ).",
+                  "danger")
+            return redirect(lien)
+    try:
+        amm_signee.deposer(obj, request.files.get("fichier"), current_user(),
+                           request.form.get("duree_annees"), date_signature)
+        db.session.commit()
+        flash(f"AMM signée déposée. Le titulaire peut la télécharger ; elle est "
+              f"valable jusqu'au {obj.date_validite_amm.strftime('%d/%m/%Y')}, "
+              "avec rappel de renouvellement six mois avant l'échéance.",
+              "success")
+    except ErreurWorkflow as e:
+        db.session.rollback()
+        flash(str(e), "danger")
+    return redirect(lien)
 
 
 @bp.route("/<entite_type>/<int:entite_id>/ouvrir", methods=["POST"])
@@ -190,17 +241,27 @@ def _finaliser(obj, entite_type, acteur):
         ancien = obj.statut
         obj.statut = "approuve"
         obj.date_decision = obj.date_decision or datetime.utcnow()
-        if not obj.date_validite_amm:
-            from datetime import date, timedelta
-            obj.date_validite_amm = date.today() + timedelta(days=5 * 365)
+        # La durée de validité n'est PAS déduite ici : elle est celle que porte
+        # l'acte signé, saisie par le chef de service à son dépôt. La présumer
+        # à cinq ans reviendrait à armer les rappels de renouvellement sur une
+        # échéance que le ministre n'a pas fixée.
         enregistrer_audit(
-            obj, "AMM signée par le Ministre de la Santé — autorisation produite",
+            obj, "AMM signée par le Ministre de la Santé — décision favorable",
             acteur, ancien, obj.statut)
+        notifier_tous_roles = ("chef_service_amm", "chef_bureau")
+        for role in notifier_tous_roles:
+            from notifications import notifier_tous
+            notifier_tous(role, "amm_a_publier",
+                          f"Le circuit du dossier {obj.numero} est achevé. "
+                          "Déposez l'AMM signée du ministre pour la mettre à "
+                          "disposition du titulaire.",
+                          lien=f"/validation/DossierAMM/{obj.id}")
         if obj.demandeur:
             notifier(obj.demandeur, "amm_octroyee",
-                     f"Votre autorisation de mise sur le marché {obj.numero} a été "
-                     "signée. Le document officiel est disponible au téléchargement.",
-                     lien=f"/validation/DossierAMM/{obj.id}")
+                     f"Votre demande {obj.numero} a reçu une décision favorable, "
+                     "signée par le ministre. L'autorisation vous sera "
+                     "communiquée dès sa mise en ligne par le service.",
+                     lien=f"/industriel/suivi/{obj.id}")
     else:
         enregistrer_audit(obj, f"{DOCUMENTS[entite_type][2]} signé — document produit",
                           acteur)
@@ -214,9 +275,17 @@ def _finaliser(obj, entite_type, acteur):
 
 @bp.route("/<entite_type>/<int:entite_id>/document")
 @login_required
+@niveau_requis(1)
 def document(entite_type, entite_id):
-    """Télécharge le document officiel — uniquement si le circuit est achevé."""
-    obj = _entite_lisible(entite_type, entite_id)
+    """Certificat d'homologation — support interne, réservé à l'administration.
+
+    Tout agent y accède, à tout échelon : la signature s'appuie sur ce que les
+    services ont pu lire. Le demandeur, lui, n'y a pas accès — un certificat
+    généré, sans signature manuscrite ni sceau, se présenterait trop aisément
+    comme l'autorisation elle-même. Ce que le demandeur télécharge, c'est
+    l'acte signé déposé par le chef de service (cf. amm_signee.py).
+    """
+    obj = _entite(entite_type, entite_id)
     if not vn.circuit_acheve(obj):
         flash("Le document officiel n'est produit qu'au terme du circuit de "
               "validation.", "warning")

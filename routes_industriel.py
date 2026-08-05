@@ -101,6 +101,8 @@ def suivi_liste():
 @login_required
 def suivi_dossier(dossier_id):
     """Parcours détaillé d'un dossier : étapes franchies, délai, historique."""
+    import amm_signee
+
     u, d = _dossier_de_ma_societe(dossier_id)
     legal = suivi.delai_legal(d)
     paiements = (Paiement.query
@@ -108,6 +110,7 @@ def suivi_dossier(dossier_id):
                  .order_by(Paiement.id.desc()).all())
     return render_template(
         "industriel/suivi_dossier.html", u=u, d=d,
+        amm_signee=amm_signee.piece_signee(d),
         etapes=suivi.etapes_parcours(d), etat=suivi.etat_visible(d),
         delai=suivi.etat_delai(d, legal), legal=legal,
         fonction=suivi.LIBELLE_FONCTION[suivi.fonction_du_dossier(d)],

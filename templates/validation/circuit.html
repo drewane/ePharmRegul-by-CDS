@@ -12,11 +12,18 @@
       {% endif %}
     </p>
   </div>
-  {% if acheve %}
-  <a class="btn btn-success"
-     href="{{ url_for('validation.document', entite_type=entite_type, entite_id=objet.id) }}">
-    <i class="bi bi-file-earmark-pdf me-1"></i> Télécharger le document signé</a>
-  {% endif %}
+  <div class="d-flex gap-2 flex-wrap">
+    {% if acheve and agent %}
+    <a class="btn btn-outline-secondary"
+       href="{{ url_for('validation.document', entite_type=entite_type, entite_id=objet.id) }}">
+      <i class="bi bi-file-earmark-text me-1"></i> Certificat d'homologation</a>
+    {% endif %}
+    {% if signee %}
+    <a class="btn btn-success"
+       href="{{ url_for('pieces.telecharger', piece_id=signee.id) }}">
+      <i class="bi bi-file-earmark-pdf me-1"></i> AMM signée du ministre</a>
+    {% endif %}
+  </div>
 </div>
 
 {% if refuse %}
@@ -26,8 +33,93 @@
 </div>
 {% elif acheve %}
 <div class="alert alert-success">
-  <strong>Circuit achevé.</strong> Tous les échelons ont signé — le document
-  officiel a été produit.
+  <strong>Circuit achevé.</strong> Tous les échelons ont signé.
+  {% if signee %}
+  L'AMM signée du ministre est en ligne, le titulaire peut la télécharger.
+  {% elif agent %}
+  Le certificat d'homologation est disponible pour les services ; il reste à
+  déposer l'acte signé du ministre pour que le titulaire y ait accès.
+  {% else %}
+  L'autorisation vous sera communiquée dès sa mise en ligne par le service.
+  {% endif %}
+</div>
+{% endif %}
+
+{% if peut_deposer_signee %}
+<div class="card border-success mb-3">
+  <div class="card-header py-2 fw-semibold">
+    <i class="bi bi-upload me-1"></i> Déposer l'AMM signée du ministre</div>
+  <div class="card-body">
+    <p class="small text-muted">
+      Scannez l'acte revêtu de la signature manuscrite du ministre. C'est ce
+      document — et non le certificat d'homologation, qui reste interne — que
+      le titulaire pourra télécharger. La durée saisie fixe l'échéance de
+      l'autorisation et arme le rappel de renouvellement, adressé au titulaire
+      six mois avant l'expiration.
+    </p>
+    <form method="post" enctype="multipart/form-data" class="row g-2 align-items-end"
+          action="{{ url_for('validation.deposer_amm_signee', entite_id=objet.id) }}">
+      <div class="col-md-5">
+        <label class="form-label small mb-1" for="fichier">Acte signé (PDF ou scan)</label>
+        <input class="form-control form-control-sm" type="file" id="fichier"
+               name="fichier" accept=".pdf,.png,.jpg,.jpeg" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label small mb-1" for="date_signature">Date de signature</label>
+        <input class="form-control form-control-sm" type="date" id="date_signature"
+               name="date_signature" value="{{ aujourdhui }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label small mb-1" for="duree_annees">Validité (années)</label>
+        <input class="form-control form-control-sm" type="number" id="duree_annees"
+               name="duree_annees" min="1" max="{{ duree_max }}"
+               value="{{ duree_defaut }}" required>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-success btn-sm w-100">Déposer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if pieces %}
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">
+      <i class="bi bi-paperclip me-1"></i> Pièces du dossier</span>
+    <span class="badge bg-secondary">{{ pieces|length }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <tbody>
+      {% for p in pieces %}
+        <tr>
+          <td class="small">
+            {{ p.type_document or 'Document' }}
+            <div class="text-muted">{{ p.nom_fichier }}</div>
+          </td>
+          <td class="small text-muted text-nowrap">
+            {{ p.date_televersement.strftime('%d/%m/%Y')
+               if p.date_televersement else '—' }}
+            {% if p.televerse_par %}<br>{{ p.televerse_par.nom_complet }}{% endif %}
+          </td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('pieces.telecharger', piece_id=p.id) }}">
+              Ouvrir</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if agent %}
+  <div class="card-footer small text-muted py-2">
+    Ces pièces sont consultables à chaque échelon du circuit : on ne signe pas
+    sur la foi d'un résumé.
+  </div>
+  {% endif %}
 </div>
 {% endif %}
 
@@ -230,7 +322,13 @@
           <li>Chaque signature est nominative, horodatée et porte une empreinte
               vérifiable.</li>
           <li>Un refus, à n'importe quel échelon, interrompt le circuit.</li>
-          <li>Le document officiel n'est produit qu'à la dernière signature.</li>
+          <li>Les pièces du dossier sont consultables à chaque échelon.</li>
+          <li>À la dernière signature, le système produit un
+              <strong>certificat d'homologation</strong> : un support interne
+              aux services, jamais remis au titulaire.</li>
+          <li>Le chef de service dépose ensuite l'<strong>AMM signée de la main
+              du ministre</strong>. C'est le seul document que le titulaire
+              télécharge, et c'est son dépôt qui fixe la durée de validité.</li>
         </ul>
       </div>
     </div>
