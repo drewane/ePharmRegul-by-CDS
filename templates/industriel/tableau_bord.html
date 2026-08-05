@@ -12,8 +12,8 @@
   <div class="d-flex gap-2">
     <a class="btn btn-outline-primary" href="{{ url_for('industriel.suivi_liste') }}">
       <i class="bi bi-signpost-split me-1"></i> Où en sont mes dossiers&nbsp;?</a>
-    <a class="btn btn-primary" href="{{ url_for('industriel.nouvelle_demande') }}">
-      <i class="bi bi-plus-circle me-1"></i> Nouvelle demande</a>
+    <a class="btn btn-primary" href="{{ url_for('demandes.accueil') }}">
+      <i class="bi bi-plus-circle me-1"></i> Demande</a>
   </div>
 </div>
 
@@ -89,7 +89,7 @@
       {% else %}
       <div class="card-body text-muted">
         Aucun dossier à ce jour.
-        <a href="{{ url_for('industriel.nouvelle_demande') }}">Déposer une demande</a>
+        <a href="{{ url_for('demandes.accueil') }}">Déposer une demande</a>
       </div>
       {% endif %}
     </div>

@@ -117,16 +117,21 @@ def suivi_dossier(dossier_id):
 
 
 # ---------------------------------------------------------------------------
-# Espace de travail : déposer une nouvelle demande
+# Déposer une demande
 # ---------------------------------------------------------------------------
 @bp.route("/nouvelle-demande")
 @login_required
 def nouvelle_demande():
-    """Point de départ unique de toutes les démarches de l'industriel."""
-    u = _verifier_profil()
-    return render_template("industriel/nouvelle_demande.html", u=u,
-                           amm_en_vigueur=esp.dossiers_de_la_societe(u).filter(
-                               DossierAMM.statut == "approuve").all())
+    """Ancien point d'entrée, conservé en redirection.
+
+    Il existait ici un second écran de dépôt, concurrent de « Demande »
+    (/demandes/). Deux portes vers la même démarche finissent toujours par
+    diverger — celle-ci court-circuitait déjà les pages par type de procédure
+    et leur préremplissage. Une seule porte subsiste ; l'URL reste valide pour
+    ne casser aucun signet.
+    """
+    _verifier_profil()
+    return redirect(url_for("demandes.accueil"))
 
 
 # ---------------------------------------------------------------------------

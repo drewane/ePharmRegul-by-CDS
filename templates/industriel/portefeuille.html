@@ -10,8 +10,8 @@
       {{ u.etablissement.raison_sociale if u.etablissement else u.nom_complet }}
     </p>
   </div>
-  <a class="btn btn-primary" href="{{ url_for('industriel.nouvelle_demande') }}">
-    <i class="bi bi-plus-circle me-1"></i> Nouvelle demande</a>
+  <a class="btn btn-primary" href="{{ url_for('demandes.accueil') }}">
+    <i class="bi bi-plus-circle me-1"></i> Demande</a>
 </div>
 
 <div class="card mb-3">
