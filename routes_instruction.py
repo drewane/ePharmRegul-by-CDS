@@ -100,6 +100,7 @@ def dossier(dossier_id):
     return render_template(
         "instruction/dossier.html", u=u, d=d, etat=wfi.etat_instruction(d),
         checklist=wfi.CHECKLIST_RECEVABILITE, coches=d.checklist_recevabilite or {},
+        POINTS_ATTESTES=wfi.POINTS_ATTESTES,
         evaluateurs=wfi.evaluateurs_disponibles(), AVIS=wfi.AVIS,
         seances_ouvertes=SessionCommission.query.filter(
             SessionCommission.statut != "close").all(),

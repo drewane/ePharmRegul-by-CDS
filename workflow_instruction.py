@@ -41,6 +41,12 @@ CHECKLIST_RECEVABILITE = [
 
 POINTS_BLOQUANTS = [c for c, _l, bloquant in CHECKLIST_RECEVABILITE if bloquant]
 
+# Points que l'instructeur NE COCHE PAS lui-même : ils sont attestés par un
+# autre service. La preuve de paiement est constatée par le responsable
+# financier ; laisser le chef de service la déclarer reviendrait à réunir dans
+# la même main la constatation de la recette et l'ouverture de l'instruction.
+POINTS_ATTESTES = {"preuve_paiement": "le responsable financier"}
+
 # Grille d'évaluation soumise aux membres de commission
 GRILLE_COMMISSION = [
     ("qualite_pharmaceutique", "La qualité pharmaceutique est-elle démontrée ?"),
@@ -74,13 +80,41 @@ ROLES_RECEVABILITE = ("chef_bureau", "chef_service_amm", "administrateur_dpml")
 
 
 def enregistrer_checklist(dossier, acteur, coches):
-    """Mémorise l'état de la liste de contrôle, sans prononcer la recevabilité."""
+    """Mémorise l'état de la liste de contrôle, sans prononcer la recevabilité.
+
+    Les points attestés par un autre service sont préservés tels quels : ce que
+    l'instructeur soumet à leur sujet est ignoré, sans erreur — il n'a pas à
+    savoir que la case existe, il n'a qu'à ne pas pouvoir la cocher.
+    """
     if acteur.role_systeme not in ROLES_RECEVABILITE:
         raise ErreurWorkflow(
             "La recevabilité administrative relève du chef de bureau.")
+    actuel = dossier.checklist_recevabilite or {}
     dossier.checklist_recevabilite = {
-        code: bool(coches.get(code)) for code, _l, _b in CHECKLIST_RECEVABILITE}
+        code: (bool(actuel.get(code)) if code in POINTS_ATTESTES
+               else bool(coches.get(code)))
+        for code, _l, _b in CHECKLIST_RECEVABILITE}
     enregistrer_audit(dossier, "Liste de contrôle de recevabilité mise à jour", acteur)
+    return dossier
+
+
+def attester_paiement(dossier, acteur, reference_paiement=None):
+    """Atteste la recette : seul le responsable financier ouvre ce point.
+
+    Appelée par le moteur de paiement à l'approbation. Idempotente — un dossier
+    peut porter plusieurs créances, la première approuvée suffit à lever le
+    point bloquant.
+    """
+    coches = dict(dossier.checklist_recevabilite or {})
+    if coches.get("preuve_paiement"):
+        return dossier
+    coches["preuve_paiement"] = True
+    dossier.checklist_recevabilite = coches
+    detail = f" ({reference_paiement})" if reference_paiement else ""
+    enregistrer_audit(
+        dossier,
+        f"Preuve de paiement attestée par le responsable financier{detail}",
+        acteur)
     return dossier
 
 

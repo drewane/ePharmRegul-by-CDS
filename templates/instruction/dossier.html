@@ -32,6 +32,30 @@
         </p>
         <form method="post">
           {% for code, libelle, bloquant in checklist %}
+          {% if code in POINTS_ATTESTES %}
+          {# Attesté par un autre service : lecture seule, séparation des tâches. #}
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" disabled
+                   {{ 'checked' if coches.get(code) }}
+                   aria-describedby="a-{{ code }}">
+            <label class="form-check-label text-muted">
+              {{ libelle }}
+              {% if bloquant %}<span class="text-danger">*</span>{% endif %}
+            </label>
+            <div class="small" id="a-{{ code }}">
+              {% if coches.get(code) %}
+              <span class="text-success">
+                <i class="bi bi-shield-check"></i>
+                Attesté par {{ POINTS_ATTESTES[code] }}.</span>
+              {% else %}
+              <span class="text-warning">
+                <i class="bi bi-hourglass-split"></i>
+                Sera attesté par {{ POINTS_ATTESTES[code] }} — ce point ne peut
+                pas être coché depuis l'instruction.</span>
+              {% endif %}
+            </div>
+          </div>
+          {% else %}
           <div class="form-check mb-2">
             <input class="form-check-input" type="checkbox" name="{{ code }}"
                    id="c-{{ code }}" {{ 'checked' if coches.get(code) }}>
@@ -40,6 +64,7 @@
               {% if bloquant %}<span class="text-danger">*</span>{% endif %}
             </label>
           </div>
+          {% endif %}
           {% endfor %}
           <div class="d-flex gap-2 mt-3">
             <button class="btn btn-outline-secondary btn-sm" name="action" value="checklist">

@@ -94,6 +94,8 @@ COMPTES = {
     "chef_service_labo": ("Chef de service Laboratoire", "cs.labo@dpml.demo", None),
     "responsable_qualite_labo": ("Responsable Qualité Laboratoire",
                                  "rq@lanacome.demo", None),
+    "responsable_financier": ("Responsable financier DPML",
+                              "finances@dpml.demo", None),
 
     # --- Niveau 4 : sous-direction ----------------------------------------
     "sous_directeur_medicament": ("Sous-directeur du Médicament",
@@ -155,6 +157,10 @@ A_EPROUVER = {
     "chef_service_inspection": "Première signature du circuit Inspection.",
     "chef_service_labo": "Première signature du circuit Contrôle qualité.",
     "responsable_qualite_labo": "Validation qualité des analyses de laboratoire.",
+    "responsable_financier": "APPROBATION DES RECETTES à /paiements/approbation. "
+                             "Son approbation démarre le délai légal et lève le "
+                             "point « preuve de paiement » que le service "
+                             "instructeur ne peut pas cocher lui-même.",
     "sous_directeur_medicament": "Deuxième signature (AMM, essais cliniques, "
                                  "contrôle qualité). Vue de synthèse, pas le "
                                  "détail technique.",

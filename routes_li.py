@@ -7,7 +7,8 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from models import db, DemandeLicence, Etablissement, Paiement
 import workflow_li as wfli
 from delais import executer_verifications_delais_li
-from auth import current_user, login_required, roles_required
+from auth import (current_user, login_required, permission_requise,
+                  roles_required)
 from erreurs import ErreurWorkflow
 from pieces import enregistrer_piece, lister_pieces
 from paiements import (deposer_preuve, confirmer as confirmer_paiement, rejeter as rejeter_paiement,
@@ -119,7 +120,7 @@ def paiement_preuve(id, paiement_id):
 
 @li_bp.route("/licences/<int:id>/paiements/<int:paiement_id>/confirmer", methods=["POST"])
 @login_required
-@roles_required("administrateur_dpml")
+@permission_requise("confirmer_paiement")
 def paiement_confirmer(id, paiement_id):
     paiement = Paiement.query.get_or_404(paiement_id)
     try:
@@ -134,7 +135,7 @@ def paiement_confirmer(id, paiement_id):
 
 @li_bp.route("/licences/<int:id>/paiements/<int:paiement_id>/rejeter", methods=["POST"])
 @login_required
-@roles_required("administrateur_dpml")
+@permission_requise("confirmer_paiement")
 def paiement_rejeter(id, paiement_id):
     paiement = Paiement.query.get_or_404(paiement_id)
     try:

@@ -32,7 +32,7 @@ def _paiement_ou_404(paiement_id):
 def _peut_payer(user, paiement):
     """Payeur légitime : le redevable rattaché, ou l'administration."""
     from permissions import a_permission
-    if a_permission(user, "confirmer_paiement"):
+    if a_permission(user, "gerer_paiements"):
         return True
     redevable = svc._demandeur(paiement)
     return redevable is not None and redevable.id == user.id
@@ -251,6 +251,77 @@ def verifier(numero):
     return render_template("paiement/verification.html", paiement=p, numero=numero,
                            empreinte=pdf_gen.calculer_hash_recu(p),
                            objet=svc.LIBELLE_OBJET.get(p.entite_type, p.entite_type))
+
+
+# ---------------------------------------------------------------------------
+# Guichet d'approbation du responsable financier
+# ---------------------------------------------------------------------------
+@bp.route("/approbation")
+@login_required
+@permission_requise("confirmer_paiement")
+def approbation():
+    """Recettes en attente d'approbation, et ce que chacune débloquera.
+
+    L'écran annonce l'effet de l'approbation avant qu'elle ne soit donnée :
+    approuver n'est pas un geste comptable neutre, c'est le départ du délai
+    légal et l'ouverture de l'instruction.
+    """
+    u = current_user()
+    en_attente = (Paiement.query.filter_by(statut="preuve_deposee")
+                  .order_by(Paiement.date_creation).all())
+
+    lignes = []
+    for p in en_attente:
+        try:
+            svc.controler_separation(p, u)
+            blocage = None
+        except ErreurWorkflow as e:
+            blocage = str(e)
+        lignes.append({
+            "paiement": p,
+            "redevable": svc._demandeur(p),
+            "entite": svc._entite_du_paiement(p),
+            "objet": svc.LIBELLE_OBJET.get(p.entite_type, p.entite_type),
+            "blocage": blocage,
+        })
+
+    approuvees = (Paiement.query.filter_by(confirme_par_id=u.id)
+                  .order_by(Paiement.date_confirmation.desc()).limit(15).all())
+    return render_template("paiement/approbation.html", u=u, lignes=lignes,
+                           approuvees=approuvees,
+                           libelle_statut=svc.LIBELLE_STATUT)
+
+
+@bp.route("/<int:paiement_id>/approuver", methods=["POST"])
+@login_required
+@permission_requise("confirmer_paiement")
+def approuver(paiement_id):
+    p = _paiement_ou_404(paiement_id)
+    try:
+        svc.confirmer(p, current_user())
+        db.session.commit()
+        flash(f"Recette {p.numero} approuvée. Le délai légal court et le service "
+              "instructeur a été averti qu'il peut aller de l'avant.", "success")
+    except ErreurWorkflow as e:
+        db.session.rollback()
+        flash(str(e), "danger")
+    return redirect(url_for("paiement.approbation"))
+
+
+@bp.route("/<int:paiement_id>/refuser", methods=["POST"])
+@login_required
+@permission_requise("confirmer_paiement")
+def refuser(paiement_id):
+    p = _paiement_ou_404(paiement_id)
+    try:
+        svc.rejeter(p, current_user(), request.form.get("motif", ""))
+        db.session.commit()
+        flash(f"Preuve de paiement {p.numero} rejetée. Le redevable est informé.",
+              "info")
+    except ErreurWorkflow as e:
+        db.session.rollback()
+        flash(str(e), "danger")
+    return redirect(url_for("paiement.approbation"))
 
 
 # ---------------------------------------------------------------------------

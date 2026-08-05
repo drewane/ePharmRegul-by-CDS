@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Approbation des recettes — SIREPH{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <h1 class="h4 mb-1">Approbation des recettes</h1>
+  <p class="text-muted mb-0 small">
+    Approuver une recette n'est pas une écriture comptable isolée&nbsp;: c'est
+    l'acte qui saisit l'administration. Il fait partir le délai légal
+    d'instruction et lève le point bloquant «&nbsp;preuve de paiement&nbsp;»
+    de la recevabilité, que le service instructeur ne peut pas cocher lui-même.
+  </p>
+</div>
+
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">En attente d'approbation</span>
+    <span class="badge bg-secondary">{{ lignes|length }}</span>
+  </div>
+  {% if lignes %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Créance</th><th>Redevable</th><th>Objet</th>
+        <th class="text-end">Montant</th><th style="width:20rem"></th>
+      </tr></thead>
+      <tbody>
+      {% for l in lignes %}
+        {% set p = l.paiement %}
+        <tr>
+          <td>
+            <code>{{ p.numero }}</code>
+            <div class="small text-muted">
+              déposée le
+              {{ p.date_creation.strftime('%d/%m/%Y') if p.date_creation else '—' }}</div>
+          </td>
+          <td class="small">
+            {{ l.redevable.nom_complet if l.redevable else '—' }}
+            {% if l.redevable and l.redevable.etablissement %}
+            <div class="text-muted">{{ l.redevable.etablissement.raison_sociale }}</div>
+            {% endif %}
+          </td>
+          <td class="small">
+            {{ l.objet }}
+            {% if l.entite %}
+            <div class="text-muted">
+              {{ l.entite.numero_suivi or l.entite.numero or '' }}</div>
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            {{ '{:,.0f}'.format(p.montant).replace(',', ' ') }} {{ p.devise }}</td>
+          <td>
+            {% if l.blocage %}
+            <div class="alert alert-danger py-1 px-2 mb-0 small">
+              <i class="bi bi-slash-circle me-1"></i>{{ l.blocage }}
+            </div>
+            {% else %}
+            <div class="d-flex gap-2">
+              <form method="post"
+                    action="{{ url_for('paiement.approuver', paiement_id=p.id) }}">
+                <button class="btn btn-sm btn-success">
+                  <i class="bi bi-check2-circle me-1"></i>Approuver</button>
+              </form>
+              <form method="post" class="d-flex gap-1"
+                    action="{{ url_for('paiement.refuser', paiement_id=p.id) }}">
+                <input class="form-control form-control-sm" name="motif"
+                       placeholder="Motif du rejet" required
+                       aria-label="Motif du rejet">
+                <button class="btn btn-sm btn-outline-danger">Rejeter</button>
+              </form>
+            </div>
+            {% endif %}
+            {% if p.piece_jointe %}
+            <a class="small"
+               href="{{ url_for('pieces.telecharger', piece_id=p.piece_jointe.id) }}">
+              Voir la preuve déposée</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">
+    Aucune recette n'attend votre approbation.
+  </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header py-2 fw-semibold">Mes dernières approbations</div>
+  {% if approuvees %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Créance</th><th class="text-end">Montant</th><th>Approuvée le</th>
+      </tr></thead>
+      <tbody>
+      {% for p in approuvees %}
+        <tr>
+          <td><code>{{ p.numero }}</code></td>
+          <td class="text-end text-nowrap">
+            {{ '{:,.0f}'.format(p.montant).replace(',', ' ') }} {{ p.devise }}</td>
+          <td class="small text-muted">
+            {{ p.date_confirmation.strftime('%d/%m/%Y à %H:%M')
+               if p.date_confirmation else '—' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted small">
+    Vous n'avez encore approuvé aucune recette.
+  </div>
+  {% endif %}
+  <div class="card-footer small text-muted py-2">
+    Chaque approbation est nominative et horodatée dans la piste d'audit.
+    Vous ne pouvez approuver ni votre propre créance, ni celle d'un dossier
+    dont vous êtes évaluateur.
+  </div>
+</div>
+{% endblock %}

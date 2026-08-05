@@ -160,31 +160,89 @@ def deposer_preuve(paiement, fichier_werkzeug, acteur):
     paiement.statut = "preuve_deposee"
     enregistrer_audit(paiement, "Preuve de paiement déposée", acteur,
                        ancien_statut=ancien, nouveau_statut="preuve_deposee")
-    notifier_tous("administrateur_dpml", "paiement_a_confirmer",
-                  f"Preuve de paiement déposée pour {paiement.numero} — à vérifier.",
-                  lien=_lien_entite(paiement))
+    notifier_tous(ROLE_FINANCIER, "paiement_a_confirmer",
+                  f"Preuve de paiement déposée pour {paiement.numero} — "
+                  "à approuver.", lien="/paiements/approbation")
     return paiement
 
 
+ROLE_FINANCIER = "responsable_financier"
+
+
+def controler_separation(paiement, acteur):
+    """Vérifie que l'approbateur est bien étranger à l'instruction du dossier.
+
+    Trois interdits, dans l'ordre où ils se rencontrent :
+      1. approuver sans être le responsable financier ;
+      2. approuver sa propre créance, ou celle de sa société ;
+      3. approuver la recette d'un dossier que l'on instruit soi-même.
+
+    Le contrôle est ici, dans le moteur, et non seulement dans la route : une
+    règle de séparation des tâches qui ne tient qu'à un décorateur de vue tombe
+    au premier script d'import ou à la première console d'administration.
+    """
+    if acteur is None or acteur.role_systeme != ROLE_FINANCIER:
+        raise ErreurWorkflow(
+            "L'approbation d'une recette relève du responsable financier. "
+            "Instruire un dossier et constater son paiement ne peuvent pas "
+            "relever de la même personne.")
+
+    redevable = _demandeur(paiement)
+    if redevable is not None:
+        if redevable.id == acteur.id:
+            raise ErreurWorkflow(
+                "Vous ne pouvez pas approuver votre propre paiement.")
+        meme_societe = (acteur.etablissement_rattachement_id is not None
+                        and acteur.etablissement_rattachement_id
+                        == redevable.etablissement_rattachement_id)
+        if meme_societe:
+            raise ErreurWorkflow(
+                "Vous ne pouvez pas approuver le paiement d'un redevable "
+                "rattaché à votre propre établissement.")
+
+    entite = _entite_du_paiement(paiement)
+    if entite is not None and entite.__class__.__name__ == "DossierAMM":
+        from models import AssignationEvaluation
+        assigne = (AssignationEvaluation.query
+                   .filter_by(dossier_id=entite.id, evaluateur_id=acteur.id)
+                   .first())
+        if assigne is not None:
+            raise ErreurWorkflow(
+                "Vous êtes évaluateur assigné sur ce dossier : vous ne pouvez "
+                "pas en approuver la recette.")
+    return True
+
+
 def confirmer(paiement, acteur):
+    """Approuve l'encaissement — acte du responsable financier.
+
+    L'approbation est le point de bascule de la procédure : elle démarre le
+    délai légal et libère la recevabilité. C'est pourquoi elle est isolée de
+    l'instruction.
+    """
     if paiement.statut != "preuve_deposee":
         raise ErreurWorkflow("Seul un paiement avec preuve déposée peut être confirmé.")
+    controler_separation(paiement, acteur)
     paiement.statut = "confirme"
     paiement.date_confirmation = datetime.utcnow()
     paiement.confirme_par_id = acteur.id
-    enregistrer_audit(paiement, "Paiement confirmé", acteur,
-                       ancien_statut="preuve_deposee", nouveau_statut="confirme")
+    enregistrer_audit(paiement,
+                      f"Recette approuvée par le responsable financier "
+                      f"({acteur.nom_complet})", acteur,
+                      ancien_statut="preuve_deposee", nouveau_statut="confirme")
     demandeur = _demandeur(paiement)
     if demandeur:
         notifier(demandeur, "paiement_confirme",
                  f"Votre paiement {paiement.numero} de {paiement.montant} {paiement.devise} a été confirmé.",
                  lien=_lien_entite(paiement))
+    _apres_approbation(paiement, acteur)
     return paiement
 
 
 def rejeter(paiement, acteur, motif):
     if paiement.statut != "preuve_deposee":
         raise ErreurWorkflow("Seul un paiement avec preuve déposée peut être rejeté.")
+    controler_separation(paiement, acteur)
     if not motif or not motif.strip():
         raise ErreurWorkflow("Un motif est obligatoire pour rejeter une preuve de paiement.")
     paiement.statut = "rejete"
@@ -283,6 +341,41 @@ def _demarrer_delai_legal(paiement, acteur):
                          motif=f"paiement {paiement.numero} confirmé")
 
 
+def _apres_approbation(paiement, acteur):
+    """Ce que l'approbation de la recette débloque, sans intervention humaine.
+
+    L'approbation financière n'est pas une formalité comptable isolée : c'est
+    elle qui saisit l'administration. Elle produit donc trois effets d'un seul
+    tenant, pour qu'aucun dossier ne reste en attente d'un geste oublié :
+
+      1. le délai légal démarre (Clock Start) ;
+      2. le point « preuve de paiement » de la recevabilité est ATTESTÉ — le
+         chef de service n'a plus à le cocher, et ne le peut plus ;
+      3. le service instructeur est averti qu'il peut aller de l'avant.
+    """
+    _demarrer_delai_legal(paiement, acteur)
+
+    entite = _entite_du_paiement(paiement)
+    if entite is None or entite.__class__.__name__ != "DossierAMM":
+        return
+
+    import workflow_instruction as wfi
+    wfi.attester_paiement(entite, acteur, paiement.numero)
+
+    reference = getattr(entite, "numero_suivi", None) or entite.numero
+    restants = wfi.points_manquants(entite)
+    if restants:
+        message = (f"Recette approuvée pour {reference}. Reste à satisfaire "
+                   "avant recevabilité : "
+                   + ", ".join(libelle for _c, libelle in restants) + ".")
+    else:
+        message = (f"Recette approuvée pour {reference}. La recevabilité peut "
+                   "être prononcée.")
+    for role in wfi.ROLES_RECEVABILITE:
+        notifier_tous(role, "recette_approuvee", message,
+                      lien=f"/instruction/dossiers/{entite.id}")
+
+
 def _appliquer_resultat(paiement, resultat, acteur, origine):
     """Applique une issue de paiement (notification, interrogation, rapprochement)."""
     ancien = paiement.statut
@@ -298,9 +391,10 @@ def _appliquer_resultat(paiement, resultat, acteur, origine):
         paiement.statut = "confirme"
         paiement.date_confirmation = datetime.utcnow()
         paiement.reference_transaction = resultat.reference_transaction
-        # Clock Start : le délai légal d'instruction ne court qu'à compter de
-        # l'encaissement de la redevance — avant, l'administration n'est pas saisie.
-        _demarrer_delai_legal(paiement, acteur)
+        # Clock Start et libération de la recevabilité : un encaissement
+        # constaté par la plateforme vaut approbation, le prestataire faisant
+        # foi de l'entrée des fonds.
+        _apres_approbation(paiement, acteur)
         enregistrer_audit(
             paiement,
             f"Paiement confirmé — {libelle_f} ({origine}, transaction "

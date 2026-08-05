@@ -86,16 +86,22 @@ def test_recevabilite_checklist():
              leve(lambda: wfi.prononcer_recevabilite(d, chef, True),
                   "Recevabilité impossible"))
 
-    # On coche tout sauf la preuve de paiement : toujours bloquant.
-    partiel = {c: True for c in wfi.POINTS_BLOQUANTS if c != "preuve_paiement"}
-    wfi.enregistrer_checklist(d, chef, partiel)
-    db.session.flush()
-    verifier("un seul point bloquant manquant suffit à refuser",
-             leve(lambda: wfi.prononcer_recevabilite(d, chef, True), "paiement"))
-
+    # Le chef de service coche TOUT, y compris la preuve de paiement : le point
+    # attesté par les finances lui échappe, la recevabilité reste bloquée.
     wfi.enregistrer_checklist(d, chef, {c: True for c in wfi.POINTS_BLOQUANTS})
     db.session.flush()
-    avant = Notification.query.filter_by(destinataire_id=dep.id).count()
+    verifier("le chef de service ne peut pas cocher la preuve de paiement",
+             not (d.checklist_recevabilite or {}).get("preuve_paiement"))
+    verifier("la recevabilité reste bloquée faute d'approbation financière",
+             leve(lambda: wfi.prononcer_recevabilite(d, chef, True), "paiement"))
+
+    # Seule l'attestation du responsable financier lève le point.
+    wfi.attester_paiement(d, _r("responsable_financier"), "PAY-TEST")
+    db.session.flush()
+    verifier("l'attestation financière lève le dernier point",
+             not wfi.points_manquants(d))
+    avant_notif = Notification.query.filter_by(destinataire_id=dep.id).count()
+    avant = avant_notif
     wfi.prononcer_recevabilite(d, chef, True)
     db.session.flush()
     verifier("dossier recevable → évaluation ouverte", d.statut == "evaluation_en_cours")
@@ -124,6 +130,7 @@ def _recevable():
     d, dep = _dossier_soumis()
     chef = _r("chef_service_amm")
     wfi.enregistrer_checklist(d, chef, {c: True for c in wfi.POINTS_BLOQUANTS})
+    wfi.attester_paiement(d, _r("responsable_financier"))
     wfi.prononcer_recevabilite(d, chef, True)
     db.session.flush()
     return d, dep, chef

@@ -39,7 +39,8 @@ from delais import (executer_verifications_delais, executer_verifications_delais
                      executer_verifications_delais_mc, executer_verifications_delais_ct)
 import pdf_gen
 from permissions import ROLES, ROLES_ACTIFS
-from auth import current_user, login_required, roles_required
+from auth import (current_user, login_required, permission_requise,
+                  roles_required)
 from erreurs import ErreurWorkflow
 from pieces import enregistrer_piece, lister_pieces
 from paiements import (deposer_preuve, confirmer as confirmer_paiement, rejeter as rejeter_paiement,
@@ -145,6 +146,14 @@ def inject_globals():
         from models import EtapeValidation
         signatures_attendues = EtapeValidation.query.filter_by(
             role_requis=u.role_systeme, statut="en_attente").count()
+    # Recettes en attente d'approbation — visible du seul responsable financier.
+    # `None` signifie « cet écran ne vous concerne pas », 0 « rien à traiter ».
+    recettes_a_approuver = None
+    if u is not None:
+        from permissions import a_permission
+        if a_permission(u, "confirmer_paiement"):
+            recettes_a_approuver = Paiement.query.filter_by(
+                statut="preuve_deposee").count()
     # Instruction : charge de travail du chef de service et des évaluateurs.
     dossiers_a_examiner = evaluations_a_rendre = 0
     if u is not None:
@@ -158,6 +167,7 @@ def inject_globals():
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
                 peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
                 signatures_attendues=signatures_attendues,
+                recettes_a_approuver=recettes_a_approuver,
                 dossiers_a_examiner=dossiers_a_examiner,
                 evaluations_a_rendre=evaluations_a_rendre,
                 wf=wf, STATUTS=wf.STATUTS,
@@ -790,7 +800,7 @@ def dossier_paiement_preuve(id, paiement_id):
 
 @app.route("/dossiers/<int:id>/paiements/<int:paiement_id>/confirmer", methods=["POST"])
 @login_required
-@roles_required("administrateur_dpml")
+@permission_requise("confirmer_paiement")
 def dossier_paiement_confirmer(id, paiement_id):
     paiement = Paiement.query.get_or_404(paiement_id)
     try:
@@ -805,7 +815,7 @@ def dossier_paiement_confirmer(id, paiement_id):
 
 @app.route("/dossiers/<int:id>/paiements/<int:paiement_id>/rejeter", methods=["POST"])
 @login_required
-@roles_required("administrateur_dpml")
+@permission_requise("confirmer_paiement")
 def dossier_paiement_rejeter(id, paiement_id):
     paiement = Paiement.query.get_or_404(paiement_id)
     try:

@@ -41,6 +41,7 @@ pip install -r requirements.txt
 
 python seed.py                  # crée la base SQLite + comptes et données de démonstration
 python seed_comptes.py          # complète : un compte par rôle du référentiel
+python seed_scenario_financier.py   # scénario de séparation des tâches (facultatif)
 python app.py                   # lance le serveur sur http://localhost:5000
 ```
 
@@ -95,6 +96,7 @@ Les échelons de la chaîne de signature et les profils externes ajoutés par
 | 1 | Membre de commission spécialisée | commission1@dpml.demo |
 | 2 | Chef de bureau — recevabilité | chefbureau@dpml.demo |
 | 3 | Chef de service Homologation | chefservice@dpml.demo |
+| 3 | Responsable financier — approbation des recettes | finances@dpml.demo |
 | 4 | Sous-directeur du Médicament | sousdirecteur@dpml.demo |
 | 5 | Directeur DPML | directeur@dpml.demo |
 | 6 | Inspecteur général | ig@minsante.demo |
@@ -103,6 +105,31 @@ Les échelons de la chaîne de signature et les profils externes ajoutés par
 
 Pour éprouver le circuit AMM de bout en bout, signer successivement avec les
 niveaux 3 → 4 → 5 → 6 → 7 → 8 depuis `/validation/parapheur`.
+
+### Séparation des tâches : finances et instruction
+
+L'approbation d'une recette relève du **responsable financier**, et de lui
+seul — ni l'administrateur système, ni le directeur qui décidera du dossier.
+Le contrôle est dans le moteur (`paiements.controler_separation`), pas
+seulement dans les décorateurs de vue : trois interdits, approuver sans le
+rôle, approuver sa propre créance ou celle de son établissement, approuver la
+recette d'un dossier dont on est évaluateur assigné.
+
+Son approbation produit trois effets d'un seul tenant :
+
+1. le délai légal démarre (Clock Start) ;
+2. le point « preuve de paiement » de la recevabilité est **attesté** — le chef
+   de service ne peut ni le cocher, ni le décocher ;
+3. le service instructeur est averti qu'il peut aller de l'avant.
+
+Pour l'éprouver, `python seed_scenario_financier.py` prépare un dossier
+bloqué sur ce seul point, puis :
+
+| Étape | Compte | Écran | Ce qu'on observe |
+|---|---|---|---|
+| 1 | `chefservice@dpml.demo` | `/instruction/dossiers/<id>` | la case « preuve de paiement » est grisée, la recevabilité est refusée |
+| 2 | `finances@dpml.demo` | `/paiements/approbation` | approbation de la créance |
+| 3 | `chefservice@dpml.demo` | même écran | la case est attestée, la recevabilité passe, le délai court |
 
 `seed.py` crée des données couvrant les statuts significatifs de chacun des
 8 circuits (MA, VL, RI, LI, LT, MC, CT, LR), pour rejouer immédiatement les
@@ -629,6 +656,7 @@ delais.py          paramètres configurables + vérification des délais (clôtu
 pdf_gen.py         génération des certificats AMM et laboratoire (PDF + QR + sceau SHA-256)
 seed.py            comptes et données de démonstration pour les 8 circuits métier
 seed_comptes.py    un compte actif par rôle du référentiel + annuaire des niveaux d'accès
+seed_scenario_financier.py   dossier de démonstration bloqué en attente d'approbation financière
 suivi.py           suivi unifié : numéro national, états visibles, Clock Start/Stop
 run_lan.py          lancement réseau local (Waitress) pour l'accès depuis un autre appareil — voir SETUP.md
 SETUP.md            accès local / réseau Wi-Fi / mobile, configuration du pare-feu Windows

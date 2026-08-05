@@ -51,6 +51,9 @@ ROLES_REGULATEUR = {
     "agent_surveillance_marche": "Agent Surveillance du marché",
     "agent_dros": "Agent DROS (essais cliniques)",
     "responsable_qualite_labo": "Responsable Qualité Laboratoire",
+    # Approbation des recettes. Séparé de l'instruction par principe : celui qui
+    # constate l'encaissement ne doit pas être celui qui instruit le dossier.
+    "responsable_financier": "Responsable financier (approbation des recettes)",
     "cadre_dpml": "Cadre DPML",
     "evaluateur_interne": "Évaluateur interne",
     "membre_commission_specialisee": "Membre de commission spécialisée",
@@ -98,6 +101,7 @@ NIVEAU_PAR_ROLE = {
     "chef_bureau": 2,
     # Niveau 3 — chefs de service : arbitrage technique, validation de la LoQ
     "responsable_qualite_labo": 3,
+    "responsable_financier": 3,
     "chef_service_amm": 3,
     "chef_service_licences": 3,
     "chef_service_inspection": 3,
@@ -198,8 +202,16 @@ PERMISSIONS_TRANSVERSES = {
     "deposer_essai_clinique": ["promoteur_essai", "administrateur_dpml"],
     "voir_toutes_liberations": ["administrateur_dpml", "agent_laboratoire",
                                 "responsable_qualite_labo", "directeur_dpml"],
-    # Paiements : confirmation réservée à l'administration (niveau ≥ 1 métier finances)
-    "confirmer_paiement": ["administrateur_dpml", "directeur_dpml"],
+    # Paiements — SÉPARATION DES TÂCHES. Deux permissions distinctes :
+    #   * `gerer_paiements` : exploitation de la plateforme (émettre une créance,
+    #     assister un redevable, consulter la console). Ouverte à l'administration.
+    #   * `confirmer_paiement` : APPROBATION de la recette, c'est-à-dire
+    #     l'attestation que l'argent est entré. Réservée au responsable
+    #     financier. Ni l'administrateur système, ni le directeur qui décidera
+    #     du dossier ne l'exercent : constater la recette et instruire la
+    #     demande sont deux mains différentes.
+    "gerer_paiements": ["responsable_financier", "administrateur_dpml"],
+    "confirmer_paiement": ["responsable_financier"],
     # Reliance régionale CEEAC
     "consulter_reliance": ["administrateur_dpml", "evaluateur_amm", "chef_service_amm",
                            "directeur_dpml", "agent_vigilance", "agent_surveillance_marche"],

@@ -158,6 +158,19 @@
           </a>
         </li>
         {% endif %}
+
+        {% if recettes_a_approuver is defined and recettes_a_approuver is not none %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path == '/paiements/approbation' }}"
+             href="{{ url_for('paiement.approbation') }}">
+            <i class="bi bi-cash-coin"></i> Approbation des recettes
+            {%- if recettes_a_approuver %}
+            <span class="badge bg-danger ms-1">{{ recettes_a_approuver }}</span>
+            {%- endif %}
+          </a>
+        </li>
+        {% endif %}
+
         {% if current_user.role_systeme != "demandeur_externe" or demandeur_a_amm %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if '/dossiers' in request.path }}" href="{{ url_for('dossiers_registre') }}">
