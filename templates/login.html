@@ -75,6 +75,8 @@
       <div class="card-body p-4">
         <h6 class="mb-2">Accès libre — sans compte</h6>
         <ul class="list-unstyled small mb-0">
+          <li class="mb-2"><a href="{{ url_for('acces') }}">
+            <i class="bi bi-phone"></i> Ouvrir sur mon téléphone (QR code)</a></li>
           <li class="mb-2"><a href="{{ url_for('registre_public') }}">Registre public des AMM actives</a></li>
           <li class="mb-2"><a href="{{ url_for('ri.etablissements_registre') }}">Établissements agréés</a></li>
           <li class="mb-2"><a href="{{ url_for('mc.rappels_public') }}">Rappels de lots en cours</a></li>

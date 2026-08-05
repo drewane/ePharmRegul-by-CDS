@@ -8,35 +8,39 @@ appareils connectés en même temps, et sans le rechargeur automatique de Flask
 Usage :
     venv\\Scripts\\python.exe run_lan.py
 
-Affiche l'adresse à utiliser depuis les autres appareils du réseau. Voir
-SETUP.md pour la configuration du pare-feu Windows nécessaire à l'accès
-réseau/mobile.
+Ou, plus simplement, double-cliquer sur DEMARRER.bat, qui prépare
+l'environnement, la base et les comptes avant d'appeler ce script.
+
+Le serveur reste joignable tant que ce processus vit : fermer la fenêtre coupe
+l'accès. Il n'y a aucune expiration de lien.
 """
-import socket
+import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from waitress import serve
 
+import acces
 from app import app
 
-
-def _adresse_locale():
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
-    except OSError:
-        return "127.0.0.1"
-    finally:
-        s.close()
-
+PORT = 5000
 
 if __name__ == "__main__":
-    ip = _adresse_locale()
-    port = 5000
-    print("SIREPH — accès réseau local")
-    print(f"  Sur cet ordinateur      : http://localhost:{port}")
-    print(f"  Depuis un autre appareil : http://{ip}:{port}")
-    print("  (l'appareil doit être sur le même réseau Wi-Fi ; voir SETUP.md")
-    print("   si la connexion échoue — pare-feu Windows généralement en cause)")
     print()
-    serve(app, host="0.0.0.0", port=port, threads=8)
+    print(acces.resume(PORT))
+    print()
+    print("  Comptes de démonstration : /comptes-demonstration "
+          "(mot de passe demo1234)")
+    print()
+    print("  Laissez cette fenêtre ouverte. Ctrl+C pour arrêter.")
+    print()
+    try:
+        serve(app, host="0.0.0.0", port=PORT, threads=8)
+    except KeyboardInterrupt:
+        print("\nServeur arrêté.")
+    except OSError as e:
+        print(f"\nImpossible de démarrer sur le port {PORT} : {e}")
+        print("Un autre serveur SIREPH tourne peut-être déjà — vérifiez les")
+        print("fenêtres ouvertes avant d'en relancer un.")
+        sys.exit(1)

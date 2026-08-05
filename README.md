@@ -45,7 +45,12 @@ python seed_scenario_financier.py   # scénario de séparation des tâches (facu
 python app.py                   # lance le serveur sur http://localhost:5000
 ```
 
-Cette commande n'est accessible que depuis cet ordinateur. Pour un accès
+Plus simple encore : **double-cliquer sur `DEMARRER.bat`**. Il prépare
+l'environnement, la base et les comptes, lance le serveur en mode réseau et
+ouvre `/acces` — la page qui donne l'adresse du poste, l'adresse réseau et un
+QR code à scanner depuis un téléphone.
+
+`python app.py` n'est accessible que depuis cet ordinateur. Pour un accès
 depuis un autre appareil du réseau (ordinateur, téléphone, tablette) — y
 compris le mode hors connexion du module RI, qui suppose un vrai téléphone —
 voir **[SETUP.md](SETUP.md)**.
@@ -658,6 +663,8 @@ seed.py            comptes et données de démonstration pour les 8 circuits mé
 seed_comptes.py    un compte actif par rôle du référentiel + annuaire des niveaux d'accès
 seed_scenario_financier.py   dossier de démonstration bloqué en attente d'approbation financière
 suivi.py           suivi unifié : numéro national, états visibles, Clock Start/Stop
+DEMARRER.bat        lanceur : prépare tout et démarre le serveur en mode réseau
+acces.py            adresses du poste et du réseau, QR code mobile, contrôle du pare-feu
 run_lan.py          lancement réseau local (Waitress) pour l'accès depuis un autre appareil — voir SETUP.md
 SETUP.md            accès local / réseau Wi-Fi / mobile, configuration du pare-feu Windows
 templates/          gabarits HTML (Jinja + Bootstrap 5) ; un sous-dossier par module :

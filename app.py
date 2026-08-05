@@ -982,6 +982,19 @@ def verifier(numero):
     return render_template("verifier.html", d=d)
 
 
+@app.route("/acces")
+def acces():
+    """Adresses d'accès et QR code — à ouvrir sur le poste, à scanner au téléphone."""
+    import acces as svc_acces
+    u = svc_acces.urls(request.host.split(":")[-1].isdigit()
+                       and int(request.host.split(":")[-1]) or svc_acces.PORT_DEFAUT)
+    return render_template(
+        "acces.html", u=u,
+        qr=svc_acces.qr_data_uri(u["reseau"]) if u["reseau"] else None,
+        pare_feu=svc_acces.regle_pare_feu_presente(u["port"]),
+        commande_pare_feu=svc_acces.COMMANDE_PARE_FEU.format(port=u["port"]))
+
+
 @app.route("/registre-public")
 def registre_public():
     texte = request.args.get("q", "").strip()

@@ -11,6 +11,27 @@ serveur, seule la façon de le lancer et d'y accéder change.
 
 ---
 
+## 0. Le chemin le plus court : DEMARRER.bat
+
+**Double-cliquez sur `DEMARRER.bat`** à la racine du projet. Il prépare ce qui
+manque — environnement Python, base de données, comptes de tous les rôles —
+puis lance le serveur en mode réseau et ouvre la page **`/acces`**, qui affiche
+les deux adresses et un **QR code à scanner avec le téléphone**.
+
+Laissez la fenêtre noire ouverte : elle *est* le serveur. La refermer coupe
+l'accès, sur le poste comme sur le téléphone. Il n'y a pas d'expiration de
+lien — si une adresse cesse de répondre, c'est que le processus s'est arrêté,
+ou que l'adresse IP du réseau a changé (rouvrez `/acces` pour lire la
+nouvelle).
+
+Reste une opération que le script ne peut pas faire à votre place, car elle
+exige les droits administrateur : **autoriser le port 5000 dans le pare-feu**
+(section 2.2). Sans elle, le poste fonctionne mais le téléphone n'affiche
+rien. La page `/acces` détecte l'absence de la règle et affiche la commande à
+copier.
+
+---
+
 ## 1. Usage local (cet ordinateur uniquement)
 
 C'est la configuration par défaut, déjà en place.
