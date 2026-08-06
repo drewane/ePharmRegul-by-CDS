@@ -988,10 +988,15 @@ def acces():
     import acces as svc_acces
     u = svc_acces.urls(request.host.split(":")[-1].isdigit()
                        and int(request.host.split(":")[-1]) or svc_acces.PORT_DEFAUT)
+    profil = (svc_acces.profil_reseau() or "").strip()
+    reseau = svc_acces.nom_reseau() or ""
     return render_template(
         "acces.html", u=u,
         qr=svc_acces.qr_data_uri(u["reseau"]) if u["reseau"] else None,
         pare_feu=svc_acces.regle_pare_feu_presente(u["port"]),
+        profil=profil, reseau=reseau,
+        profil_public=profil.lower() not in ("private", ""),
+        commande_reseau=svc_acces.COMMANDE_RESEAU_PRIVE.format(reseau=reseau),
         commande_pare_feu=svc_acces.COMMANDE_PARE_FEU.format(port=u["port"]))
 
 

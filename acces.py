@@ -54,32 +54,103 @@ def qr_data_uri(url, taille=8):
     return "data:image/png;base64," + base64.b64encode(tampon.getvalue()).decode()
 
 
-def regle_pare_feu_presente(port=PORT_DEFAUT):
-    """La règle de pare-feu entrante existe-t-elle ?
+# Interroger Windows coûte cher : chaque appel lance un processus PowerShell,
+# soit deux à trois secondes. La page d'accès en enchaînait quatre et mettait
+# onze secondes à s'afficher. On mémorise brièvement les réponses — assez pour
+# qu'une page ne paie qu'une fois, assez peu pour qu'un changement de réseau
+# soit visible en rechargeant.
+_CACHE = {}
+_CACHE_SECONDES = 20
 
-    Sans elle, Windows refuse silencieusement les connexions des autres
-    appareils : le serveur tourne, le téléphone ne charge rien, et rien
-    n'explique pourquoi. Autant le dire à l'écran. Retourne None si la
-    question n'a pas de sens sur cette plateforme ou n'a pas pu être tranchée.
+
+def _memo(cle, calcul):
+    import time
+
+    maintenant = time.monotonic()
+    valeur, expire = _CACHE.get(cle, (None, 0))
+    if maintenant < expire:
+        return valeur
+    valeur = calcul()
+    _CACHE[cle] = (valeur, maintenant + _CACHE_SECONDES)
+    return valeur
+
+
+def _powershell(commande, timeout=10):
+    """Exécute une commande PowerShell et rend sa sortie, ou None en cas d'échec.
+
+    L'encodage est forcé en UTF-8 des deux côtés : par défaut la console
+    Windows répond en page de code OEM, et un nom de réseau accentué revenait
+    en « R‚seau ». La commande de correction affichée à l'utilisateur devenait
+    alors incopiable — un défaut d'autant plus fâcheux qu'elle est justement
+    ce qui débloque l'accès.
     """
     import subprocess
     import sys
 
     if not sys.platform.startswith("win"):
         return None
+    prelude = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; "
     try:
         sortie = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "show", "rule",
-             f"name=SIREPH (port {port})"],
-            capture_output=True, text=True, timeout=6)
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command",
+             prelude + commande],
+            capture_output=True, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return None
-    return sortie.returncode == 0 and "SIREPH" in (sortie.stdout or "")
+    if sortie.returncode != 0:
+        return None
+    return sortie.stdout.decode("utf-8", errors="replace").strip()
+
+
+def profil_reseau():
+    """Catégorie Windows du réseau actif : Private, Public ou DomainAuthenticated.
+
+    Ce détail décide de tout : une règle de pare-feu créée pour le profil
+    « Privé » ne s'applique pas si Windows a classé le réseau en « Public ».
+    La règle existe alors, la commande a réussi, et rien ne fonctionne.
+    """
+    return _memo("profil", lambda: _powershell(
+        "(Get-NetConnectionProfile | Select-Object -First 1).NetworkCategory"))
+
+
+def nom_reseau():
+    return _memo("nom_reseau", lambda: _powershell(
+        "(Get-NetConnectionProfile | Select-Object -First 1).Name"))
+
+
+def regle_pare_feu_presente(port=PORT_DEFAUT):
+    """La règle entrante existe-t-elle ET couvre-t-elle le réseau actif ?
+
+    Sans elle, Windows refuse silencieusement les connexions des autres
+    appareils : le serveur tourne, le téléphone ne charge rien, et rien
+    n'explique pourquoi. Retourne None si la question n'a pas de sens sur
+    cette plateforme ou n'a pas pu être tranchée.
+    """
+    profils = _memo(f"regle_{port}", lambda: _powershell(
+        f'(Get-NetFirewallRule -DisplayName "SIREPH (port {port})" '
+        '-ErrorAction SilentlyContinue | Where-Object '
+        '{ $_.Enabled -eq "True" -and $_.Direction -eq "Inbound" -and '
+        '$_.Action -eq "Allow" }).Profile'))
+    if profils is None:
+        return None
+    if not profils:
+        return False
+    couverts = {p.strip().lower() for p in profils.replace("\n", ",").split(",")}
+    if "any" in couverts:
+        return True
+    actif = (profil_reseau() or "").strip().lower()
+    if not actif:
+        return bool(couverts)
+    # DomainAuthenticated côté profil réseau ↔ Domain côté règle de pare-feu.
+    return actif.replace("domainauthenticated", "domain") in couverts
 
 
 COMMANDE_PARE_FEU = (
     'New-NetFirewallRule -DisplayName "SIREPH (port {port})" -Direction Inbound '
     '-Protocol TCP -LocalPort {port} -Action Allow -Profile Private')
+
+COMMANDE_RESEAU_PRIVE = (
+    'Set-NetConnectionProfile -Name "{reseau}" -NetworkCategory Private')
 
 
 def resume(port=PORT_DEFAUT):
@@ -97,6 +168,8 @@ def resume(port=PORT_DEFAUT):
         lignes += ["",
                    "  Le pare-feu Windows bloque encore le port : les autres",
                    "  appareils ne se connecteront pas. Dans un PowerShell",
-                   "  ADMINISTRATEUR, une seule fois :",
-                   "    " + COMMANDE_PARE_FEU.format(port=port)]
+                   "  ADMINISTRATEUR, une seule fois :"]
+        if (profil_reseau() or "").strip().lower() != "private":
+            lignes += [f'    {COMMANDE_RESEAU_PRIVE.format(reseau=nom_reseau() or "")}']
+        lignes += ["    " + COMMANDE_PARE_FEU.format(port=port)]
     return "\n".join(lignes)

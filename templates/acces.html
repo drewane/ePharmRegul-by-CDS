@@ -60,13 +60,34 @@
 {% if u.reseau and pare_feu is false %}
 <div class="alert alert-danger mt-3">
   <h2 class="h6"><i class="bi bi-shield-exclamation me-1"></i>
-    Le pare-feu Windows bloque encore le port {{ u.port }}</h2>
+    Les autres appareils ne peuvent pas encore se connecter</h2>
   <p class="small mb-2">
-    Le serveur tourne, mais Windows refuse les connexions venant des autres
-    appareils&nbsp;: le téléphone n'affichera rien, sans message d'erreur
-    explicite. Dans un <strong>PowerShell administrateur</strong>, une seule
-    fois&nbsp;:
+    Le serveur tourne et écoute sur le réseau, mais Windows refuse les
+    connexions entrantes&nbsp;: l'autre machine n'affichera rien, sans message
+    d'erreur explicite. Dans un <strong>PowerShell administrateur</strong>,
+    une seule fois&nbsp;:
   </p>
+  {% if profil_public %}
+  <p class="small mb-1">
+    <strong>1.</strong> Le réseau «&nbsp;{{ reseau }}&nbsp;» est classé
+    <strong>{{ profil }}</strong> par Windows. Une règle de pare-feu créée
+    pour le profil «&nbsp;privé&nbsp;» ne s'y appliquerait pas&nbsp;: elle
+    existerait, et rien ne fonctionnerait. Il faut donc d'abord déclarer ce
+    réseau comme privé&nbsp;:
+  </p>
+  <pre class="small bg-body-tertiary border rounded p-2 mb-2"><code>{{ commande_reseau }}</code></pre>
+  <p class="small mb-2">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>À ne faire que sur votre propre Wi-Fi ou le partage de connexion
+    de votre téléphone.</strong> Sur un réseau d'entreprise, d'hôtel ou
+    d'invités, ce réglage expose cet ordinateur à tous les autres appareils du
+    réseau — et de tels réseaux isolent souvent les postes entre eux, si bien
+    que l'accès échouerait malgré tout. Dans ce cas, passez par le partage de
+    connexion de votre téléphone&nbsp;: connectez-y cet ordinateur et l'autre
+    appareil, puis rouvrez cette page pour lire la nouvelle adresse.
+  </p>
+  <p class="small mb-1"><strong>2.</strong> Puis ouvrez le port&nbsp;:</p>
+  {% endif %}
   <pre class="small bg-body-tertiary border rounded p-2 mb-0"><code>{{ commande_pare_feu }}</code></pre>
 </div>
 {% elif u.reseau and pare_feu %}
