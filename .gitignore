@@ -5,3 +5,7 @@ instance/*.db-journal
 *.log
 .DS_Store
 instance/*.avant-migration-*
+
+# Fichiers téléversés par les utilisateurs : données, pas code source
+static/documents/
+static/certificats/
