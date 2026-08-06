@@ -61,8 +61,19 @@ def _controler_securite():
                 f"« {seed_comptes.MOT_DE_PASSE} » (dont {faibles[0]}).")
     if application.app.config.get("MODE_DEMONSTRATION"):
         problemes.append("L'annuaire des comptes est encore publié.")
-    if not application.app.config.get("SESSION_COOKIE_SECURE"):
-        problemes.append("Le cookie de session n'est pas marqué Secure.")
+
+    # Le drapeau Secure se décide par requête, selon le schéma réellement
+    # employé : on vérifie donc le comportement, pas une valeur de config.
+    with application.app.test_request_context(
+            "/", headers={"X-Forwarded-Proto": "https"}):
+        if not application.app.session_interface.get_cookie_secure(application.app):
+            problemes.append(
+                "Le cookie de session ne serait pas marqué Secure derrière le "
+                "tunnel.")
+    if application.app.config["SECRET_KEY"].startswith("sireph-demo"):
+        problemes.append(
+            "La clé de signature des sessions est encore la valeur de "
+            "démonstration : elle permettrait de forger n'importe quelle session.")
     return problemes
 
 
@@ -70,7 +81,18 @@ def _servir():
     from waitress import serve
 
     import app as application
-    serve(application.app, host="127.0.0.1", port=PORT, threads=8)
+    # Waitress efface par défaut les en-têtes X-Forwarded-*, qu'il considère
+    # comme non fiables — à raison : n'importe quel client peut les inventer.
+    # Conséquence ici : l'application ne voyait pas que la requête venait
+    # d'HTTPS et n'appliquait pas le drapeau Secure au cookie de session.
+    #
+    # cloudflared s'exécute sur cette machine et se connecte par la boucle
+    # locale : on peut donc déclarer 127.0.0.1 comme relais de confiance sans
+    # ouvrir la porte à un tiers, puisque le serveur n'écoute que là.
+    serve(application.app, host="127.0.0.1", port=PORT, threads=8,
+          trusted_proxy="127.0.0.1",
+          trusted_proxy_headers={"x-forwarded-for", "x-forwarded-proto",
+                                 "x-forwarded-host"})
 
 
 def main():

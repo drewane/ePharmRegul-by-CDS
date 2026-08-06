@@ -17,6 +17,7 @@ from datetime import datetime
 
 from flask import (Flask, render_template, request, redirect, url_for, session,
                     flash, send_from_directory, abort)
+from flask.sessions import SecureCookieSessionInterface
 
 from models import (db, Personne, Etablissement, Produit, DossierAMM, AvisEvaluationMA,
                      EvenementAudit, Notification, ParametreModule, NotificationVigilance, Inspection,
@@ -87,17 +88,34 @@ app.config["SECRET_KEY"] = _cle_secrete()
 app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'sireph.db')}"
 
 # Durcissement des cookies. HttpOnly et SameSite ne coûtent rien et valent
-# toujours. Secure, en revanche, empêche le navigateur de renvoyer le cookie
-# hors HTTPS : activé à tort, il rend la connexion impossible en accès local
-# en clair — le mot de passe est accepté et la session ne s'ouvre jamais.
-#
-# C'est pourquoi il dépend d'une variable PROPRE, et non du mode production :
-# masquer l'annuaire des comptes et servir en HTTPS sont deux questions
-# distinctes. SIREPH_HTTPS=1 est posé quand l'application est servie derrière
-# le tunnel, qui termine bien le TLS.
+# toujours.
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
-if os.environ.get("SIREPH_HTTPS") == "1":
-    app.config["SESSION_COOKIE_SECURE"] = True
+
+
+class SessionSelonLeSchema(SecureCookieSessionInterface):
+    """Marque le cookie de session « Secure » seulement si la requête est en HTTPS.
+
+    Ce drapeau interdit au navigateur de renvoyer le cookie hors HTTPS. Piloté
+    par une simple variable de configuration, il devient un piège : la même
+    application, servie à la fois derrière le tunnel (HTTPS) et sur
+    localhost (HTTP), refusait toute connexion locale. Le mot de passe était
+    accepté, la session n'était jamais conservée, et aucun message n'apparaissait
+    — le symptôme se lisait comme « mes identifiants ne marchent plus ».
+
+    On décide donc par requête. Derrière le tunnel, Cloudflare annonce le
+    schéma d'origine dans X-Forwarded-Proto ; en direct, le schéma de la
+    requête suffit.
+    """
+
+    def get_cookie_secure(self, app):
+        from flask import has_request_context
+        if not has_request_context():
+            return False
+        annonce = (request.headers.get("X-Forwarded-Proto") or "").split(",")[0]
+        return annonce.strip().lower() == "https" or request.scheme == "https"
+
+
+app.session_interface = SessionSelonLeSchema()
 db.init_app(app)
 
 # Après db.init_app, pour éviter tout import circulaire.
