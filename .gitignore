@@ -9,3 +9,10 @@ instance/*.avant-migration-*
 # Fichiers téléversés par les utilisateurs : données, pas code source
 static/documents/
 static/certificats/
+
+# Secrets locaux — ne doivent jamais entrer dans le dépôt
+instance/cle_secrete.txt
+instance/IDENTIFIANTS-PRIVES.txt
+
+# Binaire du tunnel (52 Mo) — retéléchargeable, pas du code source
+outils/

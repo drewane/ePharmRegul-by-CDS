@@ -51,12 +51,53 @@ CERT_DIR = os.path.join(BASE_DIR, "static", "certificats")
 PAGE_SIZE = 50
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "sireph-demo-secret-a-changer-en-production"
-app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'sireph.db')}"
 # Mode démonstration : publie l'annuaire des comptes d'essai et leur mot de
 # passe commun. À METTRE À FAUX avant tout déploiement — la variable
 # d'environnement SIREPH_PRODUCTION=1 suffit à le faire.
-app.config["MODE_DEMONSTRATION"] = os.environ.get("SIREPH_PRODUCTION") != "1"
+_PRODUCTION = os.environ.get("SIREPH_PRODUCTION") == "1"
+app.config["MODE_DEMONSTRATION"] = not _PRODUCTION
+
+# La clé de session signe les cookies d'authentification : connue, elle permet
+# de forger la session de n'importe quel compte. Une valeur en dur convient à
+# un poste de démonstration, jamais à une application exposée. En production,
+# elle vient de l'environnement ou d'un fichier local hors dépôt.
+_CLE_FICHIER = os.path.join(BASE_DIR, "instance", "cle_secrete.txt")
+
+
+def _cle_secrete():
+    depuis_env = os.environ.get("SIREPH_SECRET_KEY")
+    if depuis_env:
+        return depuis_env
+    if os.path.exists(_CLE_FICHIER):
+        with open(_CLE_FICHIER, encoding="utf-8") as f:
+            valeur = f.read().strip()
+        if valeur:
+            return valeur
+    if _PRODUCTION:
+        import secrets
+        valeur = secrets.token_urlsafe(48)
+        os.makedirs(os.path.dirname(_CLE_FICHIER), exist_ok=True)
+        with open(_CLE_FICHIER, "w", encoding="utf-8") as f:
+            f.write(valeur)
+        return valeur
+    return "sireph-demo-secret-a-changer-en-production"
+
+
+app.config["SECRET_KEY"] = _cle_secrete()
+app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{os.path.join(BASE_DIR, 'instance', 'sireph.db')}"
+
+# Durcissement des cookies. HttpOnly et SameSite ne coûtent rien et valent
+# toujours. Secure, en revanche, empêche le navigateur de renvoyer le cookie
+# hors HTTPS : activé à tort, il rend la connexion impossible en accès local
+# en clair — le mot de passe est accepté et la session ne s'ouvre jamais.
+#
+# C'est pourquoi il dépend d'une variable PROPRE, et non du mode production :
+# masquer l'annuaire des comptes et servir en HTTPS sont deux questions
+# distinctes. SIREPH_HTTPS=1 est posé quand l'application est servie derrière
+# le tunnel, qui termine bien le TLS.
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax")
+if os.environ.get("SIREPH_HTTPS") == "1":
+    app.config["SESSION_COOKIE_SECURE"] = True
 db.init_app(app)
 
 # Après db.init_app, pour éviter tout import circulaire.

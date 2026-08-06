@@ -165,9 +165,29 @@ qu'un appareil complètement extérieur (hors du domicile/bureau, via Internet)
 accède à SIREPH, il faut un tunnel ou une exposition Internet — **non
 configuré ici**, et à examiner avec prudence :
 
-- **Ngrok** (https://ngrok.com) ou **Cloudflare Tunnel** créent une URL
-  Internet temporaire pointant vers `localhost:5000`, sans configuration du
-  routeur. Pratique pour une démonstration ponctuelle.
+C'est désormais outillé : **`venv\Scripts\python run_public.py`** ouvre un
+tunnel Cloudflare et affiche une adresse `https://….trycloudflare.com`,
+ouvrable depuis n'importe quel appareil, sans configuration du routeur ni du
+pare-feu. L'adresse est aussi écrite dans `outils/adresse_publique.txt`.
+
+Le script **refuse de démarrer** tant que l'application n'a pas été durcie —
+comptes au mot de passe commun, annuaire des identifiants encore publié,
+cookie de session non marqué `Secure`. Exécutez d'abord :
+
+```bash
+venv\Scripts\python securiser_exposition.py
+```
+
+Il attribue un mot de passe distinct à chaque compte, les écrit dans
+`instance/IDENTIFIANTS-PRIVES.txt` (fichier local, exclu du dépôt, servi par
+aucune route), et crée une clé de signature de session aléatoire. Pour revenir
+en démonstration une fois le tunnel refermé :
+`securiser_exposition.py --restaurer-demo`.
+
+L'adresse change à chaque ouverture du tunnel, et disparaît quand la fenêtre
+se ferme.
+
+- **Ngrok** (https://ngrok.com) est une alternative équivalente.
 - ⚠️ **SIREPH reste un prototype de démonstration** (voir « Limitations
   assumées » dans `README.md`) : base SQLite locale, mots de passe de démo
   identiques pour tous les comptes (`demo1234`), pas de HTTPS, pas de
