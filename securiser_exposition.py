@@ -22,7 +22,6 @@ tunnel refermé.
 """
 import os
 import secrets
-import string
 import sys
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -34,14 +33,41 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FICHIER_IDENTIFIANTS = os.path.join(BASE_DIR, "instance", "IDENTIFIANTS-PRIVES.txt")
 FICHIER_CLE = os.path.join(BASE_DIR, "instance", "cle_secrete.txt")
 
-# Alphabet sans caractères ambigus : l/1/I et O/0 se confondent à la lecture,
-# et ces mots de passe seront recopiés à la main depuis un fichier texte.
-ALPHABET = ("".join(c for c in string.ascii_letters + string.digits
-                    if c not in "lI1O0") + "!@#%*+-=?")
+# Mots courts, sans accent ni homographe : ces phrases se recopient à la main,
+# souvent depuis un écran vers un téléphone. Un mot de passe illisible n'est
+# pas un mot de passe sûr — il est contourné, noté sur un papier, ou empêche
+# simplement de se connecter. La première version de ce script produisait des
+# suites comme « A43z75kB3MU2s#L# » : personne n'a pu les saisir.
+MOTS = """
+acacia acajou acier ancre arbre argile atlas aurore avoine azur balise bambou
+baobab basalte bassin bergame beryl bison bosquet boussole brise bruyere cacao
+calcaire canari capre cargo cedre cerfeuil chalut chanvre charme chene cistre
+citron cobalt colline comete copal corail cormier coton coupole cristal cuivre
+cumin cypres dahlia damier delta dolmen dune ebene ecume email emeraude epeautre
+erable escale estuaire etoile fanal fenouil ferrite figuier filao flore fougere
+frene galet garrigue genet gingembre girofle givre granit grenat gypse harmonie
+hetre horizon houle ibis indigo iode iris ivoire jade jaspe jonquille jujube
+karite lagune laurier lavande liane lichen limon lin lotus lucarne lupin
+magnolia mandarine mangrove marbre menthe mesange meteore mica mimosa mistral
+mousson muscade myrte nacre narcisse nebuleuse nenuphar nimbe nopal noyer
+obsidienne ocre olivier onyx opale orage orchidee origan osier oursin palme
+papyrus paprika passiflore pastel peuplier phare pierre pigment pin pivoine
+platane pluie polaire pollen prairie prisme pyrite quartz quinoa raphia ravine
+recif reglisse resine rivage romarin roseau rubis safran sagou saline santal
+sapin sarment sauge savane sequoia sericine sesame sillage sisal sorbier soufre
+spinelle stellaire sureau sycomore syenite talc tamarin tempete terrasse thym
+tilleul topaze torrent toundra tourbe tulipe turquoise vanille varech vent
+verglas vetiver vigne violette voile zenith zephyr zircon
+""".split()
 
-
-def mot_de_passe(longueur=16):
-    return "".join(secrets.choice(ALPHABET) for _ in range(longueur))
+# 4 mots parmi ~210, plus deux chiffres : environ 37 bits d'entropie. C'est
+# insuffisant SEUL face à un attaquant qui essaie sans limite — c'est pourquoi
+# `anti_force_brute` bloque après cinq échecs. Les deux mesures ne valent
+# qu'ensemble : allonger la phrase sans limiter les tentatives, ou l'inverse,
+# laisserait le compte exposé.
+def mot_de_passe(mots=4):
+    phrase = "-".join(secrets.choice(MOTS) for _ in range(mots))
+    return f"{phrase}-{secrets.randbelow(90) + 10}"
 
 
 def cle_secrete():
@@ -98,7 +124,7 @@ def ecrire_identifiants(attribues):
         lignes.append(f"-- Niveau {n} — {par_niveau[n][0]['libelle_niveau']} "
                       + "-" * 30)
         for c in sorted(par_niveau[n], key=lambda x: x["role"]):
-            lignes.append(f"  {c['email']:36} {c['secret']:18} {c['role']}")
+            lignes.append(f"  {c['email']:34}  {c['secret']:34}  {c['role']}")
         lignes.append("")
     with open(FICHIER_IDENTIFIANTS, "w", encoding="utf-8") as f:
         f.write("\n".join(lignes))
@@ -123,7 +149,8 @@ def controles_restants():
     """Ce que ce script ne traite pas, et qu'il faut savoir avant d'exposer."""
     return [
         "Base SQLite locale, sans sauvegarde automatique ni chiffrement au repos.",
-        "Aucune limitation du nombre de tentatives de connexion.",
+        "Tentatives de connexion limitées à 5 par quart d'heure (anti_force_brute) "
+        "— compteur en mémoire, remis à zéro au redémarrage du serveur.",
         "Pas de double authentification.",
         "Pas de journalisation des accès au niveau du serveur web.",
         "Signature électronique interne (empreinte HMAC), non qualifiée au sens "

@@ -265,12 +265,26 @@ def forbidden(e):
 # ---------------------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    import anti_force_brute as afb
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         pwd = request.form.get("password", "")
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+        ip = ip.split(",")[0].strip()
+
+        # Le blocage se vérifie AVANT de comparer le mot de passe : sinon la
+        # durée de la réponse trahirait l'existence du compte.
+        attente = afb.secondes_restantes(email, ip)
+        if attente:
+            flash(f"Trop de tentatives infructueuses. Réessayez dans "
+                  f"{afb.duree_lisible(attente)}.", "danger")
+            return render_template("login.html")
+
         u = Personne.query.filter_by(email=email).first()
         if u and u.check_password(pwd):
             if u.statut_compte == "actif":
+                afb.enregistrer_succes(email, ip)
                 session["user_id"] = u.id
                 flash(f"Bienvenue, {u.nom_complet} ({u.role_label}).", "success")
                 return redirect(request.args.get("next") or url_for("dashboard"))
@@ -280,7 +294,16 @@ def login():
             else:
                 flash("Ce compte est suspendu. Contactez la DPML.", "danger")
         else:
-            flash("Identifiants incorrects.", "danger")
+            bloque = afb.enregistrer_echec(email, ip)
+            if bloque:
+                flash(f"Trop de tentatives infructueuses. Réessayez dans "
+                      f"{afb.duree_lisible(bloque)}.", "danger")
+            else:
+                restants = afb.essais_restants(email, ip)
+                flash("Identifiants incorrects."
+                      + (f" Il vous reste {restants} tentative"
+                         + ("s" if restants > 1 else "") + "."
+                         if restants <= 2 else ""), "danger")
     return render_template("login.html")
 
 
