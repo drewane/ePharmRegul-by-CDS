@@ -205,6 +205,16 @@ def inject_globals():
         from models import EtapeValidation
         signatures_attendues = EtapeValidation.query.filter_by(
             role_requis=u.role_systeme, statut="en_attente").count()
+    # Sous-onglets de « Demande » : la barre latérale lit la même déclaration
+    # que les pages, pour qu'un menu et son contenu ne puissent pas diverger.
+    arborescence_demandes = None
+    if u is not None and u.role_systeme == "demandeur_externe":
+        import taxonomie_demandes as tax
+        arborescence_demandes = []
+        for famille in tax.enfants_avec_liens([]):
+            famille = dict(famille)
+            famille["enfants_liens"] = tax.enfants_avec_liens([famille["code"]])
+            arborescence_demandes.append(famille)
     # Recettes en attente d'approbation — visible du seul responsable financier.
     # `None` signifie « cet écran ne vous concerne pas », 0 « rien à traiter ».
     recettes_a_approuver = None
@@ -226,6 +236,7 @@ def inject_globals():
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
                 peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
                 signatures_attendues=signatures_attendues,
+                arborescence_demandes=arborescence_demandes,
                 recettes_a_approuver=recettes_a_approuver,
                 dossiers_a_examiner=dossiers_a_examiner,
                 evaluations_a_rendre=evaluations_a_rendre,

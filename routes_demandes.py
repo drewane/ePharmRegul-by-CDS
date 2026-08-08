@@ -12,8 +12,10 @@ laboratoire ne mélange pas ses démarches d'homologation et ses protocoles.
 from flask import (Blueprint, abort, flash, redirect, render_template, request,
                    url_for)
 
+import dossier_essai_clinique as dec
 import espace_industriel as esp
 import modules_ctd as ctd
+import taxonomie_demandes as tax
 import workflow_ma as wf
 from auth import current_user, login_required
 from erreurs import ErreurWorkflow
@@ -48,13 +50,99 @@ def _industriel():
 
 
 # ---------------------------------------------------------------------------
-# Accueil : les trois familles de démarche
+# Accueil et navigation dans l'arborescence
 # ---------------------------------------------------------------------------
 @bp.route("/")
 @login_required
 def accueil():
     u = _industriel()
-    return render_template("demandes/accueil.html", u=u)
+    return render_template("demandes/rubrique.html", u=u,
+                           titre="Déposer une demande",
+                           description="Choisissez la nature de votre démarche. "
+                                       "Chaque dépôt donne lieu à un accusé de "
+                                       "réception immédiat, puis à un suivi dans "
+                                       "votre portefeuille.",
+                           enfants=tax.enfants_avec_liens([]), fil=[])
+
+
+@bp.route("/rubrique/<path:chemin>")
+@login_required
+def rubrique(chemin):
+    """Un niveau quelconque de l'arborescence, décrit une seule fois ailleurs."""
+    u = _industriel()
+    segments = [c for c in chemin.split("/") if c]
+    n = tax.noeud(segments)
+    if n is None:
+        abort(404)
+    if not n.get("enfants"):
+        return redirect(n["lien"])
+    return render_template("demandes/rubrique.html", u=u, titre=n["libelle"],
+                           description=n["description"],
+                           enfants=tax.enfants_avec_liens(segments),
+                           fil=tax.fil_ariane(segments))
+
+
+# ---------------------------------------------------------------------------
+# Essais cliniques — besoin documentaire par phase
+# ---------------------------------------------------------------------------
+@bp.route("/essai-clinique/<phase>")
+@login_required
+def essai_clinique(phase):
+    u = _industriel()
+    if phase not in dec.PHASES:
+        abort(404)
+    obligatoires, total = dec.compte(phase)
+    return render_template("demandes/essai_clinique.html", u=u, phase=phase,
+                           infos=dec.PHASES[phase],
+                           exigences=dec.exigences(phase),
+                           obligatoires=obligatoires, total=total,
+                           fil=tax.fil_ariane(["essai_clinique", phase]))
+
+
+# ---------------------------------------------------------------------------
+# Agréments d'établissement — domaine × catégorie × acte
+# ---------------------------------------------------------------------------
+@bp.route("/agrements/<domaine>/<categorie>/<acte>", methods=["GET", "POST"])
+@login_required
+def agrement(domaine, categorie, acte):
+    """Douze démarches d'agrément, servies par une seule page.
+
+    Le domaine (distribution / fabrication) et la catégorie (médicaments /
+    dispositifs médicaux) qualifient l'agrément ; l'acte dit ce qu'on en fait.
+    """
+    import workflow_agrement as wfa
+
+    u = _industriel()
+    if (domaine not in tax.DOMAINES_AGREMENT
+            or categorie not in tax.CATEGORIES_AGREMENT
+            or acte not in tax.ACTES_AGREMENT):
+        abort(404)
+
+    etablissement = u.etablissement
+    if request.method == "POST":
+        try:
+            demande = wfa.deposer(etablissement, u, domaine, categorie, acte,
+                                  request.form.get("motif", ""),
+                                  request.form.get("pieces", ""))
+            db.session.commit()
+            flash(f"Demande {demande.numero} déposée. Un accusé de réception "
+                  "vous a été adressé.", "success")
+            return redirect(url_for("li.fiche", id=demande.id))
+        except ErreurWorkflow as e:
+            db.session.rollback()
+            flash(str(e), "danger")
+
+    libelle_acte, description = tax.ACTES_AGREMENT[acte]
+    return render_template(
+        "demandes/agrement.html", u=u, domaine=domaine, categorie=categorie,
+        acte=acte, libelle_acte=libelle_acte, description=description,
+        libelle_domaine=tax.DOMAINES_AGREMENT[domaine],
+        libelle_categorie=tax.CATEGORIES_AGREMENT[categorie],
+        etablissement=etablissement,
+        pieces_attendues=wfa.pieces_attendues(domaine, categorie, acte),
+        en_cours=wfa.demandes_en_cours(etablissement),
+        motif_requis=wfa.MOTIF_REQUIS.get(acte, False),
+        fil=tax.fil_ariane(["agrements", domaine, categorie, acte]))
 
 
 # ---------------------------------------------------------------------------

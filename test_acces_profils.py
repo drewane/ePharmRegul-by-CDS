@@ -36,7 +36,8 @@ def verifier(nom, cond, detail=""):
 
 def _client(email):
     c = application.app.test_client()
-    c.post("/login", data={"email": email, "password": sc.MOT_DE_PASSE})
+    c.post("/login", data={"email": email,
+                           "password": sc.mot_de_passe_courant(email)})
     return c
 
 
@@ -57,7 +58,7 @@ def test_couverture_des_roles():
             inactifs.append(role)
         if p.role_systeme != role:
             mauvais_role.append(role)
-        if not p.check_password(sc.MOT_DE_PASSE):
+        if not p.check_password(sc.mot_de_passe_courant(p.email)):
             mot_de_passe_ko.append(role)
     verifier("tous les comptes sont actifs", not inactifs, ", ".join(inactifs))
     verifier("chaque compte porte bien son rôle", not mauvais_role,

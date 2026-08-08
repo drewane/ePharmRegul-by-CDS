@@ -274,9 +274,12 @@ def test_jalons_publics():
 def test_ecrans_suivi():
     print("\n[10] Écrans de suivi du demandeur")
     client = application.app.test_client()
-    r = client.post("/login", data={"email": "demandeur@pharmacam.demo",
-                                    "password": "demo1234"},
-                    follow_redirects=True)
+    import seed_comptes as sc
+    r = client.post(
+        "/login",
+        data={"email": "demandeur@pharmacam.demo",
+              "password": sc.mot_de_passe_courant("demandeur@pharmacam.demo")},
+        follow_redirects=True)
     verifier("connexion du déposant", r.status_code == 200)
 
     r = client.get("/industriel/suivi")
@@ -307,7 +310,9 @@ def test_ecrans_suivi():
 
     # Un régulateur n'a pas d'espace industriel : ce n'est pas son écran.
     reg = application.app.test_client()
-    reg.post("/login", data={"email": "directeur@dpml.demo", "password": "demo1234"})
+    reg.post("/login",
+             data={"email": "directeur@dpml.demo",
+                   "password": sc.mot_de_passe_courant("directeur@dpml.demo")})
     code = reg.get("/industriel/suivi").status_code
     verifier("un profil non industriel est écarté", code in (302, 403), str(code))
 

@@ -228,7 +228,8 @@ def test_rappel_six_mois():
 
 def _client(email):
     c = application.app.test_client()
-    c.post("/login", data={"email": email, "password": sc.MOT_DE_PASSE})
+    c.post("/login", data={"email": email,
+                           "password": sc.mot_de_passe_courant(email)})
     return c
 
 
@@ -236,7 +237,7 @@ def test_certificat_reserve_aux_agents():
     print("\n[6] Le certificat d'homologation ne sort pas de l'administration")
     d, dep = _dossier()
     _circuit_acheve(d)
-    dep.set_password(sc.MOT_DE_PASSE)
+    dep.set_password(sc.mot_de_passe_courant(dep.email))
     db.session.commit()
     url = f"/validation/DossierAMM/{d.id}/document"
 
@@ -257,7 +258,7 @@ def test_acte_signe_telechargeable_par_le_titulaire():
     d, dep = _dossier()
     _circuit_acheve(d)
     piece = amm_signee.deposer(d, _fichier(), _r("chef_service_amm"), 5)
-    dep.set_password(sc.MOT_DE_PASSE)
+    dep.set_password(sc.mot_de_passe_courant(dep.email))
     db.session.commit()
 
     url = f"/documents/{piece.id}/telecharger"
@@ -284,7 +285,7 @@ def test_pieces_visibles_dans_la_chaine():
     piece = enregistrer_piece(d, _fichier("module-qualite.pdf"),
                               "Module 3 — Qualité", dep)
     _circuit_acheve(d)
-    dep.set_password(sc.MOT_DE_PASSE)
+    dep.set_password(sc.mot_de_passe_courant(dep.email))
     db.session.commit()
 
     url = f"/documents/{piece.id}/telecharger"

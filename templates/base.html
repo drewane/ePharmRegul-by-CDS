@@ -74,20 +74,23 @@
              href="{{ url_for('demandes.accueil') }}">
             <i class="bi bi-plus-circle"></i> Demande</a>
         </li>
-        {% if request.path.startswith('/demandes') %}
+        {# Sous-onglets déduits de taxonomie_demandes : une seule déclaration
+           décrit le menu, les pages et le fil d'Ariane. #}
+        {% if request.path.startswith('/demandes') and arborescence_demandes %}
+        {% for famille in arborescence_demandes %}
         <li class="nav-item ps-3">
-          <a class="nav-link py-1 {{ 'active' if request.path.startswith('/demandes/amm') }}"
-             href="{{ url_for('demandes.amm') }}">
-            <i class="bi bi-dot"></i> AMM</a>
+          <a class="nav-link py-1 {{ 'active' if request.path == famille.href }}"
+             href="{{ famille.href }}">
+            <i class="bi {{ famille.icone }}"></i> {{ famille.libelle }}</a>
         </li>
-        <li class="nav-item ps-3">
-          <a class="nav-link py-1" href="/derogations">
-            <i class="bi bi-dot"></i> Dérogation</a>
+        {% for enfant in famille.enfants_liens %}
+        <li class="nav-item ps-5">
+          <a class="nav-link py-1 small {{ 'active' if request.path == enfant.href }}"
+             href="{{ enfant.href }}">
+            <i class="bi bi-dot"></i> {{ enfant.libelle }}</a>
         </li>
-        <li class="nav-item ps-3">
-          <a class="nav-link py-1" href="/visas">
-            <i class="bi bi-dot"></i> Visa technique</a>
-        </li>
+        {% endfor %}
+        {% endfor %}
         {% endif %}
         <li class="nav-item">
           <a class="nav-link {{ 'active' if request.path.startswith('/industriel/inspections') }}"

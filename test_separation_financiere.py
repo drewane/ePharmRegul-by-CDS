@@ -250,8 +250,9 @@ def test_attestation_idempotente():
 def test_ecran_d_approbation():
     print("\n[9] Guichet d'approbation")
     client = application.app.test_client()
-    client.post("/login", data={"email": sc.COMPTES["responsable_financier"][1],
-                                "password": sc.MOT_DE_PASSE})
+    courriel = sc.COMPTES["responsable_financier"][1]
+    client.post("/login", data={"email": courriel,
+                                "password": sc.mot_de_passe_courant(courriel)})
     r = client.get("/paiements/approbation")
     verifier("le responsable financier accède au guichet", r.status_code == 200,
              str(r.status_code))
@@ -262,8 +263,9 @@ def test_ecran_d_approbation():
     for role in ("administrateur_dpml", "directeur_dpml", "chef_service_amm",
                  "ministre_sante", "demandeur_externe"):
         autre = application.app.test_client()
-        autre.post("/login", data={"email": sc.COMPTES[role][1],
-                                   "password": sc.MOT_DE_PASSE})
+        adresse = sc.COMPTES[role][1]
+        autre.post("/login", data={"email": adresse,
+                                   "password": sc.mot_de_passe_courant(adresse)})
         verifier(f"« {role} » n'atteint pas le guichet",
                  autre.get("/paiements/approbation").status_code == 403)
 
@@ -271,8 +273,9 @@ def test_ecran_d_approbation():
     d, _dep, pay = _dossier_avec_creance()
     db.session.commit()
     admin = application.app.test_client()
-    admin.post("/login", data={"email": sc.COMPTES["administrateur_dpml"][1],
-                               "password": sc.MOT_DE_PASSE})
+    adm = sc.COMPTES["administrateur_dpml"][1]
+    admin.post("/login", data={"email": adm,
+                               "password": sc.mot_de_passe_courant(adm)})
     verifier("l'administrateur ne peut pas approuver par la route",
              admin.post(f"/paiements/{pay.id}/approuver").status_code == 403)
     db.session.refresh(pay)

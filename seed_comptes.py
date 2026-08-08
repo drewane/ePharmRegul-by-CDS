@@ -24,6 +24,7 @@ touche pas au mot de passe d'un compte déjà en base, sauf `--reinitialiser`.
     venv\\Scripts\\python seed_comptes.py
     venv\\Scripts\\python seed_comptes.py --reinitialiser
 """
+import os
 import sys
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -195,6 +196,41 @@ def _etablissement(cle):
     return etab
 
 
+MARQUEUR_DURCISSEMENT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "instance",
+    "IDENTIFIANTS-PRIVES.txt")
+
+
+def mot_de_passe_courant(email):
+    """Le mot de passe réellement en vigueur pour un compte de démonstration.
+
+    Sans durcissement, c'est le mot de passe commun. Après passage de
+    `securiser_exposition.py`, c'est celui qu'il a tiré au sort et consigné.
+    Les tests et les scripts doivent passer par ici : y écrire `demo1234` en
+    dur les fait échouer dès que l'application est préparée pour l'exposition,
+    et l'échec se lit comme une régression fonctionnelle alors qu'il n'est
+    qu'un défaut d'authentification.
+    """
+    if not _exposition_durcie():
+        return MOT_DE_PASSE
+    import re
+    with open(MARQUEUR_DURCISSEMENT, encoding="utf-8") as f:
+        trouve = re.search(r"^\s+" + re.escape(email) + r"\s+(\S+)\s",
+                           f.read(), re.M)
+    return trouve.group(1) if trouve else MOT_DE_PASSE
+
+
+def _exposition_durcie():
+    """L'application a-t-elle été préparée pour une exposition publique ?
+
+    On se fie à la présence du fichier d'identifiants produit par
+    `securiser_exposition.py`. Tant qu'il existe, aucun mot de passe n'est
+    réécrit : `securiser_exposition.py --restaurer-demo` le supprime et rend
+    la main aux comptes de démonstration.
+    """
+    return os.path.exists(MARQUEUR_DURCISSEMENT)
+
+
 def creer_comptes(reinitialiser=False):
     """Garantit un compte actif par rôle. Retourne (créés, réactivés, inchangés)."""
     crees, reactives, inchanges = [], [], []
@@ -224,7 +260,18 @@ def creer_comptes(reinitialiser=False):
             p.etablissement_rattachement_id = etab.id
             modifie = True
         # Un compte de démonstration dont le mot de passe diverge n'est pas
-        # testable : l'annuaire l'annoncerait à tort. On le réaligne.
+        # testable : l'annuaire l'annoncerait à tort. On le réaligne — MAIS
+        # jamais quand l'application a été durcie pour être exposée.
+        #
+        # Cette garde vient d'un incident : le seul fait de lancer une suite de
+        # tests, qui appelle creer_comptes(), remettait les 32 comptes à
+        # `demo1234` et annulait silencieusement le durcissement. Les
+        # identifiants publiés dans instance/IDENTIFIANTS-PRIVES.txt ne
+        # fonctionnaient plus, et l'ancien mot de passe commun redevenait
+        # valable sur une adresse publique.
+        if not reinitialiser and _exposition_durcie():
+            (reactives if modifie else inchanges).append(role)
+            continue
         if reinitialiser or not p.check_password(MOT_DE_PASSE):
             p.set_password(MOT_DE_PASSE)
             modifie = True

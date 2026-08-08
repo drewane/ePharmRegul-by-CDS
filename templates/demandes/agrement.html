@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ libelle_acte }} — agrément {{ libelle_domaine|lower }}{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('demandes.accueil') }}">Demande</a></li>
+    {% for libelle, lien in fil %}
+      {% if loop.last %}
+      <li class="breadcrumb-item active" aria-current="page">{{ libelle }}</li>
+      {% else %}
+      <li class="breadcrumb-item"><a href="{{ lien }}">{{ libelle }}</a></li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+</nav>
+
+<h1 class="h4 mb-1">{{ libelle_acte }}</h1>
+<p class="text-muted">
+  Agrément <strong>{{ libelle_domaine|lower }}</strong> —
+  <strong>{{ libelle_categorie|lower }}</strong>. {{ description }}
+</p>
+
+{% if not etablissement %}
+<div class="alert alert-warning">
+  Votre compte n'est rattaché à aucun établissement. Une demande d'agrément est
+  déposée au nom d'un établissement, jamais d'une personne.
+</div>
+{% else %}
+
+{% if en_cours %}
+<div class="alert alert-info">
+  <strong>Une demande est déjà en cours</strong> pour
+  {{ etablissement.raison_sociale }} :
+  {% for d in en_cours %}
+  <a href="{{ url_for('li.fiche', id=d.id) }}">{{ d.numero }}</a>{% if not loop.last %}, {% endif %}
+  {% endfor %}.
+  Attendez sa décision avant d'en déposer une autre.
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold">Déposer la demande</div>
+      <div class="card-body">
+        <dl class="row small mb-3">
+          <dt class="col-sm-4">Établissement</dt>
+          <dd class="col-sm-8">{{ etablissement.raison_sociale }}</dd>
+          <dt class="col-sm-4">Domaine</dt>
+          <dd class="col-sm-8">{{ libelle_domaine }}</dd>
+          <dt class="col-sm-4">Catégorie</dt>
+          <dd class="col-sm-8">{{ libelle_categorie }}</dd>
+          <dt class="col-sm-4">Acte demandé</dt>
+          <dd class="col-sm-8">{{ libelle_acte }}</dd>
+        </dl>
+
+        <form method="post">
+          {% if motif_requis %}
+          <div class="mb-3">
+            <label class="form-label" for="motif">
+              Motif de la suspension <span class="text-danger">*</span></label>
+            <textarea class="form-control" id="motif" name="motif" rows="3"
+                      required
+                      placeholder="Arrêt temporaire d'activité, transfert de site, cessation d'une ligne de production…"></textarea>
+            <div class="form-text">
+              L'administration doit pouvoir apprécier les conséquences sur
+              l'approvisionnement avant de se prononcer.
+            </div>
+          </div>
+          {% endif %}
+          <div class="mb-3">
+            <label class="form-label" for="pieces">
+              Pièces jointes au dépôt</label>
+            <textarea class="form-control" id="pieces" name="pieces" rows="3"
+                      placeholder="Énumérez les pièces transmises. Les fichiers se téléversent ensuite depuis la fiche de la demande."></textarea>
+          </div>
+          <button class="btn btn-primary" {{ 'disabled' if en_cours }}>
+            <i class="bi bi-send me-1"></i> Déposer la demande</button>
+          {% if en_cours %}
+          <div class="form-text text-warning">
+            Dépôt indisponible tant qu'une demande est en cours.
+          </div>
+          {% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold">
+        Pièces attendues
+        <span class="badge bg-secondary ms-1">{{ pieces_attendues|length }}</span>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for piece in pieces_attendues %}
+        <li class="list-group-item small py-2">{{ piece }}</li>
+        {% endfor %}
+      </ul>
+      <div class="card-footer small text-muted py-2">
+        Liste indicative, adaptée au domaine et à la catégorie choisis. Le
+        service instructeur peut réclamer des compléments.
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

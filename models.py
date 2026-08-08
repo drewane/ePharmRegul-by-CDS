@@ -274,7 +274,14 @@ class DemandeLicence(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     numero = db.Column(db.String(30), unique=True, nullable=False)  # LIC-{annee}-{seq4}
     etablissement_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=False)
-    type_demande = db.Column(db.String(20), nullable=False, default="nouvelle")  # nouvelle | renouvellement
+    type_demande = db.Column(db.String(20), nullable=False, default="nouvelle")
+    # nouvelle | renouvellement | suspension (suspension volontaire demandée
+    # par l'exploitant — à ne pas confondre avec la sanction prononcée par la
+    # direction, cf. workflow_li.suspendre)
+    # Qualification de l'agrément demandé (cf. workflow_agrement.py)
+    domaine = db.Column(db.String(20), nullable=True)      # distribution | fabrication
+    categorie = db.Column(db.String(30), nullable=True)    # medicaments | dispositifs_medicaux
+    motif_demande = db.Column(db.Text, nullable=True)      # exigé pour une suspension
     statut = db.Column(db.String(20), nullable=False, default="deposee")
     # deposee | en_instruction | approuvee | refusee
     pieces_justificatives = db.Column(db.Text, nullable=True)  # description libre, pas de pipeline de fichiers ici

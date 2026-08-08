@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}{{ infos.libelle }} — besoin documentaire{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('demandes.accueil') }}">Demande</a></li>
+    {% for libelle, lien in fil %}
+      {% if loop.last %}
+      <li class="breadcrumb-item active" aria-current="page">{{ libelle }}</li>
+      {% else %}
+      <li class="breadcrumb-item"><a href="{{ lien }}">{{ libelle }}</a></li>
+      {% endif %}
+    {% endfor %}
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Essai clinique de {{ infos.libelle }}</h1>
+    <p class="text-muted mb-0">{{ infos.objet }}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('ct.nouveau') }}">
+    <i class="bi bi-plus-circle me-1"></i> Déposer le protocole</a>
+</div>
+
+<div class="row g-3 mb-3">
+  {% set reperes = [
+    ('Population', infos.population, 'bi-people'),
+    ('Effectif indicatif', infos.effectif, 'bi-123'),
+    ('Durée usuelle', infos.duree, 'bi-calendar-range'),
+  ] %}
+  {% for libelle, valeur, icone in reperes %}
+  <div class="col-md-4">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="small text-muted">
+        <i class="bi {{ icone }} me-1"></i>{{ libelle }}</div>
+      <div class="small">{{ valeur }}</div>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="alert alert-light border d-flex gap-2 align-items-start">
+  <i class="bi bi-info-circle mt-1"></i>
+  <div class="small mb-0"><strong>Ce que l'instruction regardera d'abord.</strong>
+    {{ infos.risque }}</div>
+</div>
+
+<div class="card">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold">Pièces du dossier</span>
+    <span class="small text-muted">
+      {{ obligatoires }} obligatoires sur {{ total }}</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th style="width:2.5rem"></th>
+        <th>Pièce</th>
+        <th style="width:9rem">Caractère</th>
+      </tr></thead>
+      <tbody>
+      {% set ns = namespace(section='') %}
+      {% for e in exigences %}
+        {% if e.origine != ns.section %}
+        {% set ns.section = e.origine %}
+        <tr class="table-light">
+          <td colspan="3" class="small fw-semibold">
+            {% if e.origine == 'commun' %}
+              Tronc commun — toute recherche sur l'être humain
+            {% else %}
+              Spécifique à la {{ infos.libelle }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+        <tr>
+          <td class="text-center">
+            {% if e.obligatoire %}
+            <i class="bi bi-asterisk text-danger small"
+               aria-label="obligatoire"></i>
+            {% else %}
+            <i class="bi bi-dash text-muted" aria-label="facultatif"></i>
+            {% endif %}
+          </td>
+          <td>
+            {{ e.intitule }}
+            <div class="small text-muted">{{ e.precision }}</div>
+          </td>
+          <td class="small">
+            {% if e.obligatoire %}
+            <span class="badge bg-danger-subtle text-danger-emphasis border">
+              Obligatoire</span>
+            {% else %}
+            <span class="badge bg-secondary-subtle text-secondary-emphasis border">
+              Selon le cas</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer small text-muted py-2">
+    Liste établie d'après les bonnes pratiques cliniques (ICH E6, ICH E8) et la
+    déclaration d'Helsinki. L'avis favorable du comité national d'éthique est
+    une condition de l'autorisation&nbsp;: elle ne peut être délivrée sans lui.
+  </div>
+</div>
+{% endblock %}
