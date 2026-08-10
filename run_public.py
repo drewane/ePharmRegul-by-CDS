@@ -1,5 +1,5 @@
 """
-Exposition sur Internet, via un tunnel Cloudflare.
+Exposition sur Internet : tunnel Cloudflare, ou repli SSH par le port 443.
 
 Publie SIREPH sur une adresse https accessible de n'importe où, sans toucher
 au routeur ni au pare-feu. Le tunnel sort de la machine ; rien n'entre.
@@ -95,6 +95,100 @@ def _servir():
                                  "x-forwarded-host"})
 
 
+def _edge_cloudflare_joignable(delai=6):
+    """Le réseau laisse-t-il sortir vers l'arête Cloudflare (TCP 7844) ?
+
+    Certains réseaux d'entreprise et partages de connexion mobiles ferment ce
+    port. Le tunnel s'ouvre alors en apparence — il annonce même une adresse —
+    puis Cloudflare répond 530 « origine injoignable ». On sonde donc avant,
+    plutôt que de laisser l'utilisateur découvrir la panne sur une adresse qui
+    ne servira jamais.
+    """
+    import socket
+
+    for hote in ("region1.v2.argotunnel.com", "region2.v2.argotunnel.com"):
+        try:
+            with socket.create_connection((hote, 7844), timeout=delai):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _annoncer(url, voie):
+    with open(FICHIER_ADRESSE, "w", encoding="utf-8") as f:
+        f.write(url + "\n")
+    print()
+    print("=" * 74)
+    print("  SIREPH est en ligne")
+    print("=" * 74)
+    print(f"  Adresse publique : {url}")
+    print(f"  Voie             : {voie}")
+    print("  Ouvrable depuis n'importe quel appareil, sans Wi-Fi commun.")
+    print()
+    print("  Identifiants : instance\\IDENTIFIANTS-PRIVES.txt")
+    print("                 (fichier local — ne le publiez pas)")
+    print()
+    print("  Cette fenêtre EST le tunnel. La fermer coupe l'accès,")
+    print("  et la prochaine ouverture donnera une adresse différente.")
+    print("=" * 74)
+    print()
+    sys.stdout.flush()
+
+
+MOTIF_URL_SSH = re.compile(
+    r"https://[a-z0-9.-]+\.(?:pinggy\.link|pinggy\.net|lhr\.life)")
+
+
+def _tunnel_ssh():
+    """Repli : tunnel inverse SSH par le port 443.
+
+    Choisi parce que 443 sort presque partout, y compris là où le port 7844 de
+    Cloudflare est fermé. Aucune inscription ni clé n'est requise.
+
+    DEUX LIMITES À CONNAÎTRE :
+      * la version gratuite ferme le tunnel au bout d'une heure ;
+      * comme pour Cloudflare, le service voit passer le trafic après
+        terminaison TLS de son côté. Acceptable pour une démonstration,
+        jamais pour des données réelles.
+
+    localhost.run, sur le port 22, a été écarté : il délivre bien une adresse
+    mais son point d'entrée HTTPS refuse la connexion, et servir l'application
+    en clair ferait voyager les mots de passe à découvert.
+    """
+    tunnel = subprocess.Popen(
+        ["ssh", "-p", "443", "-o", "StrictHostKeyChecking=no",
+         "-o", "UserKnownHostsFile=/dev/null", "-o", "ServerAliveInterval=30",
+         "-o", "ExitOnForwardFailure=yes",
+         "-R0:127.0.0.1:" + str(PORT), "qr@a.pinggy.io"],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        encoding="utf-8", errors="replace", bufsize=1)
+    url = None
+    debut = time.monotonic()
+    try:
+        for ligne in tunnel.stdout:
+            trouve = MOTIF_URL_SSH.search(ligne)
+            if trouve and not url:
+                url = trouve.group(0)
+                _annoncer(url, "tunnel SSH par le port 443 — expire après 1 heure")
+            if url is None and time.monotonic() - debut > 90:
+                print("Le tunnel SSH n'a pas fourni d'adresse en 90 secondes.")
+                break
+        tunnel.wait()
+    except KeyboardInterrupt:
+        print("\nFermeture du tunnel...")
+    finally:
+        tunnel.terminate()
+        try:
+            tunnel.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            tunnel.kill()
+        if os.path.exists(FICHIER_ADRESSE):
+            os.remove(FICHIER_ADRESSE)
+        print("Tunnel fermé. L'adresse publique ne répond plus.")
+    return 0
+
+
 def main():
     if not os.path.exists(CLOUDFLARED):
         print("cloudflared est absent. Téléchargez-le depuis")
@@ -118,9 +212,21 @@ def main():
     threading.Thread(target=_servir, daemon=True).start()
     time.sleep(2)
 
+    if not _edge_cloudflare_joignable():
+        print("Le port 7844, nécessaire au tunnel Cloudflare, est bloqué en "
+              "sortie sur ce réseau.", flush=True)
+        print("Repli sur un tunnel SSH (localhost.run), qui passe par le "
+              "port 22.\n", flush=True)
+        return _tunnel_ssh()
+
     print("Ouverture du tunnel...", flush=True)
+    # 127.0.0.1 et non « localhost » : Windows résout localhost en ::1 avant
+    # 127.0.0.1, or le serveur n'écoute qu'en IPv4. Le tunnel s'ouvre alors
+    # normalement, annonce son adresse, et Cloudflare répond 530 « origine
+    # injoignable » — panne d'autant plus déroutante que le serveur local
+    # répond parfaitement quand on le teste à la main.
     tunnel = subprocess.Popen(
-        [CLOUDFLARED, "tunnel", "--url", f"http://localhost:{PORT}",
+        [CLOUDFLARED, "tunnel", "--url", f"http://127.0.0.1:{PORT}",
          "--no-autoupdate"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         encoding="utf-8", errors="replace", bufsize=1)
