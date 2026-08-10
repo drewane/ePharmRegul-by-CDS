@@ -104,15 +104,13 @@ def _edge_cloudflare_joignable(delai=6):
     plutôt que de laisser l'utilisateur découvrir la panne sur une adresse qui
     ne servira jamais.
     """
-    import socket
+    # La sonde de tunnel_fixe est bornée par un fil : un connect vers un port
+    # filtré peut sinon traîner bien au-delà de son délai, et le lanceur se
+    # figerait avant même d'avoir essayé quoi que ce soit.
+    import tunnel_fixe
 
-    for hote in ("region1.v2.argotunnel.com", "region2.v2.argotunnel.com"):
-        try:
-            with socket.create_connection((hote, 7844), timeout=delai):
-                return True
-        except OSError:
-            continue
-    return False
+    return any(tunnel_fixe._port_ouvert(hote, tunnel_fixe.PORT_ARETE, delai)
+               for hote in tunnel_fixe.HOTES_ARETE)
 
 
 def _annoncer(url, voie):
@@ -211,6 +209,29 @@ def main():
     # ce qui évite d'exposer en clair le même service sur le réseau local.
     threading.Thread(target=_servir, daemon=True).start()
     time.sleep(2)
+
+    # Un tunnel fixe, s'il a été configuré, prime sur tout le reste : c'est la
+    # seule voie dont l'adresse ne change pas d'une ouverture à l'autre.
+    import tunnel_fixe
+    commande = tunnel_fixe.commande_lancement()
+    if commande and _edge_cloudflare_joignable():
+        conf = tunnel_fixe.configuration()
+        threading.Thread(target=_servir, daemon=True).start()
+        time.sleep(2)
+        _annoncer(conf["url"], "tunnel Cloudflare nommé — adresse permanente")
+        tunnel = subprocess.Popen([CLOUDFLARED] + commande)
+        try:
+            tunnel.wait()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            tunnel.terminate()
+            if os.path.exists(FICHIER_ADRESSE):
+                os.remove(FICHIER_ADRESSE)
+        return 0
+    if commande:
+        print("Un tunnel fixe est configuré, mais le port 7844 est fermé sur "
+              "ce réseau : impossible de l'utiliser ici.", flush=True)
 
     if not _edge_cloudflare_joignable():
         print("Le port 7844, nécessaire au tunnel Cloudflare, est bloqué en "
