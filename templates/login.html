@@ -8,16 +8,53 @@
         <h4 class="mb-3 text-center"><i class="bi bi-shield-check"></i> SIREPH</h4>
         <p class="text-muted text-center small mb-4">Accès avec connexion — comptes internes DPML et laboratoires déjà inscrits</p>
         <form method="post" novalidate>
+          {# autocapitalize/autocorrect : sans eux, un clavier mobile met une
+             majuscule au premier caractère et la connexion échoue sans que
+             rien ne l'indique, le champ étant masqué. #}
           <div class="mb-3">
             <label for="email" class="form-label">Adresse e-mail</label>
-            <input type="email" class="form-control" id="email" name="email" required autofocus>
+            <input type="email" class="form-control" id="email" name="email"
+                   required autofocus autocapitalize="none" autocorrect="off"
+                   spellcheck="false" autocomplete="username">
           </div>
           <div class="mb-3">
             <label for="password" class="form-label">Mot de passe</label>
-            <input type="password" class="form-control" id="password" name="password" required>
+            <div class="input-group">
+              <input type="password" class="form-control" id="password"
+                     name="password" required autocapitalize="none"
+                     autocorrect="off" spellcheck="false"
+                     autocomplete="current-password">
+              <button class="btn btn-outline-secondary" type="button"
+                      id="voir-mdp" aria-label="Afficher le mot de passe"
+                      aria-pressed="false" title="Afficher le mot de passe">
+                <i class="bi bi-eye" aria-hidden="true"></i>
+              </button>
+            </div>
+            <div class="form-text">
+              Un mot de passe long se relit avant d'être envoyé&nbsp;: utilisez
+              l'œil pour vérifier votre saisie.
+            </div>
           </div>
           <button type="submit" class="btn btn-primary w-100">Se connecter</button>
         </form>
+        <script>
+          (function () {
+            var champ = document.getElementById("password");
+            var bouton = document.getElementById("voir-mdp");
+            if (!champ || !bouton) return;
+            bouton.addEventListener("click", function () {
+              var masque = champ.type === "password";
+              champ.type = masque ? "text" : "password";
+              bouton.setAttribute("aria-pressed", masque ? "true" : "false");
+              bouton.setAttribute(
+                "aria-label",
+                masque ? "Masquer le mot de passe" : "Afficher le mot de passe");
+              bouton.querySelector("i").className =
+                masque ? "bi bi-eye-slash" : "bi bi-eye";
+              champ.focus();
+            });
+          })();
+        </script>
       </div>
     </div>
 

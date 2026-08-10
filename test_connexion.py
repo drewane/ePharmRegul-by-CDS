@@ -123,6 +123,55 @@ def test_succes_efface_le_compteur():
     verifier("aucun blocage résiduel", afb.secondes_restantes(email, ip) == 0)
 
 
+def test_saisie_abimee_par_le_copier_coller():
+    print("\n[5] Ce que le copier-coller abîme est rattrapé")
+    afb.reinitialiser()
+    with application.app.app_context():
+        email = sc.COMPTES["demandeur_externe"][1]
+        bon = sc.mot_de_passe_courant(email)
+
+    def connexion(mdp):
+        afb.reinitialiser()
+        r = application.app.test_client().post(
+            "/login", data={"email": email, "password": mdp},
+            follow_redirects=True)
+        return "Déconnexion" in r.get_data(as_text=True)
+
+    # Tolérances : aucun mot de passe légitime ne peut contenir cela.
+    verifier("mot de passe exact", connexion(bon))
+    verifier("espace finale — le cas le plus courant", connexion(bon + " "))
+    verifier("espaces des deux côtés", connexion("  " + bon + "  "))
+    verifier("retour à la ligne collé avec", connexion(bon + "\n"))
+    verifier("tabulation collée avec", connexion(bon + "\t"))
+    verifier("tiret insécable (texte mis en forme)",
+             connexion(bon.replace("-", "‑")))
+    verifier("tiret demi-cadratin (correction automatique)",
+             connexion(bon.replace("-", "–")))
+    verifier("trait d'union conditionnel invisible",
+             connexion(bon.replace("-", "­-", 1)))
+
+    # Refus : élargir jusque-là affaiblirait réellement le secret.
+    verifier("la casse reste significative", not connexion(bon.capitalize()))
+    verifier("les tirets ne sont pas assimilés à des espaces",
+             not connexion(bon.replace("-", " ")))
+    verifier("un mot de passe faux reste refusé", not connexion("mauvais"))
+    verifier("un mot de passe vide reste refusé", not connexion(""))
+    verifier("des espaces seuls restent refusés", not connexion("     "))
+
+
+def test_formulaire_mobile():
+    print("\n[6] Le formulaire ne sabote pas la saisie sur mobile")
+    page = application.app.test_client().get("/login").get_data(as_text=True)
+    verifier("la majuscule automatique est désactivée",
+             page.count('autocapitalize="none"') >= 2)
+    verifier("la correction automatique est désactivée",
+             page.count('autocorrect="off"') >= 2)
+    verifier("le mot de passe peut être relu avant envoi",
+             'id="voir-mdp"' in page)
+    verifier("le bouton de relecture est décrit pour les lecteurs d'écran",
+             'aria-label="Afficher le mot de passe"' in page)
+
+
 def test_bout_en_bout():
     print("\n[5] Comportement réel de l'écran de connexion")
     afb.reinitialiser()
@@ -165,6 +214,7 @@ def main():
     print("=" * 70)
     for t in (test_mots_de_passe_saisissables, test_comptes_reellement_a_jour,
               test_blocage_apres_echecs, test_succes_efface_le_compteur,
+              test_saisie_abimee_par_le_copier_coller, test_formulaire_mobile,
               test_bout_en_bout):
         try:
             t()

@@ -263,13 +263,45 @@ def forbidden(e):
 # ---------------------------------------------------------------------------
 # Auth routes
 # ---------------------------------------------------------------------------
+# Tirets typographiques que le copier-coller substitue au trait d'union :
+# aucun clavier ne les produit dans un champ de mot de passe, mais un texte
+# copié depuis une page mise en forme ou un PDF en est plein.
+_TIRETS = {"‐": "-", "‑": "-", "‒": "-", "–": "-",
+           "—": "-", "−": "-", "­": ""}
+
+
+def _nettoyer_saisie_mot_de_passe(saisie):
+    """Corrige ce que le copier-coller abîme, sans jamais élargir la recherche.
+
+    Un mot de passe recopié depuis un tableau emporte presque toujours une
+    espace finale, et un texte mis en forme remplace les traits d'union par des
+    tirets typographiques. Dans les deux cas la saisie est refusée avec
+    « Identifiants incorrects » — message exact mais inexploitable, puisque
+    l'utilisateur voit bien qu'il a saisi le bon mot de passe.
+
+    On ne corrige que des variantes qu'AUCUN mot de passe légitime ne peut
+    contenir : espaces de bordure et caractères invisibles. La casse, elle,
+    n'est pas touchée — l'assouplir affaiblirait réellement le secret. Contre
+    la majuscule automatique des claviers mobiles, la réponse est dans le
+    formulaire (`autocapitalize="none"`), pas ici.
+    """
+    import unicodedata
+
+    if not saisie:
+        return ""
+    texte = unicodedata.normalize("NFKC", saisie).strip()
+    for source, cible in _TIRETS.items():
+        texte = texte.replace(source, cible)
+    return texte
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     import anti_force_brute as afb
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
-        pwd = request.form.get("password", "")
+        pwd = _nettoyer_saisie_mot_de_passe(request.form.get("password", ""))
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
         ip = ip.split(",")[0].strip()
 
