@@ -152,8 +152,15 @@ def test_saisie_abimee_par_le_copier_coller():
 
     # Refus : élargir jusque-là affaiblirait réellement le secret.
     verifier("la casse reste significative", not connexion(bon.capitalize()))
-    verifier("les tirets ne sont pas assimilés à des espaces",
-             not connexion(bon.replace("-", " ")))
+    # Ce contrôle n'a de sens que sur une phrase de passe : en mode
+    # démonstration le mot de passe commun ne contient aucun tiret, et
+    # « remplacer les tirets » le laisserait identique à lui-même.
+    if "-" in bon:
+        verifier("les tirets ne sont pas assimilés à des espaces",
+                 not connexion(bon.replace("-", " ")))
+    else:
+        verifier("mode démonstration : contrôle des tirets sans objet", True,
+                 "mot de passe commun sans tiret")
     verifier("un mot de passe faux reste refusé", not connexion("mauvais"))
     verifier("un mot de passe vide reste refusé", not connexion(""))
     verifier("des espaces seuls restent refusés", not connexion("     "))
