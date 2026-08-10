@@ -153,20 +153,28 @@ def _tunnel_ssh_persistant():
     tentative = 0
     try:
         while True:
-            url = _tunnel_ssh()
+            url, journal = _tunnel_ssh()
             if url is None:
                 tentative += 1
-                if tentative >= 3:
-                    print("Trois tentatives sans adresse : on s'arrête.")
-                    return 1
-                attente = 10 * tentative
-                print(f"Nouvelle tentative dans {attente} s...", flush=True)
+                # Le service refuse parfois une reconnexion immédiate depuis la
+                # même adresse. C'est transitoire : on patiente de plus en plus
+                # longtemps plutôt que d'abandonner, car abandonner laissait
+                # l'utilisateur sans rien.
+                attente = min(30 * tentative, 300)
+                print(f"\nAucune adresse obtenue (tentative {tentative}).",
+                      flush=True)
+                for ligne in journal[-6:]:
+                    print(f"    {ligne.rstrip()}", flush=True)
+                print(f"  Le serveur local reste actif sur "
+                      f"http://127.0.0.1:{PORT}", flush=True)
+                print(f"  Nouvelle tentative dans {attente} s — Ctrl+C pour "
+                      "arrêter.", flush=True)
                 time.sleep(attente)
                 continue
             tentative = 0
-            print("Le tunnel s'est fermé (limite du service gratuit). "
+            print("\nLe tunnel s'est fermé (limite du service gratuit). "
                   "Réouverture...", flush=True)
-            time.sleep(3)
+            time.sleep(5)
     except KeyboardInterrupt:
         print("\nArrêt demandé.")
     finally:
@@ -180,7 +188,8 @@ def _tunnel_ssh():
     """Une session de tunnel inverse SSH par le port 443. Retourne l'URL servie.
 
     Rend la main quand la session se termine — c'est
-    `_tunnel_ssh_persistant` qui décide de rouvrir.
+    `_tunnel_ssh_persistant` qui décide de rouvrir. Retourne (url, journal) ;
+    le journal sert à expliquer un échec plutôt qu'à le taire.
 
     Choisi parce que 443 sort presque partout, y compris là où le port 7844 de
     Cloudflare est fermé. Aucune inscription ni clé n'est requise.
@@ -203,17 +212,16 @@ def _tunnel_ssh():
          "-R0:127.0.0.1:" + str(PORT), "qr@a.pinggy.io"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         encoding="utf-8", errors="replace", bufsize=1)
-    url = None
-    debut = time.monotonic()
+    url, journal = None, []
     try:
         for ligne in tunnel.stdout:
+            # On conserve la sortie : sans elle, un refus du service se lit
+            # « aucune adresse » et la cause reste introuvable.
+            journal.append(ligne)
             trouve = MOTIF_URL_SSH.search(ligne)
             if trouve and not url:
                 url = trouve.group(0)
                 _annoncer(url, "tunnel SSH par le port 443")
-            if url is None and time.monotonic() - debut > 90:
-                print("Le tunnel SSH n'a pas fourni d'adresse en 90 secondes.")
-                break
         tunnel.wait()
     finally:
         tunnel.terminate()
@@ -221,7 +229,7 @@ def _tunnel_ssh():
             tunnel.wait(timeout=10)
         except subprocess.TimeoutExpired:
             tunnel.kill()
-    return url
+    return url, journal
 
 
 def main():
@@ -273,8 +281,8 @@ def main():
     if not _edge_cloudflare_joignable():
         print("Le port 7844, nécessaire au tunnel Cloudflare, est bloqué en "
               "sortie sur ce réseau.", flush=True)
-        print("Repli sur un tunnel SSH (localhost.run), qui passe par le "
-              "port 22.\n", flush=True)
+        print("Repli sur un tunnel SSH par le port 443, réouvert "
+              "automatiquement à chaque coupure.\n", flush=True)
         return _tunnel_ssh_persistant()
 
     print("Ouverture du tunnel...", flush=True)
