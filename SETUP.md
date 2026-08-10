@@ -184,8 +184,36 @@ aucune route), et crée une clé de signature de session aléatoire. Pour reveni
 en démonstration une fois le tunnel refermé :
 `securiser_exposition.py --restaurer-demo`.
 
-L'adresse change à chaque ouverture du tunnel, et disparaît quand la fenêtre
-se ferme.
+### Ce que fait le lanceur selon le réseau
+
+`run_public.py` sonde d'abord le **port 7844**, seule voie de `cloudflared`
+vers l'arête Cloudflare. Beaucoup de réseaux d'entreprise et certains partages
+de connexion mobiles le ferment ; le tunnel s'ouvrirait alors en apparence,
+annoncerait une adresse, et Cloudflare répondrait 530 « origine injoignable ».
+
+* **Port ouvert** — tunnel Cloudflare, adresse en `trycloudflare.com`.
+* **Port fermé** — repli automatique sur un tunnel SSH par le **port 443**,
+  qui sort presque partout. Le service gratuit ferme la session au bout d'une
+  heure : le lanceur la **rouvre automatiquement**, avec une nouvelle adresse.
+
+Dans les deux cas, `outils/adresse_publique.txt` porte toujours l'adresse en
+cours, et la console annonce chaque renouvellement. L'adresse disparaît quand
+la fenêtre se ferme.
+
+### Adresse permanente
+
+Une adresse qui ne change jamais suppose un **tunnel Cloudflare nommé** :
+
+```bash
+venv\Scripts\python tunnel_fixe.py --diagnostic
+venv\Scripts\python tunnel_fixe.py --configurer sireph.mondomaine.cm
+```
+
+Trois conditions : un compte Cloudflare, un domaine que vous possédez et qui
+lui est délégué, et le port 7844 ouvert en sortie. Le script vérifie la
+troisième avant de créer quoi que ce soit et refuse de configurer un tunnel
+qui ne pourrait pas se connecter — plutôt que de le laisser découvrir après
+l'achat d'un domaine.
 
 - **Ngrok** (https://ngrok.com) est une alternative équivalente.
 - ⚠️ **SIREPH reste un prototype de démonstration** (voir « Limitations

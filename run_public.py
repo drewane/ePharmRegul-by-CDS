@@ -138,14 +138,56 @@ MOTIF_URL_SSH = re.compile(
     r"https://[a-z0-9.-]+\.(?:pinggy\.link|pinggy\.net|lhr\.life)")
 
 
+def _tunnel_ssh_persistant():
+    """Maintient un tunnel SSH ouvert, en le rouvrant chaque fois qu'il tombe.
+
+    Le service gratuit ferme la session au bout d'une heure. Sans cette
+    boucle, l'adresse cesse simplement de répondre et il faut relancer le
+    script à la main — c'est précisément ce qui a fait croire deux fois à une
+    panne de connexion.
+
+    La réouverture donne une NOUVELLE adresse : le service gratuit ne réserve
+    pas de nom. `outils/adresse_publique.txt` porte toujours l'adresse en
+    cours, et la console annonce chaque renouvellement.
+    """
+    tentative = 0
+    try:
+        while True:
+            url = _tunnel_ssh()
+            if url is None:
+                tentative += 1
+                if tentative >= 3:
+                    print("Trois tentatives sans adresse : on s'arrête.")
+                    return 1
+                attente = 10 * tentative
+                print(f"Nouvelle tentative dans {attente} s...", flush=True)
+                time.sleep(attente)
+                continue
+            tentative = 0
+            print("Le tunnel s'est fermé (limite du service gratuit). "
+                  "Réouverture...", flush=True)
+            time.sleep(3)
+    except KeyboardInterrupt:
+        print("\nArrêt demandé.")
+    finally:
+        if os.path.exists(FICHIER_ADRESSE):
+            os.remove(FICHIER_ADRESSE)
+        print("Tunnel fermé. L'adresse publique ne répond plus.")
+    return 0
+
+
 def _tunnel_ssh():
-    """Repli : tunnel inverse SSH par le port 443.
+    """Une session de tunnel inverse SSH par le port 443. Retourne l'URL servie.
+
+    Rend la main quand la session se termine — c'est
+    `_tunnel_ssh_persistant` qui décide de rouvrir.
 
     Choisi parce que 443 sort presque partout, y compris là où le port 7844 de
     Cloudflare est fermé. Aucune inscription ni clé n'est requise.
 
     DEUX LIMITES À CONNAÎTRE :
-      * la version gratuite ferme le tunnel au bout d'une heure ;
+      * la version gratuite ferme le tunnel au bout d'une heure — la
+        réouverture est automatique, mais l'adresse change ;
       * comme pour Cloudflare, le service voit passer le trafic après
         terminaison TLS de son côté. Acceptable pour une démonstration,
         jamais pour des données réelles.
@@ -168,23 +210,18 @@ def _tunnel_ssh():
             trouve = MOTIF_URL_SSH.search(ligne)
             if trouve and not url:
                 url = trouve.group(0)
-                _annoncer(url, "tunnel SSH par le port 443 — expire après 1 heure")
+                _annoncer(url, "tunnel SSH par le port 443")
             if url is None and time.monotonic() - debut > 90:
                 print("Le tunnel SSH n'a pas fourni d'adresse en 90 secondes.")
                 break
         tunnel.wait()
-    except KeyboardInterrupt:
-        print("\nFermeture du tunnel...")
     finally:
         tunnel.terminate()
         try:
             tunnel.wait(timeout=10)
         except subprocess.TimeoutExpired:
             tunnel.kill()
-        if os.path.exists(FICHIER_ADRESSE):
-            os.remove(FICHIER_ADRESSE)
-        print("Tunnel fermé. L'adresse publique ne répond plus.")
-    return 0
+    return url
 
 
 def main():
@@ -238,7 +275,7 @@ def main():
               "sortie sur ce réseau.", flush=True)
         print("Repli sur un tunnel SSH (localhost.run), qui passe par le "
               "port 22.\n", flush=True)
-        return _tunnel_ssh()
+        return _tunnel_ssh_persistant()
 
     print("Ouverture du tunnel...", flush=True)
     # 127.0.0.1 et non « localhost » : Windows résout localhost en ::1 avant
