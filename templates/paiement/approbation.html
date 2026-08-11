@@ -82,8 +82,22 @@
     </table>
   </div>
   {% else %}
-  <div class="card-body text-muted">
-    Aucune recette n'attend votre approbation.
+  {# Un écran vide se lit comme un écran disparu. On dit d'où viennent les
+     créances, pour que l'absence se distingue de la panne. #}
+  <div class="card-body">
+    <p class="mb-2"><i class="bi bi-inbox me-1"></i>
+      <strong>Aucune recette n'attend votre approbation pour l'instant.</strong></p>
+    <p class="small text-muted mb-2">
+      Une créance arrive ici lorsqu'un redevable a déposé sa preuve de
+      paiement. Tant qu'il ne l'a pas fait, la créance reste « à régler » et
+      n'apparaît pas dans cette file.
+    </p>
+    {% if creances_a_regler %}
+    <p class="small text-muted mb-0">
+      {{ creances_a_regler }} créance(s) sont émises mais encore non réglées.
+      Elles se présenteront ici dès le dépôt de la preuve.
+    </p>
+    {% endif %}
   </div>
   {% endif %}
 </div>

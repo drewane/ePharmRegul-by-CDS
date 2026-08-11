@@ -289,7 +289,10 @@ def approbation():
                   .order_by(Paiement.date_confirmation.desc()).limit(15).all())
     return render_template("paiement/approbation.html", u=u, lignes=lignes,
                            approuvees=approuvees,
-                           libelle_statut=svc.LIBELLE_STATUT)
+                           libelle_statut=svc.LIBELLE_STATUT,
+                           creances_a_regler=Paiement.query.filter(
+                               Paiement.statut.in_(("en_attente", "initie"))
+                           ).count())
 
 
 @bp.route("/<int:paiement_id>/approuver", methods=["POST"])

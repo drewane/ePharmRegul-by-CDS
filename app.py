@@ -861,13 +861,37 @@ def dossier_procedure_liee(produit_id, type_procedure):
 # ---------------------------------------------------------------------------
 # Fiche dossier + actions du circuit
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Cloisonnement d'un dossier vu par un opérateur externe
+# ---------------------------------------------------------------------------
+def _verifier_acces_dossier(dossier, u, actions_reservees=()):
+    """Refuse l'accès à un dossier qui n'est pas de la société du demandeur.
+
+    Le périmètre est l'ÉTABLISSEMENT, pas la personne. Exiger que ce soit le
+    compte déposant lui-même interdisait à un collègue de téléverser une pièce
+    ou de déposer la preuve de paiement — or c'est rarement celui qui monte le
+    dossier qui règle la facture. Le reste de l'application cloisonne déjà par
+    société (espace_industriel, suivi, validation) ; ces quatre routes étaient
+    les dernières à s'en écarter.
+
+    `actions_reservees` liste les rôles internes admis lorsque la route modifie
+    quelque chose ; vide, la route est en lecture pour tout agent.
+    """
+    if u is not None and u.role_systeme == "demandeur_externe":
+        import espace_industriel as esp
+        if dossier.demandeur_id not in esp.personnes_de_la_societe(u):
+            abort(404)   # ne révèle pas l'existence du dossier d'un concurrent
+        return
+    if actions_reservees and (u is None or u.role_systeme not in actions_reservees):
+        abort(403)
+
+
 @app.route("/dossiers/<int:id>")
 @login_required
 def dossier_detail(id):
     d = DossierAMM.query.get_or_404(id)
     u = current_user()
-    if u.role_systeme == "demandeur_externe" and d.demandeur_id != u.id:
-        abort(403)
+    _verifier_acces_dossier(d, u)
     audit_events = EvenementAudit.query.filter_by(entite_type="DossierAMM", entite_id=d.id) \
         .order_by(EvenementAudit.horodatage.desc()).all()
     avis = d.avis.order_by(AvisEvaluationMA.date_creation.desc()).all()
@@ -887,10 +911,7 @@ def dossier_detail(id):
 def dossier_televerser_document(id):
     d = DossierAMM.query.get_or_404(id)
     u = current_user()
-    if u.role_systeme == "demandeur_externe" and d.demandeur_id != u.id:
-        abort(403)
-    elif u.role_systeme not in ("demandeur_externe", "administrateur_dpml"):
-        abort(403)
+    _verifier_acces_dossier(d, u, ("administrateur_dpml",))
     try:
         enregistrer_piece(d, request.files.get("fichier"), request.form.get("type_document", "").strip(), u)
         db.session.commit()
@@ -909,10 +930,7 @@ def dossier_paiement_preuve(id, paiement_id):
     u = current_user()
     if paiement.entite_type != "DossierAMM" or paiement.entite_id != d.id:
         abort(404)
-    if u.role_systeme == "demandeur_externe" and d.demandeur_id != u.id:
-        abort(403)
-    elif u.role_systeme not in ("demandeur_externe", "administrateur_dpml"):
-        abort(403)
+    _verifier_acces_dossier(d, u, ("administrateur_dpml",))
     try:
         deposer_preuve(paiement, request.files.get("fichier"), u)
         db.session.commit()
@@ -1084,8 +1102,7 @@ def dossier_repondre_complement(id):
 def dossier_certificat(id):
     d = DossierAMM.query.get_or_404(id)
     u = current_user()
-    if u.role_systeme == "demandeur_externe" and d.demandeur_id != u.id:
-        abort(403)
+    _verifier_acces_dossier(d, u)
     if d.statut != "approuve":
         abort(404)
     os.makedirs(CERT_DIR, exist_ok=True)
