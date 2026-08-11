@@ -35,6 +35,9 @@ from permissions import ROLES
 # Circuits déclaratifs : ajouter un échelon ne demande aucune reprise du moteur.
 CIRCUITS = {
     "derogation": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml"],
+    # ATU : deux échelons seulement. Allonger la chaîne reviendrait à refuser
+    # par le délai ce qu'on prétend accorder en urgence.
+    "atu": ["chef_service_amm", "directeur_dpml"],
     "visa_technique": ["chef_service_amm", "sous_directeur_medicament", "directeur_dpml"],
     # L'inspecteur général exerce un audit d'intégrité avant que le dossier ne
     # quitte la direction pour le ministère.
@@ -62,6 +65,7 @@ CIRCUITS = {
 LIBELLE_CIRCUIT = {
     "derogation": "Dérogation spéciale",
     "visa_technique": "Visa technique",
+    "atu": "Autorisation temporaire d'utilisation",
     "amm": "Autorisation de mise sur le marché",
     "licence": "Licence d'établissement",
     "essai_clinique": "Autorisation d'essai clinique",

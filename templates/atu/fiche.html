@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}{{ atu.numero }} — ATU{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{{ url_for('atu.registre') }}">ATU</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ atu.numero }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ atu.libelle }}</h1>
+    <p class="text-muted mb-0 small">
+      <code>{{ atu.numero_suivi or atu.numero }}</code> — {{ e.type }}
+    </p>
+  </div>
+  <div>
+    {% if atu.statut == 'accordee' %}
+    <span class="badge bg-success fs-6">{{ e.statut }}</span>
+    {% elif atu.statut in ('refusee', 'suspendue') %}
+    <span class="badge bg-danger fs-6">{{ e.statut }}</span>
+    {% elif atu.statut in ('expiree', 'close') %}
+    <span class="badge bg-dark fs-6">{{ e.statut }}</span>
+    {% else %}
+    <span class="badge bg-secondary fs-6">{{ e.statut }}</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if atu.statut == 'accordee' %}
+<div class="alert {{ 'alert-warning' if e.bientot_echue else 'alert-success' }}">
+  <strong>Autorisation en cours jusqu'au
+    {{ atu.date_echeance.strftime('%d/%m/%Y') }}.</strong>
+  {% if e.bientot_echue %}
+  Il reste {{ e.jours_restants }} jour(s) : engagez le renouvellement si le
+  traitement doit se poursuivre.
+  {% endif %}
+  {% if e.renouvellements %}
+  <div class="small">{{ e.renouvellements }} renouvellement(s) accordé(s).</div>
+  {% endif %}
+  <div class="small mt-1">
+    Vous êtes tenu de déclarer sans délai tout effet indésirable et de remettre
+    les rapports de suivi prévus.
+  </div>
+</div>
+{% elif atu.motif_decision %}
+<div class="alert alert-secondary">
+  <strong>Motif :</strong> {{ atu.motif_decision }}
+</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold">La demande</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-sm-4">Produit</dt><dd class="col-sm-8">{{ atu.libelle }}</dd>
+          {% if atu.dci %}
+          <dt class="col-sm-4">DCI</dt><dd class="col-sm-8">{{ atu.dci }}</dd>{% endif %}
+          {% if atu.fabricant %}
+          <dt class="col-sm-4">Fabricant</dt>
+          <dd class="col-sm-8">{{ atu.fabricant }}</dd>{% endif %}
+          <dt class="col-sm-4">Indication</dt>
+          <dd class="col-sm-8">{{ atu.indication }}</dd>
+          <dt class="col-sm-4">Justification</dt>
+          <dd class="col-sm-8">{{ atu.justification }}</dd>
+          {% if atu.alternatives_examinees %}
+          <dt class="col-sm-4">Alternatives écartées</dt>
+          <dd class="col-sm-8">{{ atu.alternatives_examinees }}</dd>{% endif %}
+
+          {% if atu.type_atu == 'nominative' %}
+          <dt class="col-sm-4">Prescripteur</dt>
+          <dd class="col-sm-8">
+            {{ atu.prescripteur_nom }}
+            {% if atu.prescripteur_qualite %}
+            — {{ atu.prescripteur_qualite }}{% endif %}
+            {% if atu.prescripteur_etablissement %}
+            <div class="text-muted">{{ atu.prescripteur_etablissement }}</div>
+            {% endif %}
+          </dd>
+          <dt class="col-sm-4">Patient</dt>
+          <dd class="col-sm-8">
+            <code>{{ atu.patient_reference }}</code>
+            {% if atu.patient_age %} — {{ atu.patient_age }} ans{% endif %}
+            {% if atu.patient_sexe %} — {{ atu.patient_sexe }}{% endif %}
+          </dd>
+          {% else %}
+          <dt class="col-sm-4">Effectif estimé</dt>
+          <dd class="col-sm-8">{{ atu.effectif_estime }} patients</dd>
+          <dt class="col-sm-4">Engagement AMM</dt>
+          <dd class="col-sm-8">
+            {% if atu.engagement_amm %}
+            <i class="bi bi-check-circle-fill text-success"></i> souscrit
+            {% else %}
+            <i class="bi bi-x-circle text-danger"></i> absent
+            {% endif %}
+          </dd>
+          <dt class="col-sm-4">Protocole</dt>
+          <dd class="col-sm-8">{{ atu.protocole_utilisation }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Rapports de suivi</span>
+        <span class="badge bg-secondary">{{ rapports|length }}</span>
+      </div>
+      {% if rapports %}
+      <ul class="list-group list-group-flush">
+        {% for r in rapports|reverse %}
+        <li class="list-group-item small py-2">
+          <div class="d-flex justify-content-between">
+            <strong>{{ r.periode }}</strong>
+            <span class="text-muted">{{ r.auteur }}</span>
+          </div>
+          <div>{{ r.contenu }}</div>
+          <div class="text-muted">
+            {{ r.effets_indesirables }} effet(s) indésirable(s) rapporté(s)
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body small text-muted">Aucun rapport remis.</div>
+      {% endif %}
+      {% if atu.statut in ('accordee', 'suspendue') %}
+      <div class="card-body border-top">
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}"
+              class="row g-2 align-items-end">
+          <input type="hidden" name="action" value="rapport">
+          <div class="col-md-3">
+            <label class="form-label small mb-1" for="periode">Période</label>
+            <input class="form-control form-control-sm" id="periode"
+                   name="periode" placeholder="03/2026">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-1" for="effets_indesirables">
+              Effets indésirables</label>
+            <input class="form-control form-control-sm" type="number" min="0"
+                   id="effets_indesirables" name="effets_indesirables" value="0">
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-1" for="contenu">Rapport</label>
+            <textarea class="form-control form-control-sm" rows="2" required
+                      id="contenu" name="contenu"></textarea>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-sm btn-outline-primary">Remettre le rapport</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    {% if instructeur %}
+    <div class="card mb-3 border-primary">
+      <div class="card-header py-2 fw-semibold">Instruction</div>
+      <div class="card-body">
+        {% if atu.statut in ('soumise', 'complement_requis') %}
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}"
+              class="mb-3">
+          <input type="hidden" name="action" value="instruire">
+          <button class="btn btn-sm btn-outline-primary">
+            Prendre en instruction</button>
+        </form>
+        {% endif %}
+
+        {% if atu.statut in ('soumise', 'en_instruction', 'complement_requis') %}
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}">
+          <input type="hidden" name="action" value="accorder">
+          <p class="small mb-2"><strong>Conditions à constater</strong> — toutes
+            requises&nbsp;:</p>
+          {% for code, libelle in CONDITIONS %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="c-{{ code }}"
+                   name="{{ code }}">
+            <label class="form-check-label small" for="c-{{ code }}">
+              {{ libelle }}</label>
+          </div>
+          {% endfor %}
+          <div class="row g-2 mt-2">
+            <div class="col-6">
+              <label class="form-label small mb-1" for="duree_mois">
+                Durée (mois)</label>
+              <input class="form-control form-control-sm" type="number" min="1"
+                     max="12" id="duree_mois" name="duree_mois" value="12">
+            </div>
+            <div class="col-6 d-flex align-items-end">
+              <button class="btn btn-sm btn-success w-100">Accorder</button>
+            </div>
+          </div>
+        </form>
+        <hr>
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}"
+              class="mb-2">
+          <input type="hidden" name="action" value="complement">
+          <label class="form-label small mb-1" for="question">
+            Demander un complément</label>
+          <textarea class="form-control form-control-sm mb-1" rows="2"
+                    id="question" name="question" required></textarea>
+          <button class="btn btn-sm btn-outline-warning">Demander</button>
+        </form>
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}">
+          <input type="hidden" name="action" value="refuser">
+          <label class="form-label small mb-1" for="motif-refus">
+            Motif du refus</label>
+          <textarea class="form-control form-control-sm mb-1" rows="2"
+                    id="motif-refus" name="motif" required></textarea>
+          <button class="btn btn-sm btn-outline-danger">Refuser</button>
+        </form>
+        {% endif %}
+
+        {% if atu.statut == 'accordee' %}
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}"
+              class="mb-3">
+          <input type="hidden" name="action" value="renouveler">
+          <label class="form-label small mb-1" for="justification">
+            Justification du renouvellement</label>
+          <textarea class="form-control form-control-sm mb-1" rows="2"
+                    id="justification" name="justification" required
+                    placeholder="Les conditions initiales tiennent-elles toujours ?"></textarea>
+          <div class="row g-2">
+            <div class="col-6">
+              <input class="form-control form-control-sm" type="number" min="1"
+                     max="12" name="duree_mois" value="12"
+                     aria-label="Durée en mois">
+            </div>
+            <div class="col-6">
+              <button class="btn btn-sm btn-primary w-100">Renouveler</button>
+            </div>
+          </div>
+        </form>
+        <form method="post" action="{{ url_for('atu.action', id=atu.id) }}">
+          <input type="hidden" name="action" value="suspendre">
+          <label class="form-label small mb-1" for="motif-susp">
+            Motif de suspension</label>
+          <textarea class="form-control form-control-sm mb-1" rows="2"
+                    id="motif-susp" name="motif" required></textarea>
+          <button class="btn btn-sm btn-outline-danger">Suspendre</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header py-2 fw-semibold">Repères</div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-7 fw-normal text-muted">Déposée le</dt>
+          <dd class="col-5 text-end">
+            {{ atu.date_depot.strftime('%d/%m/%Y') if atu.date_depot else '—' }}</dd>
+          <dt class="col-7 fw-normal text-muted">Décision</dt>
+          <dd class="col-5 text-end">
+            {{ atu.date_decision.strftime('%d/%m/%Y') if atu.date_decision else '—' }}</dd>
+          <dt class="col-7 fw-normal text-muted">Échéance</dt>
+          <dd class="col-5 text-end">
+            {{ atu.date_echeance.strftime('%d/%m/%Y') if atu.date_echeance else '—' }}</dd>
+          <dt class="col-7 fw-normal text-muted">Renouvellements</dt>
+          <dd class="col-5 text-end">{{ e.renouvellements }}</dd>
+        </dl>
+      </div>
+      <div class="card-footer small text-muted py-2">
+        Une ATU s'éteint dès que l'AMM est tranchée — accordée ou refusée.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

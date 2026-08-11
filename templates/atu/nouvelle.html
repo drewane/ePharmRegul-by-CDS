@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Demande d'ATU — SIREPH{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{{ url_for('atu.registre') }}">ATU</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Nouvelle demande</li>
+  </ol>
+</nav>
+
+<h1 class="h4 mb-1">Demande d'autorisation temporaire d'utilisation</h1>
+<p class="text-muted">{{ TYPES[type_atu] }}</p>
+
+<div class="alert alert-light border">
+  <p class="small mb-1"><strong>Quatre conditions doivent être réunies.</strong>
+    Elles sont cumulatives&nbsp;: l'instruction les constatera une à une.</p>
+  <ol class="small mb-0">
+    {% for code, libelle in CONDITIONS %}<li>{{ libelle }}</li>{% endfor %}
+  </ol>
+</div>
+
+<form method="post">
+  <input type="hidden" name="type_atu" value="{{ type_atu }}">
+
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">Le produit</div>
+    <div class="card-body row g-2">
+      <div class="col-md-6">
+        <label class="form-label small" for="denomination">
+          Dénomination <span class="text-danger">*</span></label>
+        <input class="form-control form-control-sm" id="denomination"
+               name="denomination" required
+               value="{{ valeurs.get('denomination', '') }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small" for="dci">
+          Dénomination commune internationale</label>
+        <input class="form-control form-control-sm" id="dci" name="dci"
+               value="{{ valeurs.get('dci', '') }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small" for="forme_dosage">Forme et dosage</label>
+        <input class="form-control form-control-sm" id="forme_dosage"
+               name="forme_dosage" value="{{ valeurs.get('forme_dosage', '') }}">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label small" for="fabricant">Fabricant</label>
+        <input class="form-control form-control-sm" id="fabricant"
+               name="fabricant" value="{{ valeurs.get('fabricant', '') }}">
+      </div>
+    </div>
+  </div>
+
+  {% if type_atu == 'nominative' %}
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">Le prescripteur et le patient</div>
+    <div class="card-body">
+      <p class="small text-muted">
+        Le prescripteur engage sa responsabilité. Le patient n'est jamais
+        nommé&nbsp;: une référence non signifiante suffit à l'instruction et
+        évite de constituer un fichier de données de santé.
+      </p>
+      <div class="row g-2">
+        <div class="col-md-5">
+          <label class="form-label small" for="prescripteur_nom">
+            Nom du prescripteur <span class="text-danger">*</span></label>
+          <input class="form-control form-control-sm" id="prescripteur_nom"
+                 name="prescripteur_nom" required
+                 value="{{ valeurs.get('prescripteur_nom', '') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="prescripteur_qualite">Qualité</label>
+          <input class="form-control form-control-sm" id="prescripteur_qualite"
+                 name="prescripteur_qualite" placeholder="Oncologue, pédiatre…"
+                 value="{{ valeurs.get('prescripteur_qualite', '') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small" for="prescripteur_etablissement">
+            Établissement de soins</label>
+          <input class="form-control form-control-sm"
+                 id="prescripteur_etablissement" name="prescripteur_etablissement"
+                 value="{{ valeurs.get('prescripteur_etablissement', '') }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small" for="patient_reference">
+            Référence du patient <span class="text-danger">*</span></label>
+          <input class="form-control form-control-sm" id="patient_reference"
+                 name="patient_reference" required placeholder="Ex. PAT-2026-041"
+                 value="{{ valeurs.get('patient_reference', '') }}">
+          <div class="form-text">
+            Identifiant non signifiant, sans nom ni initiales.</div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="patient_age">Âge</label>
+          <input class="form-control form-control-sm" type="number" min="0"
+                 max="130" id="patient_age" name="patient_age"
+                 value="{{ valeurs.get('patient_age', '') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small" for="patient_sexe">Sexe</label>
+          <select class="form-select form-select-sm" id="patient_sexe"
+                  name="patient_sexe">
+            <option value="">—</option>
+            <option value="F">Féminin</option>
+            <option value="M">Masculin</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">La cohorte</div>
+    <div class="card-body row g-2">
+      <div class="col-md-4">
+        <label class="form-label small" for="effectif_estime">
+          Effectif de patients estimé <span class="text-danger">*</span></label>
+        <input class="form-control form-control-sm" type="number" min="1"
+               id="effectif_estime" name="effectif_estime" required
+               value="{{ valeurs.get('effectif_estime', '') }}">
+      </div>
+      <div class="col-12">
+        <label class="form-label small" for="protocole_utilisation">
+          Protocole d'utilisation thérapeutique et de recueil d'informations
+          <span class="text-danger">*</span></label>
+        <textarea class="form-control form-control-sm" rows="4" required
+                  id="protocole_utilisation" name="protocole_utilisation"
+                  placeholder="Critères d'inclusion, modalités de prescription et de dispensation, données recueillies, périodicité des rapports…">{{ valeurs.get('protocole_utilisation', '') }}</textarea>
+      </div>
+      <div class="col-12">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="engagement_amm"
+                 name="engagement_amm" required>
+          <label class="form-check-label small" for="engagement_amm">
+            Le titulaire s'engage à déposer une demande d'AMM pour ce produit.
+            <span class="text-danger">*</span>
+          </label>
+          <div class="form-text">
+            Sans cet engagement, seule la voie nominative est ouverte&nbsp;:
+            une cohorte sans perspective d'AMM serait une mise sur le marché
+            qui ne dit pas son nom.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">La justification</div>
+    <div class="card-body row g-2">
+      <div class="col-12">
+        <label class="form-label small" for="indication">
+          Indication thérapeutique <span class="text-danger">*</span></label>
+        <textarea class="form-control form-control-sm" rows="2" required
+                  id="indication" name="indication">{{ valeurs.get('indication', '') }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label small" for="justification">
+          Gravité de la maladie et urgence <span class="text-danger">*</span></label>
+        <textarea class="form-control form-control-sm" rows="3" required
+                  id="justification" name="justification"
+                  placeholder="En quoi la maladie est-elle grave ou invalidante, et pourquoi le traitement ne peut-il pas être différé ?">{{ valeurs.get('justification', '') }}</textarea>
+      </div>
+      <div class="col-12">
+        <label class="form-label small" for="alternatives_examinees">
+          Alternatives examinées et écartées</label>
+        <textarea class="form-control form-control-sm" rows="3"
+                  id="alternatives_examinees" name="alternatives_examinees"
+                  placeholder="Traitements autorisés au Cameroun envisagés, et raison pour laquelle ils ne conviennent pas.">{{ valeurs.get('alternatives_examinees', '') }}</textarea>
+        <div class="form-text">
+          C'est la condition la plus souvent décisive&nbsp;: s'il existe un
+          traitement approprié disponible, l'ATU n'a pas lieu d'être.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary">
+    <i class="bi bi-send me-1"></i> Déposer la demande</button>
+  <a class="btn btn-link" href="{{ url_for('atu.registre') }}">Annuler</a>
+</form>
+{% endblock %}

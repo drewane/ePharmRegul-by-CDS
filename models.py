@@ -177,6 +177,13 @@ class DossierAMM(db.Model):
     checklist_recevabilite = db.Column(db.JSON, default=dict)
     # Numéro national de suivi communiqué au demandeur (CMR-AMM-2026-00123)
     numero_suivi = db.Column(db.String(40), unique=True)
+    # Voie d'homologation (cf. voies_homologation.py) : nationale par défaut,
+    # reconnaissance d'une AMM de référence, ou préqualification OMS.
+    voie_homologation = db.Column(db.String(30), default="nationale")
+    autorite_reference = db.Column(db.String(30), nullable=True)
+    programme_oms = db.Column(db.String(30), nullable=True)
+    reference_etrangere = db.Column(db.String(120), nullable=True)
+    date_reference = db.Column(db.Date, nullable=True)
     # Délai légal d'instruction : démarre à la validation du paiement, se
     # suspend pendant que le demandeur répond aux questions (Clock Stop).
     clock_debut = db.Column(db.DateTime)
@@ -290,6 +297,93 @@ class DemandeLicence(db.Model):
     date_decision = db.Column(db.DateTime, nullable=True)
 
     etablissement = db.relationship("Etablissement", foreign_keys=[etablissement_id])
+
+
+
+# ---------------------------------------------------------------------------
+# Autorisation temporaire d'utilisation (ATU)
+# ---------------------------------------------------------------------------
+class AutorisationTemporaire(db.Model):
+    """Accès à un produit dépourvu d'AMM, avant son homologation.
+
+    Entité distincte de DossierAMM, et non un type de procédure de plus : une
+    ATU ne porte pas sur un produit en général mais sur des PATIENTS, elle est
+    bornée dans le temps, se renouvelle, et s'éteint dès que l'AMM est
+    tranchée. La greffer sur le dossier d'AMM aurait mêlé deux cycles de vie
+    qui n'ont ni les mêmes acteurs ni les mêmes échéances.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    numero = db.Column(db.String(30), unique=True, nullable=False)   # ATU-{annee}-{seq4}
+    numero_suivi = db.Column(db.String(40), unique=True)
+
+    # nominative : un patient nommément désigné, à la demande du prescripteur.
+    # cohorte    : un groupe de patients, à la demande du titulaire, qui
+    #              s'engage à déposer une demande d'AMM.
+    type_atu = db.Column(db.String(20), nullable=False, default="nominative")
+
+    produit_id = db.Column(db.Integer, db.ForeignKey("produit.id"), nullable=True)
+    denomination = db.Column(db.String(255), nullable=False)   # si le produit n'existe pas encore en base
+    dci = db.Column(db.String(255), nullable=True)
+    forme_dosage = db.Column(db.String(255), nullable=True)
+    fabricant = db.Column(db.String(255), nullable=True)
+
+    demandeur_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=False)
+    etablissement_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=True)
+
+    # Volet nominatif : le prescripteur engage sa responsabilité.
+    prescripteur_nom = db.Column(db.String(200), nullable=True)
+    prescripteur_qualite = db.Column(db.String(200), nullable=True)
+    prescripteur_etablissement = db.Column(db.String(255), nullable=True)
+    # Le patient n'est jamais nommé : un identifiant non signifiant suffit à
+    # l'instruction et évite de constituer un fichier de données de santé.
+    patient_reference = db.Column(db.String(60), nullable=True)
+    patient_age = db.Column(db.Integer, nullable=True)
+    patient_sexe = db.Column(db.String(10), nullable=True)
+
+    # Volet cohorte
+    effectif_estime = db.Column(db.Integer, nullable=True)
+    protocole_utilisation = db.Column(db.Text, nullable=True)
+    engagement_amm = db.Column(db.Boolean, default=False)
+    dossier_amm_id = db.Column(db.Integer, db.ForeignKey("dossier_amm.id"), nullable=True)
+
+    indication = db.Column(db.Text, nullable=False)
+    justification = db.Column(db.Text, nullable=False)      # gravité, absence d'alternative
+    alternatives_examinees = db.Column(db.Text, nullable=True)
+
+    statut = db.Column(db.String(30), nullable=False, default="brouillon")
+    # brouillon | soumise | en_instruction | complement_requis | accordee |
+    # refusee | suspendue | expiree | close
+    motif_decision = db.Column(db.Text, nullable=True)
+
+    date_depot = db.Column(db.DateTime, nullable=True)
+    date_decision = db.Column(db.DateTime, nullable=True)
+    date_debut = db.Column(db.Date, nullable=True)
+    date_echeance = db.Column(db.Date, nullable=True)
+    duree_mois = db.Column(db.Integer, nullable=True)
+    renouvellements = db.Column(db.Integer, default=0)
+
+    # Suivi imposé en contrepartie de l'accès anticipé.
+    rapports_json = db.Column(db.Text, default="[]")
+
+    date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    date_maj = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    demandeur = db.relationship("Personne", foreign_keys=[demandeur_id])
+    etablissement = db.relationship("Etablissement", foreign_keys=[etablissement_id])
+    produit = db.relationship("Produit", foreign_keys=[produit_id])
+    dossier_amm = db.relationship("DossierAMM", foreign_keys=[dossier_amm_id])
+
+    @property
+    def libelle(self):
+        return self.denomination + (f" ({self.forme_dosage})" if self.forme_dosage else "")
+
+    def rapports(self):
+        return json.loads(self.rapports_json or "[]")
+
+    def ajouter_rapport(self, entree):
+        liste = self.rapports()
+        liste.append(entree)
+        self.rapports_json = json.dumps(liste, ensure_ascii=False)
 
 
 # ---------------------------------------------------------------------------

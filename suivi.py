@@ -35,6 +35,7 @@ CODES_FONCTION = {
     "essai_clinique": "ECL",         # Essais cliniques
     "derogation": "DER",
     "visa_technique": "VIS",
+    "atu": "ATU",                    # Autorisation temporaire d'utilisation
 }
 
 LIBELLE_FONCTION = {
@@ -48,6 +49,7 @@ LIBELLE_FONCTION = {
     "essai_clinique": "Essais cliniques",
     "derogation": "Dérogation spéciale",
     "visa_technique": "Visa technique",
+    "atu": "Autorisation temporaire d'utilisation",
 }
 
 PREFIXE_NATIONAL = "CMR"
@@ -272,6 +274,9 @@ DELAI_LEGAL_JOURS = {
     "inspection": 90,
     "essai_clinique": 60,
     "derogation": 15,
+    # Une ATU concerne un patient en attente de traitement : le délai est le
+    # plus court du référentiel, et c'est délibéré.
+    "atu": 15,
     "visa_technique": 30,
 }
 

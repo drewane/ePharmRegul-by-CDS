@@ -7,7 +7,8 @@ qui avait divergé de l'onglet « Demande » — deux descriptions du même menu
 finissent toujours par se contredire.
 
     Demande
-    ├── Homologation ── AMM · Dérogation · Visa technique
+    ├── Homologation ── AMM · Reconnaissance/préqualification · ATU
+    │                   · Dérogation · Visa technique
     ├── Inspection
     ├── Essai clinique ── Phase I · Phase II · Phase III
     └── Agréments ── Distribution · Fabrication
@@ -82,6 +83,19 @@ ARBORESCENCE = [
                             "demande, renouvellement, variation ou retrait.",
              "icone": "bi-patch-check", "couleur": "primary",
              "lien": "/demandes/amm"},
+            {"code": "reconnaissance", "libelle": "Reconnaissance et "
+                                        "préqualification",
+             "description": "S'appuyer sur l'autorisation délivrée par une "
+                            "autorité de référence, ou sur la préqualification "
+                            "de l'OMS. Dossier allégé, délai raccourci.",
+             "icone": "bi-award", "couleur": "info",
+             "lien": "/homologation/voies"},
+            {"code": "atu", "libelle": "Autorisation temporaire d'utilisation",
+             "description": "Accéder à un produit dépourvu d'AMM pour un "
+                            "patient nommément désigné, ou pour une cohorte, "
+                            "lorsque aucun traitement approprié n'existe.",
+             "icone": "bi-heart-pulse", "couleur": "danger",
+             "lien": "/atu/"},
             {"code": "derogation", "libelle": "Dérogation",
              "description": "Dérogation à titre exceptionnel : importation "
                             "d'urgence, produit non homologué, situation "

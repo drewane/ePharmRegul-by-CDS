@@ -178,8 +178,8 @@ def test_contenu_adapte():
 def test_generalisation_circuits():
     print("\n[5] Généralisation des circuits à tous les modules")
     attendus = {"amm", "licence", "derogation", "visa_technique", "essai_clinique",
-                "controle_qualite", "inspection"}
-    verifier("sept circuits déclarés", set(vn.CIRCUITS) == attendus,
+                "controle_qualite", "inspection", "atu"}
+    verifier("huit circuits déclarés", set(vn.CIRCUITS) == attendus,
              str(set(vn.CIRCUITS) ^ attendus) if set(vn.CIRCUITS) != attendus else "")
     verifier("chaque circuit a un libellé",
              all(c in vn.LIBELLE_CIRCUIT for c in vn.CIRCUITS))
@@ -193,6 +193,8 @@ def test_generalisation_circuits():
              and "inspection" not in vn.CIRCUITS_AVEC_COMMISSION)
     verifier("chaque circuit démarre par un chef de service",
              all(e[0].startswith("chef_service") for e in vn.CIRCUITS.values()))
+    verifier("le circuit ATU est le plus court — l'urgence en est la raison",
+             len(vn.CIRCUITS["atu"]) == min(len(e) for e in vn.CIRCUITS.values()))
     # Chaque échelon d'un circuit doit exister comme rôle
     from permissions import ROLES
     inconnus = [r for e in vn.CIRCUITS.values() for r in e if r not in ROLES]

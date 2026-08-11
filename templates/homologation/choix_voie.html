@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Voie d'homologation — {{ d.numero }}{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="/dossiers/{{ d.id }}">{{ d.numero }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Voie d'homologation</li>
+  </ol>
+</nav>
+
+<h1 class="h4 mb-1">Voie d'homologation</h1>
+<p class="text-muted">
+  {{ d.produit.libelle if d.produit else '—' }} —
+  <code>{{ d.numero_suivi or d.numero }}</code>
+</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <form method="post">
+      <div class="card mb-3">
+        <div class="card-header py-2 fw-semibold">Sur quelle évaluation ce
+          dossier s'appuie-t-il&nbsp;?</div>
+        <div class="card-body">
+          {% for code, v in VOIES.items() %}
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="radio" name="voie"
+                   id="v-{{ code }}" value="{{ code }}"
+                   {{ 'checked' if voie_actuelle == code }}>
+            <label class="form-check-label" for="v-{{ code }}">
+              <strong>{{ v.libelle }}</strong>
+              <span class="badge bg-light text-dark border ms-1">
+                {{ v.delai_jours }} jours</span>
+              <div class="small text-muted">{{ v.description }}</div>
+            </label>
+          </div>
+          {% endfor %}
+
+          <hr>
+          <div class="mb-3">
+            <label class="form-label small" for="autorite_reference">
+              Autorité de référence <span class="text-muted">(reconnaissance)</span></label>
+            <select class="form-select form-select-sm" id="autorite_reference"
+                    name="autorite_reference">
+              <option value="">—</option>
+              {% for code, (nom, pays) in autorites.items() %}
+              <option value="{{ code }}"
+                      {{ 'selected' if d.autorite_reference == code }}>
+                {{ nom }} — {{ pays }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small" for="programme_oms">
+              Programme OMS <span class="text-muted">(préqualification)</span></label>
+            <select class="form-select form-select-sm" id="programme_oms"
+                    name="programme_oms">
+              <option value="">—</option>
+              {% for code, nom in programmes.items() %}
+              <option value="{{ code }}"
+                      {{ 'selected' if d.programme_oms == code }}>{{ nom }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-7">
+              <label class="form-label small" for="reference_etrangere">
+                Numéro de la décision invoquée</label>
+              <input class="form-control form-control-sm" id="reference_etrangere"
+                     name="reference_etrangere"
+                     value="{{ d.reference_etrangere or '' }}"
+                     placeholder="EU/1/24/1234/001, WHOPQ-TB-0123…">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small" for="date_reference">
+                Date de la décision</label>
+              <input class="form-control form-control-sm" type="date"
+                     id="date_reference" name="date_reference"
+                     max="{{ aujourdhui }}"
+                     value="{{ d.date_reference.isoformat() if d.date_reference else '' }}">
+            </div>
+          </div>
+        </div>
+        <div class="card-footer py-2">
+          <button class="btn btn-primary btn-sm">Enregistrer la voie</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold">Dossier technique exigé</div>
+      <div class="card-body">
+        {% if libelle_reference %}
+        <p class="small mb-2">
+          <i class="bi bi-award text-info me-1"></i>
+          Référence retenue&nbsp;: <strong>{{ libelle_reference }}</strong>
+        </p>
+        {% endif %}
+        <ul class="list-unstyled small mb-0">
+          {% for n, info in modules.items() %}
+          {% set exige = n in modules_voie %}
+          {% set national = n in modules_nationaux %}
+          <li class="mb-1">
+            {% if exige %}
+            <i class="bi bi-check-circle-fill text-success me-1"></i>
+            {% elif national %}
+            <i class="bi bi-dash-circle text-muted me-1"></i>
+            {% else %}
+            <i class="bi bi-circle text-muted me-1"></i>
+            {% endif %}
+            Module {{ n }} — {{ info.titre if info.titre is defined else info }}
+            {% if national and not exige %}
+            <span class="badge bg-info-subtle text-info-emphasis border ms-1">
+              allégé par la voie</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    {% if pieces %}
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold">
+        Pièces propres à cette voie
+        <span class="badge bg-secondary ms-1">{{ pieces|length }}</span>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for p in pieces %}
+        <li class="list-group-item small py-2">
+          {{ p.intitule }}
+          {% if not p.obligatoire %}
+          <span class="text-muted">(selon le cas)</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header py-2 fw-semibold">Ce qui reste national</div>
+      <ol class="small mb-0 py-2 pe-2">
+        {% for c in controles %}<li class="mb-1">{{ c }}</li>{% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}

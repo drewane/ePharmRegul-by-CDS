@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Voies d'homologation — SIREPH{% endblock %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{{ url_for('demandes.accueil') }}">Demande</a></li>
+    <li class="breadcrumb-item">
+      <a href="/demandes/rubrique/homologation">Homologation</a></li>
+    <li class="breadcrumb-item active" aria-current="page">
+      Reconnaissance et préqualification</li>
+  </ol>
+</nav>
+
+<h1 class="h4 mb-1">Par quelle voie faire homologuer votre produit&nbsp;?</h1>
+<p class="text-muted">
+  Une même autorisation s'obtient de trois manières, qui diffèrent par ce que
+  l'administration doit évaluer elle-même. S'appuyer sur une évaluation déjà
+  faite ailleurs raccourcit le délai&nbsp;; cela ne dispense pas de ce qui
+  demeure national.
+</p>
+
+<div class="row g-3 mb-4">
+  {% for v in voies %}
+  <div class="col-lg-4">
+    <div class="card h-100 {{ 'border-info' if v.code != 'nationale' }}">
+      <div class="card-body d-flex flex-column">
+        <div class="mb-2"><i class="bi {{ v.icone }} fs-2 text-primary"></i></div>
+        <h2 class="h6">{{ v.libelle }}</h2>
+        <p class="small text-muted flex-grow-1">{{ v.description }}</p>
+        <dl class="row small mb-2">
+          <dt class="col-7 fw-normal text-muted">Délai annoncé</dt>
+          <dd class="col-5 text-end fw-semibold">{{ v.delai_jours }} jours</dd>
+          <dt class="col-7 fw-normal text-muted">Modules CTD exigés</dt>
+          <dd class="col-5 text-end">
+            {% if v.modules %}{{ v.modules|join(', ') }}{% else %}—{% endif %}</dd>
+          <dt class="col-7 fw-normal text-muted">Pièces propres à la voie</dt>
+          <dd class="col-5 text-end">{{ v.pieces|length }}</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<p class="small text-muted">
+  Modules donnés pour une nouvelle demande de médicament chimique&nbsp;; la
+  matrice complète dépend de la nature du produit et du type de procédure.
+</p>
+
+<div class="alert alert-warning">
+  <h2 class="h6"><i class="bi bi-exclamation-triangle me-1"></i>
+    Ce que la reconnaissance ne dispense jamais d'examiner</h2>
+  <ol class="small mb-0">
+    {% for c in controles %}<li>{{ c }}</li>{% endfor %}
+  </ol>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold">
+        Autorités de référence admises
+        <span class="badge bg-secondary ms-1">{{ autorites|length }}</span>
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for code, (nom, pays) in autorites.items() %}
+        <li class="list-group-item small py-2 d-flex justify-content-between">
+          <span>{{ nom }}</span>
+          <span class="text-muted">{{ pays }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="card-footer small text-muted py-2">
+        Liste de politique réglementaire&nbsp;: elle s'allonge ou se restreint
+        par décision de la direction.
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold">Programmes de l'OMS</div>
+      <ul class="list-group list-group-flush">
+        {% for code, nom in programmes.items() %}
+        <li class="list-group-item small py-2">{{ nom }}</li>
+        {% endfor %}
+      </ul>
+      <div class="card-footer small text-muted py-2">
+        La référence n'est pas une autorité nationale mais l'Organisation
+        elle-même, à travers son rapport public d'évaluation.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-body">
+    <h2 class="h6">Comment qualifier un dossier</h2>
+    <p class="small text-muted mb-2">
+      La voie se choisit sur un dossier d'AMM existant&nbsp;: ce n'est pas une
+      demande d'un autre genre, c'est le même dossier instruit sur d'autres
+      pièces. Déposez votre demande d'AMM, puis ouvrez-la et indiquez la voie.
+    </p>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('demandes.amm') }}">
+      Déposer une demande d'AMM</a>
+    <a class="btn btn-outline-secondary btn-sm"
+       href="{{ url_for('industriel.portefeuille') }}">
+      Qualifier un dossier existant</a>
+  </div>
+</div>
+{% endblock %}

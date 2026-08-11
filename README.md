@@ -136,6 +136,52 @@ bloqué sur ce seul point, puis :
 | 2 | `finances@dpml.demo` | `/paiements/approbation` | approbation de la créance |
 | 3 | `chefservice@dpml.demo` | même écran | la case est attestée, la recevabilité passe, le délai court |
 
+### Trois voies d'homologation
+
+Une même AMM s'obtient par trois chemins, qui diffèrent par ce que
+l'administration évalue elle-même (`voies_homologation.py`) :
+
+| Voie | Modules CTD | Délai |
+|---|---|---|
+| Évaluation nationale complète | 1, 2, 3 | 270 j |
+| Reconnaissance d'une AMM de référence | 1, 3 | 90 j |
+| Préqualification OMS | 1 | 90 j |
+
+*Modules donnés pour une nouvelle demande de médicament chimique.*
+
+La reconnaissance **allège sans supprimer**. Le module 1 reste exigé en
+entier : c'est précisément la part que l'autorité étrangère n'a pas examinée.
+Le module qualité demeure en reconnaissance, le site desservant le Cameroun
+pouvant différer de celui qu'a inspecté l'autorité de référence. Six contrôles
+restent nationaux dans tous les cas — authenticité de la décision, identité du
+produit, étiquetage, besoin de santé publique, représentant local, engagements
+de pharmacovigilance.
+
+Un contrôle automatique interdit qu'une voie abrégée réclame un module que la
+voie nationale n'exige pas, et la voie ne peut être retenue sans que la
+décision invoquée soit produite.
+
+À ne pas confondre avec `reliance.py`, qui organise l'échange entre autorités
+de la CEEAC : ici, il s'agit de reconnaître une décision d'une autorité de
+référence ou de l'OMS.
+
+### Autorisation temporaire d'utilisation
+
+Accès à un produit dépourvu d'AMM (`workflow_atu.py`), sous deux formes :
+**nominative** — un prescripteur, un patient désigné — et **de cohorte** — le
+titulaire, un groupe de patients, avec engagement de déposer une demande d'AMM.
+
+Quatre conditions cumulatives, constatées par le moteur et non par le seul
+formulaire : maladie grave, absence de traitement approprié, urgence,
+présomption favorable. Durée bornée à douze mois, renouvelable sur
+justification, avec rapports de suivi. L'ATU s'éteint dès que l'AMM est
+tranchée.
+
+Le patient n'est jamais nommé : une référence non signifiante suffit à
+l'instruction et évite de constituer un fichier de données de santé. Le
+circuit de signature ne compte que deux échelons — allonger la chaîne
+reviendrait à refuser par le délai ce qu'on prétend accorder en urgence.
+
 ### Deux documents en fin de circuit
 
 À la dernière signature, le système produit un **certificat d'homologation**.
@@ -687,6 +733,8 @@ suivi.py           suivi unifié : numéro national, états visibles, Clock Star
 DEMARRER.bat        lanceur : prépare tout et démarre le serveur en mode réseau
 acces.py            adresses du poste et du réseau, QR code mobile, contrôle du pare-feu
 amm_signee.py       certificat interne vs acte signé du ministre, durée de validité
+voies_homologation.py  voie nationale, reconnaissance d'une ARN de référence, préqualification OMS
+workflow_atu.py     autorisations temporaires d'utilisation (nominative et de cohorte)
 run_lan.py          lancement réseau local (Waitress) pour l'accès depuis un autre appareil — voir SETUP.md
 SETUP.md            accès local / réseau Wi-Fi / mobile, configuration du pare-feu Windows
 templates/          gabarits HTML (Jinja + Bootstrap 5) ; un sous-dossier par module :

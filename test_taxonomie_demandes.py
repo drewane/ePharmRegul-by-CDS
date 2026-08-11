@@ -79,8 +79,9 @@ def test_structure_demandee():
                         "agrements"], str(racine))
 
     homologation = [n["code"] for n in tax.noeud(["homologation"])["enfants"]]
-    verifier("Homologation → AMM, Dérogation, Visa technique",
-             homologation == ["amm", "derogation", "visa_technique"],
+    verifier("Homologation → AMM, reconnaissance, ATU, dérogation, visa",
+             homologation == ["amm", "reconnaissance", "atu", "derogation",
+                              "visa_technique"],
              str(homologation))
 
     verifier("Inspection reste une entrée directe",
