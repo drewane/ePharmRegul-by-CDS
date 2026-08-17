@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle demande — ePharmRegul{% endblock %}
+
+{% macro erreur(code) %}
+  {% if erreurs.get(code) %}
+  <div class="invalid-feedback d-block">{{ erreurs[code] }}</div>
+  {% endif %}
+{% endmacro %}
+
+{% macro classe(code) %}{{ 'is-invalid' if erreurs.get(code) }}{% endmacro %}
+
+{% block content %}
+<nav aria-label="fil d'Ariane" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item">
+      <a href="{{ url_for('demandes.accueil') }}">Demande</a></li>
+    <li class="breadcrumb-item">
+      <a href="/demandes/rubrique/homologation">Homologation</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Nouvelle demande</li>
+  </ol>
+</nav>
+
+<h1 class="h4 mb-1">Demande d'autorisation</h1>
+<p class="text-muted">
+  Les champs marqués <span class="text-danger">*</span> sont obligatoires.
+  L'enregistrement est bloqué tant qu'il en manque un.
+</p>
+
+{% if erreurs %}
+<div class="alert alert-danger">
+  <strong>{{ erreurs|length }} champ(s) à corriger.</strong>
+  Les erreurs sont signalées sous chaque champ concerné.
+</div>
+{% endif %}
+
+<form method="post" id="formulaire-demande" novalidate>
+  {# ------------------------------------------------------------------ #}
+  {# En-tête : ce qui détermine le reste du formulaire                   #}
+  {# ------------------------------------------------------------------ #}
+  <div class="card mb-3 border-primary">
+    <div class="card-header py-2 fw-semibold">Nature de la demande</div>
+    <div class="card-body row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="nature_acte">
+          Nature de l'acte <span class="text-danger">*</span></label>
+        <select class="form-select {{ classe('nature_acte') }}"
+                id="nature_acte" name="nature_acte" required>
+          <option value="">— Choisir —</option>
+          {% for code, libelle in NATURES_ACTE.items() %}
+          <option value="{{ code }}"
+                  {{ 'selected' if valeurs.get('nature_acte') == code }}>
+            {{ libelle }}</option>
+          {% endfor %}
+        </select>
+        {{ erreur('nature_acte') }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="type_produit">
+          Type de médicament / produit <span class="text-danger">*</span></label>
+        <select class="form-select {{ classe('type_produit') }}"
+                id="type_produit" name="type_produit" required
+                onchange="document.getElementById('action').value='changer_type';
+                          this.form.submit();">
+          {% for code, (libelle, _v, _d) in TYPES_PRODUIT.items() %}
+          <option value="{{ code }}" {{ 'selected' if type_produit == code }}>
+            {{ libelle }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">
+          {% if variant == 'mta' %}
+          Formulaire d'homologation des médicaments issus de la pharmacopée
+          traditionnelle. Le dossier technique attendu est le
+          <strong>dossier MTA</strong>, distinct du CTD.
+          {% else %}
+          Dossier technique attendu : <strong>CTD / eCTD</strong>.
+          {% endif %}
+        </div>
+        {{ erreur('type_produit') }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="numero_depot">N° de dépôt de dossier</label>
+        <input class="form-control" id="numero_depot" value="Attribué à la soumission"
+               disabled>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="date_depot">Date de dépôt</label>
+        <input class="form-control" id="date_depot"
+               value="Horodatée par le système" disabled>
+        <div class="form-text">
+          Ni l'un ni l'autre ne se saisissent : le délai légal se compte à
+          partir de cette date.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# ------------------------------------------------------------------ #}
+  {# Champs du variant                                                    #}
+  {# ------------------------------------------------------------------ #}
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">
+      {% if variant == 'mta' %}Le médicament traditionnel amélioré
+      {% else %}Le produit{% endif %}
+    </div>
+    <div class="card-body row g-3">
+      {% for code, libelle, type_champ, obligatoire, aide in champs %}
+      {% if code not in ('nombre_principes_actifs', 'nombre_constituants') %}
+      <div class="{{ 'col-12' if type_champ in ('texte_long', 'multiliste') else 'col-md-6' }}">
+        <label class="form-label" for="{{ code }}">
+          {{ libelle }}{% if obligatoire %} <span class="text-danger">*</span>{% endif %}
+        </label>
+
+        {% if type_champ == 'texte' %}
+        <input class="form-control {{ classe(code) }}" id="{{ code }}"
+               name="{{ code }}" value="{{ valeurs.get(code, '') }}"
+               {{ 'required' if obligatoire }}>
+
+        {% elif type_champ == 'texte_long' %}
+        <textarea class="form-control {{ classe(code) }}" id="{{ code }}"
+                  name="{{ code }}" rows="3"
+                  {{ 'required' if obligatoire }}>{{ valeurs.get(code, '') }}</textarea>
+
+        {% elif type_champ == 'nombre' %}
+        <input class="form-control {{ classe(code) }}" type="number" min="0"
+               id="{{ code }}" name="{{ code }}"
+               value="{{ valeurs.get(code, '') }}" {{ 'required' if obligatoire }}>
+
+        {% elif type_champ == 'montant' %}
+        <div class="input-group">
+          <input class="form-control {{ classe(code) }}" type="number" min="0"
+                 step="1" id="{{ code }}" name="{{ code }}"
+                 value="{{ valeurs.get(code, '') }}" {{ 'required' if obligatoire }}>
+          <span class="input-group-text">FCFA</span>
+        </div>
+
+        {% elif type_champ == 'telephone' %}
+        <input class="form-control {{ classe(code) }}" type="tel" id="{{ code }}"
+               name="{{ code }}" value="{{ valeurs.get(code, '') }}"
+               placeholder="+237 6 99 00 00 00" autocapitalize="none"
+               {{ 'required' if obligatoire }}>
+
+        {% elif type_champ == 'courriel' %}
+        <input class="form-control {{ classe(code) }}" type="email" id="{{ code }}"
+               name="{{ code }}" value="{{ valeurs.get(code, '') }}"
+               autocapitalize="none" spellcheck="false"
+               {{ 'required' if obligatoire }}>
+
+        {% elif type_champ == 'nombre_unite' %}
+        {# Nombre et unité séparés : « 500 » seul se lit indifféremment mg ou mL. #}
+        <div class="input-group {{ classe(code) }}">
+          <input class="form-control" type="number" step="any" min="0"
+                 id="{{ code }}" name="{{ code }}"
+                 value="{{ valeurs.get(code, '') }}" {{ 'required' if obligatoire }}
+                 aria-label="{{ libelle }} — valeur">
+          <select class="form-select" name="{{ code }}_unite" style="max-width:9rem"
+                  aria-label="{{ libelle }} — unité">
+            <option value="">unité</option>
+            {% if code == 'duree_stabilite' %}
+              {% for u in UNITES_DUREE %}
+              <option value="{{ u }}"
+                      {{ 'selected' if valeurs.get(code ~ '_unite') == u }}>{{ u }}</option>
+              {% endfor %}
+            {% else %}
+              {% for groupe, unites in UNITES.items() %}
+              <optgroup label="{{ groupe }}">
+                {% for u in unites %}
+                <option value="{{ u }}"
+                        {{ 'selected' if valeurs.get(code ~ '_unite') == u }}>{{ u }}</option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+
+        {% elif type_champ == 'liste_groupee' and code == 'forme_pharmaceutique' %}
+        <select class="form-select {{ classe(code) }}" id="{{ code }}"
+                name="{{ code }}" {{ 'required' if obligatoire }}>
+          <option value="">— Choisir —</option>
+          {% for groupe, formes in FORMES.items() %}
+          <optgroup label="{{ groupe }}">
+            {% for f in formes %}
+            <option value="{{ f }}"
+                    {{ 'selected' if valeurs.get(code) == f }}>{{ f }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+
+        {% elif type_champ == 'liste_groupee' and code == 'classe_therapeutique' %}
+        <select class="form-select {{ classe(code) }}" id="{{ code }}"
+                name="{{ code }}" {{ 'required' if obligatoire }}>
+          <option value="">— Choisir —</option>
+          {% for groupe, entrees in CLASSES.items() %}
+          <optgroup label="{{ groupe }}">
+            {% for valeur, libelle_classe in entrees %}
+            <option value="{{ valeur }}"
+                    {{ 'selected' if valeurs.get(code) == valeur }}>
+              {{ libelle_classe }}</option>
+            {% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+
+        {% elif type_champ == 'multiliste' %}
+        <select class="form-select {{ classe(code) }}" id="{{ code }}"
+                name="{{ code }}" multiple size="8"
+                {{ 'required' if obligatoire }}>
+          {% for i in INDICATIONS %}
+          <option value="{{ i }}"
+                  {{ 'selected' if i in (valeurs.get(code) or []) }}>{{ i }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">
+          Maintenez Ctrl (ou Cmd) pour sélectionner plusieurs indications.
+        </div>
+
+        {% elif type_champ == 'liste' %}
+        <select class="form-select {{ classe(code) }}" id="{{ code }}"
+                name="{{ code }}" {{ 'required' if obligatoire }}>
+          <option value="">— Choisir —</option>
+          {% set source = VOIES if code == 'voie_administration'
+                          else (CONDITIONNEMENTS if code == 'conditionnement'
+                                else CATEGORIES_MTA) %}
+          {% for v in source %}
+          <option value="{{ v }}" {{ 'selected' if valeurs.get(code) == v }}>{{ v }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+
+        {% if aide %}<div class="form-text">{{ aide }}</div>{% endif %}
+        {{ erreur(code) }}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ------------------------------------------------------------------ #}
+  {# Composition dynamique                                                #}
+  {# ------------------------------------------------------------------ #}
+  {% set est_mta = variant == 'mta' %}
+  {% set champ_nombre = 'nombre_constituants' if est_mta else 'nombre_principes_actifs' %}
+  <div class="card mb-3">
+    <div class="card-header py-2 fw-semibold">
+      {% if est_mta %}Composition qualitative et quantitative
+      {% else %}Composition{% endif %}
+    </div>
+    <div class="card-body">
+      <div class="row g-3 align-items-end mb-3">
+        <div class="col-md-4">
+          <label class="form-label" for="{{ champ_nombre }}">
+            {% if est_mta %}Nombre de constituants{% else %}Nombre de principes actifs{% endif %}
+            <span class="text-danger">*</span></label>
+          <input class="form-control {{ classe(champ_nombre) }}" type="number"
+                 min="1" max="{{ MAX_CONST if est_mta else MAX_PA }}"
+                 id="{{ champ_nombre }}" name="{{ champ_nombre }}"
+                 value="{{ valeurs.get(champ_nombre, '1') }}" required>
+          {{ erreur(champ_nombre) }}
+        </div>
+        <div class="col-md-8">
+          <div class="form-text">
+            Les groupes de champs apparaissent à mesure. Diminuer le nombre
+            retire les derniers groupes sans effacer les précédents.
+          </div>
+        </div>
+      </div>
+      <div id="groupes-composition"></div>
+    </div>
+  </div>
+
+  <input type="hidden" name="action" id="action" value="enregistrer">
+  <div class="d-flex gap-2 mb-4">
+    <button class="btn btn-primary" type="submit">
+      <i class="bi bi-save me-1"></i> Enregistrer et constituer le dossier</button>
+    <a class="btn btn-link" href="{{ url_for('demandes.accueil') }}">Annuler</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  var estMta = {{ 'true' if est_mta else 'false' }};
+  var champNombre = document.getElementById("{{ champ_nombre }}");
+  var conteneur = document.getElementById("groupes-composition");
+  var maximum = estMta ? {{ MAX_CONST }} : {{ MAX_PA }};
+  var unites = {{ UNITES | tojson }};
+  var parties = {{ PARTIES | tojson }};
+  var saisi = {{ valeurs | tojson }};
+  var erreurs = {{ erreurs | tojson }};
+
+  function optionsUnites(valeur) {
+    var html = '<option value="">unité</option>';
+    Object.keys(unites).forEach(function (groupe) {
+      html += '<optgroup label="' + groupe + '">';
+      unites[groupe].forEach(function (u) {
+        html += '<option value="' + u + '"' +
+                (valeur === u ? ' selected' : '') + '>' + u + '</option>';
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+
+  function optionsParties(valeur) {
+    var html = '<option value="">— Choisir —</option>';
+    parties.forEach(function (p) {
+      html += '<option value="' + p + '"' +
+              (valeur === p ? ' selected' : '') + '>' + p + '</option>';
+    });
+    return html;
+  }
+
+  function champ(nom, valeur, invalide) {
+    return '<input class="form-control form-control-sm' +
+           (invalide ? ' is-invalid' : '') + '" name="' + nom +
+           '" value="' + (valeur || '').replace(/"/g, '&quot;') + '" required>';
+  }
+
+  function dessiner() {
+    var nombre = parseInt(champNombre.value, 10) || 0;
+    if (nombre > maximum) { nombre = maximum; champNombre.value = maximum; }
+    var html = "";
+    for (var i = 1; i <= nombre; i++) {
+      var prefixe = estMta ? "constituant_" + i + "_" : "pa_" + i + "_";
+      html += '<div class="border rounded p-2 mb-2">';
+      html += '<div class="small fw-semibold mb-2">' +
+              (estMta ? "Constituant " : "Principe actif ") + i + '</div>';
+      html += '<div class="row g-2">';
+      if (estMta) {
+        html += '<div class="col-md-4"><label class="form-label small mb-1">' +
+                'Dénomination <span class="text-danger">*</span></label>' +
+                champ(prefixe + "nom", saisi[prefixe + "nom"],
+                      erreurs[prefixe + "nom"]) +
+                (erreurs[prefixe + "nom"] ? '<div class="invalid-feedback d-block">'
+                 + erreurs[prefixe + "nom"] + '</div>' : '') + '</div>';
+        html += '<div class="col-md-3"><label class="form-label small mb-1">' +
+                'Partie utilisée <span class="text-danger">*</span></label>' +
+                '<select class="form-select form-select-sm" name="' + prefixe +
+                'partie" required>' + optionsParties(saisi[prefixe + "partie"]) +
+                '</select></div>';
+        html += '<div class="col-md-3"><label class="form-label small mb-1">' +
+                'Quantité <span class="text-danger">*</span></label>' +
+                '<input class="form-control form-control-sm" type="number" ' +
+                'step="any" min="0" name="' + prefixe + 'quantite" value="' +
+                (saisi[prefixe + "quantite"] || "") + '" required></div>';
+      } else {
+        html += '<div class="col-md-5"><label class="form-label small mb-1">' +
+                'Dénomination (DCI) <span class="text-danger">*</span></label>' +
+                champ(prefixe + "dci", saisi[prefixe + "dci"],
+                      erreurs[prefixe + "dci"]) +
+                (erreurs[prefixe + "dci"] ? '<div class="invalid-feedback d-block">'
+                 + erreurs[prefixe + "dci"] + '</div>' : '') + '</div>';
+        html += '<div class="col-md-4"><label class="form-label small mb-1">' +
+                'Dosage <span class="text-danger">*</span></label>' +
+                '<input class="form-control form-control-sm" type="number" ' +
+                'step="any" min="0" name="' + prefixe + 'dosage" value="' +
+                (saisi[prefixe + "dosage"] || "") + '" required></div>';
+      }
+      html += '<div class="col-md-3"><label class="form-label small mb-1">' +
+              'Unité <span class="text-danger">*</span></label>' +
+              '<select class="form-select form-select-sm" name="' + prefixe +
+              'unite" required>' + optionsUnites(saisi[prefixe + "unite"]) +
+              '</select></div>';
+      html += '</div></div>';
+    }
+    conteneur.innerHTML = html;
+  }
+
+  champNombre.addEventListener("input", dessiner);
+  dessiner();
+})();
+</script>
+{% endblock %}

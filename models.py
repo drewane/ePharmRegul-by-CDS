@@ -118,6 +118,31 @@ class Produit(db.Model):
     duree_stabilite = db.Column(db.String(100), nullable=True)
     prix_grossiste_ht = db.Column(db.Integer, nullable=True)  # XAF, hors taxe
 
+    # Champs du formulaire enrichi (cf. formulaire_demande.py). Le dosage est
+    # saisi en deux temps — nombre et unité — mais conservé aussi sous sa forme
+    # composée dans `dosage`, que tout le reste de l'application lit déjà.
+    dosage_valeur = db.Column(db.String(40), nullable=True)
+    dosage_unite = db.Column(db.String(20), nullable=True)
+    code_atc = db.Column(db.String(10), nullable=True)
+    conditionnement = db.Column(db.String(120), nullable=True)
+    quantite_conditionnement = db.Column(db.String(80), nullable=True)
+    pharmacien_telephone = db.Column(db.String(40), nullable=True)
+    pharmacien_email = db.Column(db.String(150), nullable=True)
+
+    # Propres au médicament traditionnel amélioré : le formulaire officiel
+    # d'homologation de la pharmacopée traditionnelle réclame ces éléments,
+    # qu'aucun dossier de synthèse ne comporte.
+    categorie_mta = db.Column(db.String(120), nullable=True)
+    mecanisme_action = db.Column(db.Text, nullable=True)
+    excipients = db.Column(db.Text, nullable=True)
+    adresse_fabricant = db.Column(db.Text, nullable=True)
+    adresse_site_fabrication = db.Column(db.Text, nullable=True)
+    adresse_controle_qualite = db.Column(db.Text, nullable=True)
+    adresse_demandeur = db.Column(db.Text, nullable=True)
+    exploitant = db.Column(db.Text, nullable=True)
+    representant_cameroun = db.Column(db.Text, nullable=True)
+    prix_public_cameroun = db.Column(db.Integer, nullable=True)  # FCFA
+
     fabricant = db.relationship("Etablissement", foreign_keys=[fabricant_id])
     titulaire_amm = db.relationship("Etablissement", foreign_keys=[titulaire_amm_id])
     dossiers = db.relationship("DossierAMM", backref="produit", lazy="dynamic",
@@ -179,6 +204,12 @@ class DossierAMM(db.Model):
     numero_suivi = db.Column(db.String(40), unique=True)
     # Voie d'homologation (cf. voies_homologation.py) : nationale par défaut,
     # reconnaissance d'une AMM de référence, ou préqualification OMS.
+    # Formulaire enrichi : nature de l'acte et type de produit choisis en tête
+    # de demande. `type_dossier` en découle et dit quel module de constitution
+    # suit — CTD/eCTD ou dossier MTA.
+    nature_acte = db.Column(db.String(20), nullable=True)
+    type_produit = db.Column(db.String(40), nullable=True)
+    type_dossier = db.Column(db.String(10), nullable=True)
     voie_homologation = db.Column(db.String(30), default="nationale")
     autorite_reference = db.Column(db.String(30), nullable=True)
     programme_oms = db.Column(db.String(30), nullable=True)

@@ -189,6 +189,74 @@ def agrement(domaine, categorie, acte):
 
 
 # ---------------------------------------------------------------------------
+# Formulaire de demande enrichi
+# ---------------------------------------------------------------------------
+@bp.route("/formulaire", methods=["GET", "POST"])
+@login_required
+def formulaire():
+    """Saisie d'une demande, en deux variants selon le type de produit.
+
+    Le variant se choisit en tête de formulaire ; la page se recompose sans
+    perdre la saisie déjà effectuée, parce qu'on découvre souvent en cours de
+    route qu'on remplissait le mauvais formulaire.
+    """
+    import formulaire_demande as fd
+    import referentiels_pharma as refp
+    import workflow_formulaire as wff
+
+    u = _industriel()
+    _acte_ouvert(u, "homologation")
+
+    type_produit = (request.values.get("type_produit")
+                    or "medicament_chimique").strip()
+    if type_produit not in fd.TYPES_PRODUIT:
+        type_produit = "medicament_chimique"
+
+    valeurs = request.form.to_dict(flat=True) if request.method == "POST" else {}
+    indications = request.form.getlist("indications")
+    if indications:
+        valeurs["indications"] = indications
+    erreurs = {}
+
+    # Un changement de type recompose la page sans rien valider : l'utilisateur
+    # n'a pas encore fini de saisir, lui reprocher des champs vides serait
+    # absurde.
+    if request.method == "POST" and request.form.get("action") == "enregistrer":
+        erreurs = fd.valider(valeurs)
+        if not erreurs:
+            try:
+                dossier = wff.enregistrer(u, valeurs)
+                db.session.commit()
+                url, est_mta = wff.url_dossier_technique(dossier)
+                if est_mta:
+                    flash("Demande enregistrée. Le dossier technique d'un MTA "
+                          "diffère du CTD classique : le module dédié est en "
+                          "cours de livraison, le sommaire ci-dessous en tient "
+                          "lieu provisoirement.", "warning")
+                else:
+                    flash(f"Demande {dossier.numero} enregistrée. Constituez "
+                          "maintenant le dossier technique.", "success")
+                return redirect(url)
+            except ErreurWorkflow as e:
+                db.session.rollback()
+                flash(str(e), "danger")
+
+    return render_template(
+        "demandes/formulaire.html", u=u, type_produit=type_produit,
+        variant=fd.variant(type_produit),
+        dossier_attendu=fd.dossier_attendu(type_produit),
+        entete=fd.CHAMPS_ENTETE, champs=fd.CHAMPS[fd.variant(type_produit)],
+        NATURES_ACTE=fd.NATURES_ACTE, TYPES_PRODUIT=fd.TYPES_PRODUIT,
+        FORMES=refp.FORMES_PHARMACEUTIQUES, UNITES=refp.UNITES_DOSAGE,
+        VOIES=refp.VOIES_ADMINISTRATION, CLASSES=refp.classes_par_groupe(),
+        INDICATIONS=refp.INDICATIONS, UNITES_DUREE=refp.UNITES_DUREE,
+        CONDITIONNEMENTS=refp.CONDITIONNEMENTS,
+        CATEGORIES_MTA=refp.CATEGORIES_MTA, PARTIES=refp.PARTIES_UTILISEES,
+        MAX_PA=fd.MAX_PRINCIPES_ACTIFS, MAX_CONST=fd.MAX_CONSTITUANTS,
+        valeurs=valeurs, erreurs=erreurs)
+
+
+# ---------------------------------------------------------------------------
 # AMM — les quatre types de procédure
 # ---------------------------------------------------------------------------
 @bp.route("/amm")
@@ -217,9 +285,11 @@ def amm_type(type_procedure):
         abort(404)
     libelle, description, part_existante = TYPES_AMM[type_procedure]
 
-    # Une nouvelle demande se saisit entièrement : on renvoie au formulaire complet.
+    # Une nouvelle demande se saisit entièrement : on renvoie au formulaire
+    # enrichi, seul à porter les listes déroulantes, la composition dynamique
+    # et le variant MTA. L'ancien écran subsiste pour les parcours directs.
     if not part_existante:
-        return redirect(url_for("dossier_nouveau", type=type_procedure))
+        return redirect(url_for("demandes.formulaire"))
 
     existantes = _amm_en_vigueur(u)
 
