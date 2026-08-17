@@ -312,26 +312,111 @@ def clore_sur_amm(atu, acteur, dossier):
     return atu
 
 
-def remettre_rapport(atu, acteur, periode, contenu, effets_indesirables=0):
-    """Rapport périodique de suivi — la contrepartie de l'accès anticipé."""
+GRAVITES = {
+    "non_grave": "Non grave",
+    "grave": "Grave",
+    "fatal": "Issue fatale",
+}
+
+
+def remettre_rapport(atu, acteur, periode, contenu, effets_indesirables=0,
+                     gravite=None, description_effets=None):
+    """Rapport périodique de suivi — la contrepartie de l'accès anticipé.
+
+    Dès qu'un effet indésirable est rapporté, un cas de pharmacovigilance est
+    ouvert AUTOMATIQUEMENT. C'est la raison d'être du suivi renforcé : un
+    produit sans AMM est administré sur la foi de données incomplètes, et
+    laisser au déclarant le soin de saisir une seconde fois l'information dans
+    un autre écran serait le meilleur moyen qu'elle ne parte jamais.
+
+    La gravité devient alors obligatoire : un cas ouvert sans elle ne peut être
+    ni trié ni priorisé par le service de vigilance, et encombrerait le
+    registre au lieu de l'alimenter.
+    """
     if atu.statut not in ("accordee", "suspendue"):
         raise ErreurWorkflow(
             "Un rapport ne se remet que sur une ATU en cours.")
     if not (contenu or "").strip():
         raise ErreurWorkflow("Le rapport ne peut pas être vide.")
+
+    nombre = _entier(effets_indesirables) or 0
+    if nombre < 0:
+        raise ErreurWorkflow("Le nombre d'effets indésirables ne peut pas être "
+                             "négatif.")
+    if nombre and gravite not in GRAVITES:
+        raise ErreurWorkflow(
+            "Précisez la gravité des effets rapportés : elle conditionne le "
+            "délai de traitement du cas de pharmacovigilance.")
+
+    cas = _ouvrir_cas_vigilance(atu, acteur, nombre, gravite,
+                                description_effets or contenu) if nombre else None
+
     atu.ajouter_rapport({
         "periode": (periode or "").strip() or date.today().strftime("%m/%Y"),
         "contenu": contenu.strip(),
-        "effets_indesirables": _entier(effets_indesirables) or 0,
+        "effets_indesirables": nombre,
+        "gravite": gravite if nombre else None,
+        "cas_vigilance": cas.numero if cas else None,
         "date": datetime.utcnow().isoformat(timespec="seconds"),
         "auteur": acteur.nom_complet if acteur else "—",
     })
-    enregistrer_audit(atu, "Rapport de suivi remis", acteur)
+    enregistrer_audit(
+        atu,
+        "Rapport de suivi remis"
+        + (f" — {nombre} effet(s) indésirable(s), cas {cas.numero} ouvert"
+           if cas else " — aucun effet indésirable"),
+        acteur)
     for role in ROLES_INSTRUCTION:
         notifier_tous(role, "atu_rapport",
-                      f"Rapport de suivi remis sur l'ATU {atu.numero}.",
+                      f"Rapport de suivi remis sur l'ATU {atu.numero}."
+                      + (f" {nombre} effet(s) indésirable(s) — cas "
+                         f"{cas.numero}." if cas else ""),
                       lien=f"/atu/{atu.id}")
     return atu
+
+
+def _ouvrir_cas_vigilance(atu, acteur, nombre, gravite, description):
+    """Crée le cas de pharmacovigilance rattaché à un rapport d'ATU.
+
+    Un seul cas par rapport, et non un par effet : le rapport ne porte pas le
+    détail patient par patient, et fabriquer des cas vides pour atteindre le
+    compte donnerait une fausse impression de précision. Le nombre est consigné
+    dans la description, à charge pour le service de vigilance de ventiler s'il
+    obtient le détail.
+    """
+    import workflow_vl as wfvl
+
+    # Un prescripteur qui relaie un effet observé n'est pas un industriel :
+    # la source conditionne la lecture du signal.
+    source = "industriel" if atu.type_atu == "cohorte" else "professionnel_sante"
+
+    entete = (f"[ATU {atu.numero} — {atu.libelle}] "
+              f"{nombre} effet(s) indésirable(s) rapporté(s) dans le cadre "
+              f"d'une autorisation temporaire d'utilisation "
+              f"({TYPES.get(atu.type_atu, atu.type_atu)}). "
+              f"Indication : {atu.indication}. ")
+    cas = wfvl.creer_notification({
+        "description_effet": entete + (description or "").strip(),
+        "gravite": gravite,
+        "source": source,
+        "produit_id": atu.produit_id,
+        "patient_age": atu.patient_age,
+        "patient_sexe": atu.patient_sexe,
+        "notificateur_nom": (atu.prescripteur_nom
+                             or (acteur.nom_complet if acteur else None)),
+    }, acteur)
+
+    # Un effet grave ou fatal sous ATU appelle un réexamen de l'autorisation
+    # elle-même, pas seulement le traitement du cas.
+    if gravite in ("grave", "fatal"):
+        for role in ROLES_INSTRUCTION:
+            notifier_tous(
+                role, "atu_signal_grave",
+                f"Effet indésirable {GRAVITES[gravite].lower()} sous l'ATU "
+                f"{atu.numero} (cas {cas.numero}). La poursuite de "
+                "l'autorisation doit être réexaminée.",
+                lien=f"/atu/{atu.id}")
+    return cas
 
 
 def expirer_echues():

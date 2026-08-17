@@ -140,7 +140,10 @@ def test_reglement_multi_moyens():
 def test_coherence_bareme():
     print("\n[5] Cohérence du barème")
     grille = bareme.grille()
-    verifier("6 faits générateurs", len(grille) == 6, str(len(grille)))
+    verifier("7 faits générateurs", len(grille) == 7, str(len(grille)))
+    gratuits = [l["libelle"] for l in grille if l["montant"] == 0]
+    verifier("l'ATU est déclarée gratuite au barème",
+             any("temporaire" in l.lower() for l in gratuits), str(gratuits))
     for ligne in grille:
         verifier(f"« {ligne['libelle']} » : montant lisible",
                  isinstance(ligne["montant"], int) and ligne["montant"] >= 0,

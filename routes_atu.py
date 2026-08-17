@@ -103,6 +103,7 @@ def fiche(id):
                            STATUTS=wfa.STATUTS, TYPES=wfa.TYPES,
                            CONDITIONS=wfa.CONDITIONS,
                            rapports=atu.rapports(),
+                           GRAVITES=wfa.GRAVITES,
                            instructeur=(u.role_systeme in wfa.ROLES_INSTRUCTION),
                            agent=a_niveau(u, 1))
 
@@ -143,10 +144,19 @@ def action(id):
             wfa.suspendre(atu, u, request.form.get("motif", ""))
             flash("ATU suspendue.", "warning")
         elif quoi == "rapport":
-            wfa.remettre_rapport(atu, u, request.form.get("periode", ""),
-                                 request.form.get("contenu", ""),
-                                 request.form.get("effets_indesirables", 0))
-            flash("Rapport de suivi enregistré.", "success")
+            wfa.remettre_rapport(
+                atu, u, request.form.get("periode", ""),
+                request.form.get("contenu", ""),
+                request.form.get("effets_indesirables", 0),
+                request.form.get("gravite") or None,
+                request.form.get("description_effets") or None)
+            dernier = atu.rapports()[-1] if atu.rapports() else {}
+            if dernier.get("cas_vigilance"):
+                flash(f"Rapport enregistré. Un cas de pharmacovigilance "
+                      f"{dernier['cas_vigilance']} a été ouvert automatiquement "
+                      "et transmis au service compétent.", "warning")
+            else:
+                flash("Rapport de suivi enregistré.", "success")
         else:
             abort(400)
         db.session.commit()

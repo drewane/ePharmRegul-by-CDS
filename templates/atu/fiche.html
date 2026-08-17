@@ -119,9 +119,21 @@
             <span class="text-muted">{{ r.auteur }}</span>
           </div>
           <div>{{ r.contenu }}</div>
-          <div class="text-muted">
-            {{ r.effets_indesirables }} effet(s) indésirable(s) rapporté(s)
+          {% if r.effets_indesirables %}
+          <div class="mt-1">
+            <span class="badge {{ 'bg-danger' if r.gravite in ('grave','fatal') else 'bg-warning text-dark' }}">
+              {{ r.effets_indesirables }} effet(s) indésirable(s)
+              {%- if r.gravite %} — {{ GRAVITES.get(r.gravite, r.gravite) }}{% endif %}
+            </span>
+            {% if r.cas_vigilance %}
+            <span class="text-muted ms-1">
+              cas de pharmacovigilance <code>{{ r.cas_vigilance }}</code>
+              ouvert automatiquement</span>
+            {% endif %}
           </div>
+          {% else %}
+          <div class="text-muted">Aucun effet indésirable rapporté.</div>
+          {% endif %}
         </li>
         {% endfor %}
       </ul>
@@ -144,13 +156,36 @@
             <input class="form-control form-control-sm" type="number" min="0"
                    id="effets_indesirables" name="effets_indesirables" value="0">
           </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1" for="gravite">
+              Gravité <span class="text-muted">(si effets rapportés)</span></label>
+            <select class="form-select form-select-sm" id="gravite" name="gravite">
+              <option value="">—</option>
+              {% for code, libelle in GRAVITES.items() %}
+              <option value="{{ code }}">{{ libelle }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <div class="col-12">
             <label class="form-label small mb-1" for="contenu">Rapport</label>
             <textarea class="form-control form-control-sm" rows="2" required
                       id="contenu" name="contenu"></textarea>
           </div>
           <div class="col-12">
+            <label class="form-label small mb-1" for="description_effets">
+              Description des effets observés
+              <span class="text-muted">(reprise dans le cas de vigilance)</span></label>
+            <textarea class="form-control form-control-sm" rows="2"
+                      id="description_effets" name="description_effets"
+                      placeholder="Nature, délai d'apparition, évolution, mesures prises…"></textarea>
+          </div>
+          <div class="col-12">
             <button class="btn btn-sm btn-outline-primary">Remettre le rapport</button>
+            <div class="form-text">
+              Dès qu'un effet indésirable est déclaré, un cas de
+              pharmacovigilance est ouvert automatiquement et transmis au
+              service compétent&nbsp;: vous n'avez pas à le ressaisir ailleurs.
+            </div>
           </div>
         </form>
       </div>

@@ -182,6 +182,19 @@ l'instruction et évite de constituer un fichier de données de santé. Le
 circuit de signature ne compte que deux échelons — allonger la chaîne
 reviendrait à refuser par le délai ce qu'on prétend accorder en urgence.
 
+**L'ATU est gratuite**, et déclarée telle au barème plutôt que simplement
+absente : un acte qui ne figure nulle part se lit comme un oubli, inscrit à 0
+il affirme une décision et ne peut pas remonter par inadvertance.
+
+**Tout effet indésirable rapporté ouvre automatiquement un cas de
+pharmacovigilance**, rattaché au rapport et transmis au service compétent.
+C'est la raison d'être du suivi renforcé : un produit sans AMM est administré
+sur la foi de données incomplètes, et demander une seconde saisie dans un
+autre écran serait le meilleur moyen que l'information ne parte jamais. La
+gravité devient alors obligatoire — un cas sans elle ne peut être ni trié ni
+priorisé. Un effet grave ou fatal alerte en outre le service instructeur, la
+poursuite de l'autorisation devant être réexaminée.
+
 ### Deux documents en fin de circuit
 
 À la dernière signature, le système produit un **certificat d'homologation**.

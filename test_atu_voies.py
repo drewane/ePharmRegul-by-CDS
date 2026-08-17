@@ -29,11 +29,12 @@ import voies_homologation as vh
 import workflow_atu as wfa
 from erreurs import ErreurWorkflow
 from models import (AutorisationTemporaire, DossierAMM, Etablissement,
-                    EvenementAudit, Notification, Personne, Produit, db)
+                    EvenementAudit, Notification, NotificationVigilance,
+                    Personne, Produit, db)
 
 _res = []
-_MODELES = (EvenementAudit, AutorisationTemporaire, Notification, DossierAMM,
-            Produit, Personne, Etablissement)
+_MODELES = (EvenementAudit, NotificationVigilance, AutorisationTemporaire,
+            Notification, DossierAMM, Produit, Personne, Etablissement)
 
 
 def verifier(nom, cond, detail=""):
@@ -222,11 +223,14 @@ def test_suivi_et_extinction():
     wfa.prononcer_decision(atu, chef, True,
                            {c: True for c, _l in wfa.CONDITIONS}, 12)
     db.session.flush()
-    wfa.remettre_rapport(atu, dep, "03/2026", "Tolérance satisfaisante.", 2)
+    wfa.remettre_rapport(atu, dep, "03/2026", "Tolérance satisfaisante.", 2,
+                         "non_grave")
     db.session.flush()
     verifier("rapport enregistré", len(atu.rapports()) == 1)
     verifier("effets indésirables comptés",
              atu.rapports()[0]["effets_indesirables"] == 2)
+    verifier("un cas de vigilance accompagne le rapport",
+             atu.rapports()[0]["cas_vigilance"] is not None)
     verifier("rapport vide refusé",
              leve(lambda: wfa.remettre_rapport(atu, dep, "04/2026", "")))
 
@@ -235,6 +239,81 @@ def test_suivi_et_extinction():
     db.session.flush()
     verifier("l'ATU s'éteint quand l'AMM est tranchée", atu.statut == "close")
     verifier("le dossier d'AMM est rattaché", atu.dossier_amm_id == dossier.id)
+
+
+def test_gratuite():
+    print("\n[8bis] L'ATU est gratuite, et déclarée telle")
+    import bareme
+    dep, chef = _demandeur(), _r("chef_service_amm")
+    atu = wfa.deposer(dep, _base())
+    db.session.flush()
+    verifier("l'ATU figure au barème", "atu" in bareme.BAREME)
+    verifier("montant nul", bareme.montant("atu") == 0)
+    verifier("aucun frais sur une demande réelle",
+             bareme.montant_pour(atu) == 0)
+    verifier("le paramètre est administrable",
+             "frais_atu_xaf" in bareme.DESCRIPTIONS)
+    # Un acte gratuit ne crée aucune créance : le contraire ferait apparaître
+    # une ligne « à régler » de 0 XAF dans l'espace du demandeur.
+    import paiements as pmt
+    verifier("aucune créance n'est émise",
+             pmt.creer_paiement_bareme(atu) is None)
+
+
+def test_signalement_automatique():
+    print("\n[8ter] Un effet indésirable ouvre un cas de pharmacovigilance")
+    from models import NotificationVigilance
+
+    dep, chef = _demandeur(), _r("chef_service_amm")
+    atu = wfa.deposer(dep, _base())
+    db.session.flush()
+    wfa.prononcer_decision(atu, chef, True,
+                           {c: True for c, _l in wfa.CONDITIONS}, 12)
+    db.session.flush()
+
+    verifier("gravité exigée dès qu'un effet est rapporté",
+             leve(lambda: wfa.remettre_rapport(atu, dep, "03/2026", "Rapport", 2),
+                  "gravité"))
+    verifier("gravité inconnue refusée",
+             leve(lambda: wfa.remettre_rapport(atu, dep, "03/2026", "Rapport",
+                                               2, "ennuyeux"), "gravité"))
+    verifier("nombre négatif refusé",
+             leve(lambda: wfa.remettre_rapport(atu, dep, "03/2026", "R", -1),
+                  "négatif"))
+
+    avant = NotificationVigilance.query.count()
+    wfa.remettre_rapport(atu, dep, "03/2026", "Deux thrombopénies.", 2,
+                         "grave", "Thrombopénie à J7, résolutive.")
+    db.session.flush()
+    verifier("un cas est ouvert automatiquement",
+             NotificationVigilance.query.count() == avant + 1)
+
+    cas = NotificationVigilance.query.order_by(
+        NotificationVigilance.id.desc()).first()
+    verifier("la gravité est reportée sur le cas", cas.gravite == "grave")
+    verifier("le cas cite l'ATU d'origine", atu.numero in cas.description_effet)
+    verifier("le cas reprend l'indication",
+             atu.indication in cas.description_effet)
+    verifier("le nombre d'effets est consigné", "2 effet" in cas.description_effet)
+    verifier("le rapport porte le numéro du cas",
+             atu.rapports()[-1]["cas_vigilance"] == cas.numero)
+    verifier("le service de vigilance est saisi",
+             Notification.query.filter_by(type="vl_nouveau_cas").count() >= 1)
+    verifier("un effet grave appelle un réexamen de l'autorisation",
+             Notification.query.filter_by(type="atu_signal_grave").count() >= 1)
+
+    # Une nominative émane d'un soignant, une cohorte de l'industriel : la
+    # source conditionne la lecture du signal.
+    verifier("source « professionnel de santé » pour une nominative",
+             cas.source == "professionnel_sante", cas.source)
+
+    avant2 = NotificationVigilance.query.count()
+    wfa.remettre_rapport(atu, dep, "04/2026", "Aucun effet observé.", 0)
+    db.session.flush()
+    verifier("aucun cas si aucun effet rapporté",
+             NotificationVigilance.query.count() == avant2)
+    verifier("le rapport sans effet ne cite aucun cas",
+             atu.rapports()[-1]["cas_vigilance"] is None)
 
 
 def test_expiration():
@@ -412,7 +491,7 @@ def main():
         for t in (test_depot_nominative, test_champs_obligatoires, test_cohorte,
                   test_conditions_cumulatives, test_qui_instruit,
                   test_duree_et_renouvellement, test_suivi_et_extinction,
-                  test_expiration, test_voies_declarees,
+                  test_gratuite, test_signalement_automatique, test_expiration, test_voies_declarees,
                   test_allegement_encadre, test_reference_exigee,
                   test_pieces_par_voie, test_rien_n_a_bouge, test_ecrans):
             try:

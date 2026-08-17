@@ -35,6 +35,14 @@ BAREME = {
     "liberation_lot": (
         "LiberationLot", "LR", "frais_liberation_xaf", 100000,
         "Libération de lot"),
+    # ATU : GRATUITE, et déclarée telle plutôt que simplement absente du
+    # barème. Un acte qui ne figure nulle part se lit comme un oubli ; inscrit
+    # à 0, il affirme une décision — on ne fait pas payer l'accès d'un patient
+    # à un traitement dont dépend sa survie, et le tarif ne peut pas remonter
+    # par inadvertance sans qu'on le voie.
+    "atu": (
+        "AutorisationTemporaire", "MA", "frais_atu_xaf", 0,
+        "Autorisation temporaire d'utilisation"),
 }
 
 # Défauts injectés dans ParametreModule par initialiser_parametres_bareme()
@@ -45,6 +53,9 @@ DESCRIPTIONS = {
                             "(descente sur site). 0 = inspection non facturée.",
     "frais_liberation_xaf": "Frais (XAF) exigés pour une demande de libération de lot. "
                             "0 = gratuit.",
+    "frais_atu_xaf": "Frais (XAF) exigés pour une autorisation temporaire "
+                     "d'utilisation. Fixé à 0 : l'accès anticipé d'un patient "
+                     "sans alternative thérapeutique n'est pas facturé.",
 }
 
 
