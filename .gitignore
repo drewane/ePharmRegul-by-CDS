@@ -16,3 +16,4 @@ instance/IDENTIFIANTS-PRIVES.txt
 
 # Binaire du tunnel (52 Mo) — retéléchargeable, pas du code source
 outils/
+instance/*.avant-vidage-*
