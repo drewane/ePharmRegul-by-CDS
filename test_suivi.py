@@ -299,14 +299,13 @@ def test_ecrans_suivi():
         verifier("l'historique est affiché", "Historique de la procédure" in corps)
 
     # Cloisonnement : un dossier d'une autre société doit rester introuvable.
-    concurrent = Personne.query.filter_by(email="demandeur2@biosante.demo").first()
-    if concurrent:
-        autre = DossierAMM.query.filter_by(demandeur_id=concurrent.id).first()
-        if autre:
-            verifier("le dossier d'un concurrent renvoie 404",
-                     client.get(f"/industriel/suivi/{autre.id}").status_code == 404)
-        else:
-            verifier("un dossier concurrent existe pour le test", False)
+    # Le dossier concurrent est créé ici plutôt que puisé dans le jeu de
+    # démonstration : un vidage de la base ne doit pas transformer un contrôle
+    # de cloisonnement en échec de test.
+    autre = _dossier("soumis")
+    db.session.commit()
+    verifier("le dossier d'un concurrent renvoie 404",
+             client.get(f"/industriel/suivi/{autre.id}").status_code == 404)
 
     # Un régulateur n'a pas d'espace industriel : ce n'est pas son écran.
     reg = application.app.test_client()

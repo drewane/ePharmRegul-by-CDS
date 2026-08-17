@@ -24,14 +24,20 @@
 <div class="row g-3">
   {% for e in enfants %}
   <div class="col-md-6 col-lg-4">
-    <div class="card h-100">
+    <div class="card h-100 {{ 'opacity-50' if e.accessible is defined and not e.accessible }}">
       <div class="card-body d-flex flex-column">
         <div class="mb-2">
-          <i class="bi {{ e.icone }} fs-2 text-{{ e.couleur }}"></i></div>
+          <i class="bi {{ e.icone }} fs-2 text-{{ e.couleur if e.accessible is not defined or e.accessible else 'secondary' }}"></i></div>
         <h2 class="h6">{{ e.libelle }}</h2>
         <p class="small text-muted flex-grow-1">{{ e.description }}</p>
+        {% if e.accessible is defined and not e.accessible %}
+        <p class="small text-secondary mb-2">
+          <i class="bi bi-slash-circle me-1"></i>{{ e.motif }}</p>
+        <button class="btn btn-outline-secondary" disabled>Indisponible</button>
+        {% else %}
         <a class="btn btn-outline-{{ e.couleur }}" href="{{ e.href }}">
           {{ "Commencer" if e.terminal else "Ouvrir" }}</a>
+        {% endif %}
       </div>
     </div>
   </div>

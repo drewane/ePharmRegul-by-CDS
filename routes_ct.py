@@ -16,8 +16,13 @@ def registre():
     executer_verifications_delais_ct()
     u = current_user()
     q = ProtocoleEssaiClinique.query
-    if u.role_systeme == "demandeur_externe":
-        q = q.filter_by(promoteur_id=u.id)
+    # Le promoteur d'essai clinique voit les siens, au même titre que
+    # l'industriel : restreindre au seul `demandeur_externe` fermait la porte
+    # au profil dont c'est précisément le métier.
+    if u.role_systeme in ("demandeur_externe", "promoteur_essai"):
+        import espace_industriel as esp
+        q = q.filter(ProtocoleEssaiClinique.promoteur_id.in_(
+            esp.personnes_de_la_societe(u)))
     elif u.role_systeme not in ROLES_CT_INTERNES:
         abort(403)
     statut = request.args.get("statut", "")

@@ -43,10 +43,50 @@ TYPES_AMM = {
 
 
 def _industriel():
+    """Profils admis sur « Demande », lus dans la matrice d'accès.
+
+    Recopier ici la liste des profils la ferait diverger du menu : c'est
+    exactement ce qui s'était produit — le fabricant voyait l'onglet et
+    recevait un 403 en cliquant.
+    """
+    import matrice_acces
+
     u = current_user()
-    if u is None or u.role_systeme not in ("demandeur_externe", "administrateur_dpml"):
+    admis = matrice_acces.profils_admis("demande")
+    if u is None or (u.role_systeme not in admis
+                     and u.role_systeme != "administrateur_dpml"):
         abort(403)
     return u
+
+
+def _acte_ouvert(u, code_acte):
+    """Refuse une famille de démarche qui ne relève pas du profil.
+
+    Le grisage du menu est une politesse ; ce contrôle-ci est la garantie.
+    """
+    import matrice_acces
+
+    if not matrice_acces.acte_concerne(u, code_acte):
+        abort(403)
+
+
+def _cartes(u, chemin):
+    """Sous-rubriques de la page, chacune marquée accessible ou grisée.
+
+    La page reprend le parti du menu : on montre ce qui existe, on grise ce
+    qui ne concerne pas le profil, et on dit pourquoi.
+    """
+    import matrice_acces
+
+    racine = chemin[0] if chemin else None
+    cartes = []
+    for enfant in tax.enfants_avec_liens(chemin):
+        code_acte = racine or enfant["code"]
+        ok = matrice_acces.acte_concerne(u, code_acte)
+        cartes.append({**enfant, "accessible": ok,
+                       "motif": None if ok
+                       else matrice_acces.motif_indisponible(u)})
+    return cartes
 
 
 # ---------------------------------------------------------------------------
@@ -62,7 +102,7 @@ def accueil():
                                        "Chaque dépôt donne lieu à un accusé de "
                                        "réception immédiat, puis à un suivi dans "
                                        "votre portefeuille.",
-                           enfants=tax.enfants_avec_liens([]), fil=[])
+                           enfants=_cartes(u, []), fil=[])
 
 
 @bp.route("/rubrique/<path:chemin>")
@@ -74,11 +114,12 @@ def rubrique(chemin):
     n = tax.noeud(segments)
     if n is None:
         abort(404)
+    _acte_ouvert(u, segments[0])
     if not n.get("enfants"):
         return redirect(n["lien"])
     return render_template("demandes/rubrique.html", u=u, titre=n["libelle"],
                            description=n["description"],
-                           enfants=tax.enfants_avec_liens(segments),
+                           enfants=_cartes(u, segments),
                            fil=tax.fil_ariane(segments))
 
 
@@ -89,6 +130,7 @@ def rubrique(chemin):
 @login_required
 def essai_clinique(phase):
     u = _industriel()
+    _acte_ouvert(u, "essai_clinique")
     if phase not in dec.PHASES:
         abort(404)
     obligatoires, total = dec.compte(phase)
@@ -113,6 +155,7 @@ def agrement(domaine, categorie, acte):
     import workflow_agrement as wfa
 
     u = _industriel()
+    _acte_ouvert(u, "agrements")
     if (domaine not in tax.DOMAINES_AGREMENT
             or categorie not in tax.CATEGORIES_AGREMENT
             or acte not in tax.ACTES_AGREMENT):
@@ -152,6 +195,7 @@ def agrement(domaine, categorie, acte):
 @login_required
 def amm():
     u = _industriel()
+    _acte_ouvert(u, "homologation")
     return render_template("demandes/amm.html", u=u, types=TYPES_AMM,
                            amm_en_vigueur=_amm_en_vigueur(u))
 
@@ -168,6 +212,7 @@ def _amm_en_vigueur(u):
 def amm_type(type_procedure):
     """Page propre à chaque type de procédure."""
     u = _industriel()
+    _acte_ouvert(u, "homologation")
     if type_procedure not in TYPES_AMM:
         abort(404)
     libelle, description, part_existante = TYPES_AMM[type_procedure]

@@ -125,7 +125,9 @@ def test_integrite():
 
 def test_toutes_les_pages_repondent():
     print("\n[3] Toute branche mène à une page servie")
-    c = _client("demandeur@pharmacam.demo")
+    # Compte d'administration : aucune famille ne lui est grisée, le parcours
+    # mesure donc la validité des liens et non le filtrage par profil.
+    c = _client("admin@dpml.demo")
     intermediaires = ["/demandes/",
                       "/demandes/rubrique/homologation",
                       "/demandes/rubrique/essai_clinique",
@@ -138,9 +140,29 @@ def test_toutes_les_pages_repondent():
     echecs = [e for e in echecs if e[1] != 200]
     verifier("les pages de rubrique répondent", not echecs, str(echecs))
 
-    echecs = [(f["lien"], c.get(f["lien"], follow_redirects=True).status_code)
-              for f in tax.feuilles()]
-    echecs = [e for e in echecs if e[1] != 200]
+    # Chaque feuille est visitée par le profil dont elle relève : les
+    # formulaires de dépôt sont réservés à l'opérateur concerné, et un compte
+    # d'administration s'y verrait refuser l'entrée à juste titre.
+    comptes = {
+        "homologation": _client("demandeur@pharmacam.demo"),
+        "inspection": _client("demandeur@pharmacam.demo"),
+        "essai_clinique": _client("promoteur@essai.demo"),
+        "agrements": _client("fabricant@wouri.demo"),
+    }
+
+    def _famille(lien):
+        for racine in tax.ARBORESCENCE:
+            for feuille in tax.feuilles([racine]):
+                if feuille["lien"] == lien:
+                    return racine["code"]
+        return "homologation"
+
+    echecs = []
+    for f in tax.feuilles():
+        client = comptes[_famille(f["lien"])]
+        code = client.get(f["lien"], follow_redirects=True).status_code
+        if code != 200:
+            echecs.append((f["lien"], code))
     verifier(f"les {len(tax.feuilles())} démarches terminales répondent",
              not echecs, str(echecs[:3]))
 
@@ -150,6 +172,14 @@ def test_toutes_les_pages_repondent():
              c.get("/demandes/agrements/distribution/vehicules/nouvelle")
              .status_code == 404)
 
+    # Et le filtrage par profil mord réellement : un laboratoire titulaire
+    # n'atteint pas les agréments, quand bien même il en connaîtrait l'URL.
+    labo = _client("demandeur@pharmacam.demo")
+    verifier("un laboratoire est refusé sur les agréments",
+             labo.get("/demandes/rubrique/agrements").status_code == 403)
+    verifier("il est refusé aussi sur l'essai clinique",
+             labo.get("/demandes/rubrique/essai_clinique").status_code == 403)
+
 
 def test_sous_onglets():
     print("\n[4] La barre latérale lit la même déclaration")
@@ -157,9 +187,18 @@ def test_sous_onglets():
     page = c.get("/demandes/").get_data(as_text=True)
     for libelle in ("Homologation", "Inspection", "Essai clinique", "Agréments"):
         verifier(f"« {libelle} » figure dans la navigation", libelle in page)
-    for libelle in ("AMM", "Dérogation", "Visa technique", "Phase I",
-                    "Distribution", "Fabrication"):
-        verifier(f"sous-onglet « {libelle} » présent", libelle in page)
+    # L'accordéon n'affiche qu'un niveau de sous-onglets : au-delà, la page de
+    # rubrique prend le relais. Une barre latérale qui déplierait quatre
+    # niveaux d'agréments deviendrait illisible.
+    detail = c.get("/demandes/rubrique/homologation").get_data(as_text=True)
+    for libelle in ("AMM", "Dérogation", "Visa technique"):
+        verifier(f"« {libelle} » figure sur la page Homologation",
+                 libelle in detail)
+    agrements = _client("fabricant@wouri.demo").get(
+        "/demandes/rubrique/agrements").get_data(as_text=True)
+    for libelle in ("Distribution", "Fabrication"):
+        verifier(f"« {libelle} » figure sur la page Agréments",
+                 libelle in agrements)
 
 
 def test_essai_clinique_documentaire():

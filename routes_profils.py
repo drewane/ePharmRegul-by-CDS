@@ -37,6 +37,10 @@ PROFILS_INSCRIPTION = {
         "Laboratoire", "laboratoire_controle", True,
         "Demander des analyses au laboratoire national de contrôle et suivre vos "
         "certificats."),
+    "fabricant": (
+        "Fabricant", "fabricant", True,
+        "Demander l'agrément de votre site de fabrication, suivre vos "
+        "inspections et vos lots."),
     "grossiste": (
         "Grossiste-répartiteur", "grossiste_repartiteur", True,
         "Demander et renouveler votre licence d'établissement, suivre les rappels "

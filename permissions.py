@@ -34,6 +34,7 @@ ROLES_EXTERNES = {
     "usager": "Usager (citoyen / professionnel de santé)",
     "demandeur_externe": "Industriel / Titulaire d'AMM",
     "laboratoire_prive": "Laboratoire (demandeur d'analyses)",
+    "fabricant": "Fabricant (site de production)",
     "grossiste": "Grossiste-répartiteur",
     "pharmacien": "Pharmacien d'officine",
     "promoteur_essai": "Promoteur d'essai clinique",
@@ -82,6 +83,7 @@ NIVEAU_PAR_ROLE = {
     "usager": 0,
     "demandeur_externe": 0,
     "laboratoire_prive": 0,
+    "fabricant": 0,
     "grossiste": 0,
     "pharmacien": 0,
     "promoteur_essai": 0,
@@ -178,7 +180,7 @@ PERMISSIONS_TRANSVERSES = {
     # Tout professionnel de santé et tout usager peut notifier un effet indésirable :
     # c'est un objectif de santé publique, pas un privilège administratif.
     "declarer_effet_indesirable": ["usager", "pharmacien", "grossiste", "laboratoire_prive",
-                                   "demandeur_externe", "promoteur_essai",
+                                   "fabricant", "demandeur_externe", "promoteur_essai",
                                    "agent_vigilance", "administrateur_dpml"],
     "planifier_inspection": ["administrateur_dpml"],
     "voir_toutes_inspections": ["administrateur_dpml", "inspecteur_igspl", "directeur_dpml"],
@@ -186,7 +188,8 @@ PERMISSIONS_TRANSVERSES = {
     "voir_toutes_licences": ["administrateur_dpml", "agent_licences", "directeur_dpml"],
     "instruire_licence": ["agent_licences"],
     # Une demande de licence est déposée par l'établissement concerné.
-    "demander_licence": ["demandeur_externe", "grossiste", "pharmacien", "laboratoire_prive",
+    "demander_licence": ["demandeur_externe", "fabricant", "grossiste",
+                         "pharmacien", "laboratoire_prive",
                          "administrateur_dpml"],
     "voir_tous_echantillons": ["administrateur_dpml", "agent_laboratoire",
                                "responsable_qualite_labo"],
@@ -197,7 +200,8 @@ PERMISSIONS_TRANSVERSES = {
                                "directeur_dpml"],
     # Signaler un produit suspect est ouvert largement (marché, officine, public).
     "signaler_produit": ["usager", "pharmacien", "grossiste", "laboratoire_prive",
-                         "demandeur_externe", "agent_surveillance_marche", "administrateur_dpml"],
+                         "fabricant", "demandeur_externe",
+                         "agent_surveillance_marche", "administrateur_dpml"],
     "voir_tous_protocoles": ["administrateur_dpml", "agent_dros", "directeur_dpml"],
     "deposer_essai_clinique": ["promoteur_essai", "administrateur_dpml"],
     "voir_toutes_liberations": ["administrateur_dpml", "agent_laboratoire",

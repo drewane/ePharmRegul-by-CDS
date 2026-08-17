@@ -43,6 +43,7 @@ DOMAINE_DEMO = ".demo"
 # personne, qui porte la licence et le cloisonnement des dossiers.
 ETABLISSEMENTS = {
     "pharmacam": ("PharmaCam Import SARL", "importateur_exportateur", "active"),
+    "fabricant": ("Usine Pharmaceutique du Wouri", "fabricant", "active"),
     "grossiste": ("Ateba Distribution SARL", "grossiste_repartiteur", "active"),
     "labo_prive": ("Laboratoire d'Analyses Bastos", "laboratoire_controle", "active"),
     "officine": ("Pharmacie du Centre — Yaoundé", "officine", "active"),
@@ -62,6 +63,8 @@ COMPTES = {
                           "pharmacam"),
     "laboratoire_prive": ("Laboratoire d'Analyses Bastos", "labo.prive@sireph.demo",
                           "labo_prive"),
+    "fabricant": ("Usine Pharmaceutique du Wouri", "fabricant@wouri.demo",
+                  "fabricant"),
     "grossiste": ("Grossiste Ateba Distribution", "ateba@grossiste-demo.cm",
                   "grossiste"),
     "pharmacien": ("Pharmacien du Centre", "pharmacien@officine.demo", "officine"),
@@ -132,6 +135,8 @@ A_EPROUVER = {
                          "demande d'inspection. Cloisonné à sa société.",
     "laboratoire_prive": "Demande d'analyse au laboratoire national, suivi des "
                          "certificats.",
+    "fabricant": "Agrément de fabrication, demandes d'inspection de site. "
+                 "L'homologation et l'essai clinique lui sont grisés.",
     "grossiste": "Licence d'établissement, rappels de lots, signalement.",
     "pharmacien": "Licence d'officine, alertes de retrait, signalement.",
     "promoteur_essai": "Dépôt de protocole d'essai clinique et suivi de "

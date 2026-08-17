@@ -24,8 +24,26 @@ PROFILS = ("demandeur_externe",)
 
 
 def _verifier_profil():
+    """Espace du titulaire d'AMM : portefeuille, suivi, dossiers."""
     u = current_user()
     if u is None or u.role_systeme not in PROFILS:
+        abort(403)
+    return u
+
+
+def _verifier_inspection():
+    """Demande d'inspection : ouverte à tout profil que la matrice y admet.
+
+    Un fabricant et un grossiste sollicitent l'inspection de leur site sans
+    détenir la moindre AMM. Les enfermer dans `demandeur_externe` faisait
+    offrir par le menu ce que la route refusait.
+    """
+    import matrice_acces
+
+    u = current_user()
+    if u is None:
+        abort(403)
+    if not matrice_acces.acte_concerne(u, "inspection"):
         abort(403)
     return u
 
@@ -143,7 +161,7 @@ def nouvelle_demande():
 @bp.route("/inspections", methods=["GET", "POST"])
 @login_required
 def inspections():
-    u = _verifier_profil()
+    u = _verifier_inspection()
     if request.method == "POST":
         try:
             d = wfdi.deposer(
@@ -167,7 +185,7 @@ def inspections():
 @bp.route("/inspections/<int:demande_id>")
 @login_required
 def detail_inspection(demande_id):
-    u = _verifier_profil()
+    u = _verifier_inspection()
     d = db.session.get(DemandeInspection, demande_id)
     if not d or d.demandeur_id not in esp.personnes_de_la_societe(u):
         abort(404)

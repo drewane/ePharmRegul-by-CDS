@@ -47,6 +47,13 @@ from pieces import enregistrer_piece, lister_pieces
 from paiements import (deposer_preuve, confirmer as confirmer_paiement, rejeter as rejeter_paiement,
                         lister_paiements)
 
+# Nom commercial affiché. Distinct de l'en-tête officiel MINSANTE/DPML qui
+# figure sur les actes : celui-ci identifie l'autorité, celui-là le logiciel.
+NOM_APPLICATION = "ePharmRegul"
+EDITEUR_APPLICATION = "by CDS"
+SOUS_TITRE_APPLICATION = ("Gestion des demandes d'AMM et actes réglementaires "
+                          "— DPML")
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CERT_DIR = os.path.join(BASE_DIR, "static", "certificats")
 PAGE_SIZE = 50
@@ -209,16 +216,6 @@ def inject_globals():
         from models import EtapeValidation
         signatures_attendues = EtapeValidation.query.filter_by(
             role_requis=u.role_systeme, statut="en_attente").count()
-    # Sous-onglets de « Demande » : la barre latérale lit la même déclaration
-    # que les pages, pour qu'un menu et son contenu ne puissent pas diverger.
-    arborescence_demandes = None
-    if u is not None and u.role_systeme == "demandeur_externe":
-        import taxonomie_demandes as tax
-        arborescence_demandes = []
-        for famille in tax.enfants_avec_liens([]):
-            famille = dict(famille)
-            famille["enfants_liens"] = tax.enfants_avec_liens([famille["code"]])
-            arborescence_demandes.append(famille)
     # Recettes en attente d'approbation — visible du seul responsable financier.
     # `None` signifie « cet écran ne vous concerne pas », 0 « rien à traiter ».
     recettes_a_approuver = None
@@ -237,10 +234,23 @@ def inject_globals():
             evaluations_a_rendre = AssignationEvaluation.query.filter(
                 AssignationEvaluation.evaluateur_id == u.id,
                 AssignationEvaluation.statut != "terminee").count()
+    # Menu latéral : résolu par la matrice d'accès, jamais par le gabarit.
+    menu = []
+    if u is not None:
+        import matrice_acces
+        menu = matrice_acces.entrees(u, {
+            "paiements_dus": paiements_dus,
+            "demandeur_a_amm": demandeur_a_amm,
+            "demandeur_a_ct": demandeur_a_ct,
+            "demandeur_a_licences": demandeur_a_licences,
+            "demandeur_a_derogations": demandeur_a_derogations,
+            "demandeur_a_visas": demandeur_a_visas,
+        }, request.path)
+
     return dict(current_user=u, ROLES=ROLES, paiements_dus=paiements_dus,
+                menu=menu, APPLICATION=NOM_APPLICATION,
                 peut_reliance=peut_reliance, alertes_reliance=alertes_reliance,
                 signatures_attendues=signatures_attendues,
-                arborescence_demandes=arborescence_demandes,
                 recettes_a_approuver=recettes_a_approuver,
                 dossiers_a_examiner=dossiers_a_examiner,
                 evaluations_a_rendre=evaluations_a_rendre,
