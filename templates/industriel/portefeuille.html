@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Portefeuille — SIREPH{% endblock %}
+{% block title %}Mon portefeuille — ePharmRegul{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
   <div>
-    <h1 class="h4 mb-1">Portefeuille réglementaire</h1>
+    <h1 class="h4 mb-1">Mon portefeuille</h1>
     <p class="text-muted mb-0">
       {{ dossiers|length }} dossier(s) — société
       {{ u.etablissement.raison_sociale if u.etablissement else u.nom_complet }}
@@ -18,6 +18,12 @@
   <div class="card-body py-2">
     <form method="get" class="row g-2 align-items-end">
       <div class="col-md-4">
+        <label class="form-label small mb-1" for="q">Rechercher</label>
+        <input class="form-control form-control-sm" id="q" name="q"
+               value="{{ recherche }}" autocapitalize="none" spellcheck="false"
+               placeholder="Référence, numéro de suivi, produit, DCI…">
+      </div>
+      <div class="col-md-2">
         <label class="form-label small mb-1" for="statut">Statut</label>
         <select class="form-select form-select-sm" id="statut" name="statut">
           <option value="">Tous</option>
@@ -26,8 +32,8 @@
           {% endfor %}
         </select>
       </div>
-      <div class="col-md-4">
-        <label class="form-label small mb-1" for="type">Type de procédure</label>
+      <div class="col-md-2">
+        <label class="form-label small mb-1" for="type">Type</label>
         <select class="form-select form-select-sm" id="type" name="type">
           <option value="">Tous</option>
           {% for code, libelle in TYPES.items() %}
@@ -36,11 +42,26 @@
         </select>
       </div>
       <div class="col-md-2">
-        <button class="btn btn-sm btn-outline-primary w-100">Filtrer</button>
+        <label class="form-label small mb-1" for="tri">Trier par</label>
+        <select class="form-select form-select-sm" id="tri" name="tri">
+          {% for code, valeur in TRIS.items() %}
+          <option value="{{ code }}" {{ 'selected' if tri == code }}>{{ valeur[0] }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div class="col-md-2">
-        <a class="btn btn-sm btn-link w-100"
+      <div class="col-md-2 d-flex gap-1">
+        <button class="btn btn-sm btn-outline-primary flex-grow-1">Filtrer</button>
+        <a class="btn btn-sm btn-link px-1"
            href="{{ url_for('industriel.portefeuille') }}">Réinitialiser</a>
+      </div>
+      <div class="col-12">
+        <div class="form-check form-check-inline small">
+          <input class="form-check-input" type="checkbox" id="brouillons"
+                 name="brouillons" value="1" {{ 'checked' if avec_brouillons }}
+                 onchange="this.form.submit()">
+          <label class="form-check-label" for="brouillons">
+            Inclure les brouillons non soumis</label>
+        </div>
       </div>
     </form>
   </div>
@@ -52,32 +73,57 @@
     <table class="table table-sm mb-0 align-middle">
       <thead><tr>
         <th>Référence</th><th>Produit</th><th>Type</th><th>Statut</th>
-        <th>Déposé le</th><th>Validité</th><th></th>
+        <th>Prochaine action attendue</th><th>Mise à jour</th><th></th>
       </tr></thead>
       <tbody>
       {% for d in dossiers %}
+      {% set acteur, action = prochaine_action(d) %}
         <tr>
-          <td><code>{{ d.numero or '—' }}</code></td>
-          <td class="small">{{ d.produit.libelle if d.produit else '—' }}</td>
+          <td>
+            <code>{{ d.numero_suivi or d.numero or '—' }}</code>
+            {% if d.numero_suivi and d.numero %}
+            <div class="small text-muted">réf. {{ d.numero }}</div>
+            {% endif %}
+          </td>
+          <td class="small">
+            {{ d.produit.libelle if d.produit else '—' }}
+            {% if d.produit and d.produit.denomination_commune_internationale %}
+            <div class="text-muted">
+              {{ d.produit.denomination_commune_internationale }}</div>
+            {% endif %}
+          </td>
           <td class="small">{{ TYPES.get(d.type_procedure, d.type_procedure) }}</td>
           <td>
             {% if d.statut == 'approuve' %}
-              <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
+            <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
             {% elif d.statut in ('rejete', 'irrecevable') %}
-              <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
+            <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
             {% elif d.statut == 'complement_requis' %}
-              <span class="badge bg-warning text-dark">{{ STATUTS[d.statut] }}</span>
+            <span class="badge bg-warning text-dark">{{ STATUTS[d.statut] }}</span>
             {% elif d.statut == 'cloture_delai_depasse' %}
-              <span class="badge bg-dark">{{ STATUTS[d.statut] }}</span>
+            <span class="badge bg-dark">{{ STATUTS[d.statut] }}</span>
+            {% elif d.statut == 'brouillon' %}
+            <span class="badge bg-light text-dark border">{{ STATUTS[d.statut] }}</span>
             {% else %}
-              <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
+            <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
             {% endif %}
           </td>
-          <td class="small text-muted">
-            {{ d.date_depot.strftime('%d/%m/%Y') if d.date_depot else '—' }}</td>
           <td class="small">
-            {{ d.date_validite_amm.strftime('%d/%m/%Y') if d.date_validite_amm else '—' }}</td>
-          <td class="text-end">
+            {% if acteur == 'vous' %}
+            <span class="text-warning-emphasis fw-semibold">
+              <i class="bi bi-hand-index me-1"></i>{{ action }}</span>
+            {% elif acteur %}
+            <span class="text-muted">{{ action }}</span>
+            {% else %}
+            <span class="text-secondary">{{ action }}</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted text-nowrap">
+            {{ d.date_maj.strftime('%d/%m/%Y') if d.date_maj else '—' }}</td>
+          <td class="text-end text-nowrap">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('industriel.suivi_dossier', dossier_id=d.id) }}">
+              Suivre</a>
             <a class="btn btn-sm btn-outline-secondary" href="/dossiers/{{ d.id }}">
               Ouvrir</a>
           </td>
@@ -87,7 +133,19 @@
     </table>
   </div>
   {% else %}
-  <div class="card-body text-muted">Aucun dossier ne correspond à ces critères.</div>
+  <div class="card-body text-muted">
+    {% if recherche or statut or type_proc %}
+    Aucun dossier ne correspond à ces critères.
+    <a href="{{ url_for('industriel.portefeuille') }}">Réinitialiser</a>.
+    {% else %}
+    Votre portefeuille est vide.
+    <a href="{{ url_for('demandes.accueil') }}">Déposer une demande</a>.
+    {% endif %}
+  </div>
   {% endif %}
+  <div class="card-footer small text-muted py-2">
+    Les brouillons non soumis sont exclus par défaut : ce sont des saisies en
+    cours, pas des pièces du portefeuille réglementaire.
+  </div>
 </div>
 {% endblock %}

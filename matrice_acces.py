@@ -156,9 +156,12 @@ NAVIGATION = [
      "icone": "bi-speedometer2", "endpoint": "dashboard",
      "roles": ("*",), "profils": ("*",)},
 
+    # Ouvert à tout opérateur qui détient un objet réglementaire : dossiers
+    # d'AMM pour le titulaire, agréments pour le fabricant et le grossiste.
     {"code": "portefeuille", "libelle": "Mon portefeuille",
      "icone": "bi-briefcase", "endpoint": "industriel.portefeuille",
-     "roles": (), "profils": ("demandeur_externe",)},
+     "roles": (), "profils": ("demandeur_externe", "fabricant", "grossiste",
+                              "pharmacien", "laboratoire_prive")},
 
     {"code": "suivi", "libelle": "Suivi de mes dossiers",
      "icone": "bi-signpost-split", "endpoint": "industriel.suivi_liste",

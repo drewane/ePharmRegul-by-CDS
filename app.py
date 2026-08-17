@@ -365,11 +365,12 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
-    # L'industriel dispose d'un tableau de bord cloisonne a sa societe : il ne
-    # doit voir ni les dossiers des autres titulaires, ni les indicateurs
-    # globaux de la DPML.
+    # Chaque opérateur externe dispose d'un tableau de bord cloisonné à sa
+    # société ET composé selon son profil : il ne doit voir ni les dossiers
+    # des autres, ni les indicateurs globaux de la DPML, ni des rubriques qui
+    # ne le concernent pas.
     _u = current_user()
-    if _u is not None and _u.role_systeme == "demandeur_externe":
+    if _u is not None and _u.est_externe:
         return redirect(url_for("industriel.tableau_bord"))
     executer_verifications_delais()
     executer_verifications_delais_vl()

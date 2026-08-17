@@ -1,43 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Mon portefeuille — SIREPH{% endblock %}
+{% block title %}{{ fiche.titre }} — ePharmRegul{% endblock %}
 
 {% block content %}
+{# Le gabarit ne connaît aucun profil : il déroule la composition déclarée
+   dans tableau_de_bord.COMPOSITION. Ajouter un profil ne le touche pas. #}
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
   <div>
     <h1 class="h4 mb-1">{{ societe }}</h1>
-    <p class="text-muted mb-0">
-      Portefeuille réglementaire de votre société — {{ s.total }} dossier(s)
-    </p>
+    <p class="text-muted mb-0">{{ fiche.titre }}</p>
   </div>
-  <div class="d-flex gap-2">
-    <a class="btn btn-outline-primary" href="{{ url_for('industriel.suivi_liste') }}">
-      <i class="bi bi-signpost-split me-1"></i> Où en sont mes dossiers&nbsp;?</a>
-    <a class="btn btn-primary" href="{{ url_for('demandes.accueil') }}">
-      <i class="bi bi-plus-circle me-1"></i> Demande</a>
+  <div class="d-flex gap-2 flex-wrap">
+    {% for libelle, endpoint, icone in fiche.raccourcis %}
+    <a class="btn btn-{{ 'primary' if loop.first else 'outline-secondary' }}"
+       href="{{ url_for(endpoint) }}">
+      <i class="bi {{ icone }} me-1"></i> {{ libelle }}</a>
+    {% endfor %}
   </div>
 </div>
 
-{% if s.expirees %}
+{% if valeurs.expirees %}
 <div class="alert alert-danger">
-  <strong>{{ s.expirees }} AMM expirée(s).</strong>
+  <strong>{{ valeurs.expirees }} AMM expirée(s).</strong>
   Un produit dont l'AMM a expiré ne peut plus être commercialisé.
   <a href="{{ url_for('industriel.portefeuille', statut='approuve') }}">Voir</a>
 </div>
 {% endif %}
 
+{% if fiche.indicateurs %}
 <div class="row g-3 mb-3">
-  {% set tuiles = [
-    ('Dossiers en cours', s.en_cours, 'bi-hourglass-split', 'primary', ''),
-    ('AMM en vigueur', s.approuves, 'bi-patch-check', 'success', 'approuve'),
-    ('Compléments demandés', s.complement_requis, 'bi-exclamation-circle', 'warning', 'complement_requis'),
-    ('Rejetés', s.rejetes, 'bi-x-circle', 'danger', 'rejete'),
-    ('À renouveler', s.a_renouveler, 'bi-arrow-repeat', 'info', ''),
-    ('Brouillons', s.brouillons, 'bi-pencil', 'secondary', 'brouillon'),
-  ] %}
-  {% for libelle, valeur, icone, couleur, filtre in tuiles %}
+  {% for cle, libelle, icone, couleur, filtre in fiche.indicateurs %}
   <div class="col-6 col-lg-2">
+    {% set valeur = valeurs.get(cle, 0) %}
+    {% if filtre %}
     <a class="text-decoration-none"
        href="{{ url_for('industriel.portefeuille', statut=filtre) }}">
+    {% endif %}
       <div class="card h-100">
         <div class="card-body text-center py-3">
           <i class="bi {{ icone }} fs-4 text-{{ couleur }}"></i>
@@ -45,112 +42,223 @@
           <div class="small text-muted">{{ libelle }}</div>
         </div>
       </div>
-    </a>
+    {% if filtre %}</a>{% endif %}
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
 <div class="row g-3">
-  <div class="col-lg-7">
+  {% if 'a_faire' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100 {{ 'border-warning' if a_faire }}">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">
+          <i class="bi bi-hand-index me-1"></i>
+          Ce qui attend une action de votre part</span>
+        {% if a_faire %}
+        <span class="badge bg-warning text-dark">{{ a_faire|length }}</span>
+        {% endif %}
+      </div>
+      {% if a_faire %}
+      <ul class="list-group list-group-flush">
+        {% for d in a_faire %}
+        {% set acteur, action = prochaine_action(d) %}
+        <li class="list-group-item py-2 small">
+          <div class="d-flex justify-content-between gap-2">
+            <a href="/dossiers/{{ d.id }}" class="fw-semibold">
+              {{ d.numero_suivi or d.numero }}</a>
+            <span class="text-muted text-nowrap">
+              {{ d.date_maj.strftime('%d/%m/%Y') if d.date_maj else '—' }}</span>
+          </div>
+          <div class="text-muted">
+            {{ d.produit.libelle if d.produit else '—' }}</div>
+          <div class="text-warning-emphasis">
+            <i class="bi bi-arrow-right-short"></i>{{ action }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">
+        <i class="bi bi-check2-circle text-success me-1"></i>
+        Rien ne vous est demandé pour l'instant. Les dossiers en cours sont
+        entre les mains de l'administration.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if 'recents' in fiche.sections %}
+  <div class="col-lg-6">
     <div class="card h-100">
-      <div class="card-header d-flex justify-content-between">
-        <span>Dossiers récents</span>
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Dossiers récents</span>
         <a class="small" href="{{ url_for('industriel.portefeuille') }}">Tout voir</a>
       </div>
       {% if recents %}
       <div class="table-responsive">
         <table class="table table-sm mb-0 align-middle">
-          <thead><tr>
-            <th>Référence</th><th>Produit</th><th>Type</th><th>Statut</th><th>MAJ</th>
-          </tr></thead>
           <tbody>
           {% for d in recents %}
-            <tr>
-              <td><a href="/dossiers/{{ d.id }}"><code>{{ d.numero or '—' }}</code></a></td>
-              <td class="small">{{ d.produit.libelle if d.produit else '—' }}</td>
-              <td class="small">{{ TYPES.get(d.type_procedure, d.type_procedure) }}</td>
-              <td>
-                {% if d.statut == 'approuve' %}
-                  <span class="badge bg-success">{{ STATUTS[d.statut] }}</span>
-                {% elif d.statut in ('rejete', 'irrecevable') %}
-                  <span class="badge bg-danger">{{ STATUTS[d.statut] }}</span>
-                {% elif d.statut == 'complement_requis' %}
-                  <span class="badge bg-warning text-dark">{{ STATUTS[d.statut] }}</span>
-                {% else %}
-                  <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
-                {% endif %}
-              </td>
-              <td class="small text-muted">{{ d.date_maj.strftime('%d/%m/%Y') }}</td>
-            </tr>
+          <tr>
+            <td class="small">
+              <a href="/dossiers/{{ d.id }}">{{ d.numero_suivi or d.numero }}</a>
+              <div class="text-muted">
+                {{ d.produit.libelle if d.produit else '—' }}</div>
+            </td>
+            <td class="small">
+              <span class="badge bg-secondary">
+                {{ STATUTS.get(d.statut, d.statut) }}</span></td>
+            <td class="small text-muted text-nowrap">
+              {{ d.date_maj.strftime('%d/%m/%Y') if d.date_maj else '—' }}</td>
+          </tr>
           {% endfor %}
           </tbody>
         </table>
       </div>
       {% else %}
-      <div class="card-body text-muted">
-        Aucun dossier à ce jour.
-        <a href="{{ url_for('demandes.accueil') }}">Déposer une demande</a>
+      <div class="card-body text-muted small">
+        Aucun mouvement depuis {{ fenetre }} jours.
+        <a href="{{ url_for('demandes.accueil') }}">Déposer une demande</a>.
       </div>
       {% endif %}
+      <div class="card-footer small text-muted py-2">
+        Activité des {{ fenetre }} derniers jours.
+      </div>
     </div>
   </div>
+  {% endif %}
 
-  <div class="col-lg-5">
-    <div class="card mb-3">
-      <div class="card-header">
-        <i class="bi bi-arrow-repeat me-1"></i> Renouvellements à prévoir
-      </div>
+  {% if 'echeances' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold">Échéances de renouvellement</div>
       {% if a_renouveler %}
-      <div class="list-group list-group-flush">
+      <ul class="list-group list-group-flush">
         {% for d, jours in a_renouveler %}
-        <div class="list-group-item py-2">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <code class="small">{{ d.numero }}</code><br>
-              <span class="small">{{ d.produit.libelle if d.produit else '—' }}</span>
-            </div>
-            <div class="text-end">
-              {% if jours < 0 %}
-                <span class="badge bg-danger">expirée</span>
-                <div class="small text-danger">depuis {{ -jours }} j</div>
-              {% elif jours < 60 %}
-                <span class="badge bg-warning text-dark">{{ jours }} j</span>
-              {% else %}
-                <span class="badge bg-secondary">{{ jours }} j</span>
-              {% endif %}
-            </div>
-          </div>
-        </div>
+        <li class="list-group-item py-2 small d-flex justify-content-between">
+          <span>
+            <a href="/dossiers/{{ d.id }}">{{ d.numero }}</a>
+            <span class="text-muted">
+              — {{ d.produit.libelle if d.produit else '—' }}</span>
+          </span>
+          <span class="{{ 'text-danger fw-semibold' if jours < 0 else 'text-warning' }}">
+            {% if jours < 0 %}expirée depuis {{ -jours }} j
+            {% else %}dans {{ jours }} j{% endif %}
+          </span>
+        </li>
         {% endfor %}
-      </div>
+      </ul>
       {% else %}
       <div class="card-body text-muted small">
-        Aucune AMM n'arrive à échéance dans les 6 mois.
+        Aucune échéance dans les six prochains mois.
       </div>
-      {% endif %}
-    </div>
-
-    <div class="card">
-      <div class="card-header d-flex justify-content-between">
-        <span><i class="bi bi-clipboard-check me-1"></i> Demandes d'inspection</span>
-        <a class="small" href="{{ url_for('industriel.inspections') }}">Gérer</a>
-      </div>
-      {% if demandes_inspection %}
-      <div class="list-group list-group-flush">
-        {% for d in demandes_inspection %}
-        <a class="list-group-item list-group-item-action py-2"
-           href="{{ url_for('industriel.detail_inspection', demande_id=d.id) }}">
-          <div class="d-flex justify-content-between">
-            <span class="small"><code>{{ d.numero }}</code> {{ d.site_nom[:28] }}</span>
-            <span class="badge bg-secondary">{{ d.statut }}</span>
-          </div>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="card-body text-muted small">Aucune demande d'inspection.</div>
       {% endif %}
     </div>
   </div>
+  {% endif %}
+
+  {% if 'agrements' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 fw-semibold">Vos demandes d'agrément</div>
+      {% if agrements %}
+      <ul class="list-group list-group-flush">
+        {% for a in agrements %}
+        <li class="list-group-item py-2 small d-flex justify-content-between">
+          <a href="{{ url_for('li.fiche', id=a.id) }}">{{ a.numero }}</a>
+          <span class="badge bg-secondary">{{ a.statut }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">
+        Aucune demande d'agrément déposée.
+        <a href="{{ url_for('demandes.accueil') }}">En déposer une</a>.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if 'inspections' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Inspections de vos sites</span>
+        <a class="small" href="{{ url_for('industriel.inspections') }}">Gérer</a>
+      </div>
+      {% if inspections %}
+      <ul class="list-group list-group-flush">
+        {% for d in inspections %}
+        <li class="list-group-item py-2 small d-flex justify-content-between">
+          <a href="{{ url_for('industriel.detail_inspection', demande_id=d.id) }}">
+            {{ d.numero }}</a>
+          <span class="text-muted">{{ d.site_nom }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">
+        Aucune inspection sollicitée.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if 'protocoles' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">Vos protocoles</span>
+        <a class="small" href="{{ url_for('ct.registre') }}">Tout voir</a>
+      </div>
+      {% if protocoles %}
+      <ul class="list-group list-group-flush">
+        {% for p in protocoles %}
+        <li class="list-group-item py-2 small d-flex justify-content-between">
+          <a href="{{ url_for('ct.fiche', id=p.id) }}">{{ p.numero }}</a>
+          <span class="badge bg-secondary">{{ p.statut }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">Aucun protocole déposé.</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if 'rappels' in fiche.sections %}
+  <div class="col-lg-6">
+    <div class="card h-100 {{ 'border-danger' if rappels }}">
+      <div class="card-header py-2 fw-semibold">
+        <i class="bi bi-megaphone me-1"></i> Rappels de lots en cours</div>
+      {% if rappels %}
+      <ul class="list-group list-group-flush">
+        {% for r in rappels %}
+        <li class="list-group-item py-2 small">
+          <strong>{{ r.numero }}</strong>
+          {% if r.niveau_risque %}
+          <span class="badge bg-danger ms-1">Niveau {{ r.niveau_risque }}</span>
+          {% endif %}
+          <div class="text-muted">{{ r.description or '—' }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body text-muted small">
+        Aucun rappel de lot en cours.
+      </div>
+      {% endif %}
+      <div class="card-footer small text-muted py-2">
+        Un rappel vous concerne dès lors que vous détenez le lot, même si vous
+        n'en êtes pas à l'origine.
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

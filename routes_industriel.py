@@ -15,7 +15,7 @@ import workflow_demande_inspection as wfdi
 import workflow_ma as wf
 from auth import current_user, login_required
 from erreurs import ErreurWorkflow
-from models import DemandeInspection, DossierAMM, Paiement, db
+from models import DemandeInspection, DossierAMM, Paiement, Produit, db
 
 bp = Blueprint("industriel", __name__, url_prefix="/industriel")
 
@@ -63,33 +63,147 @@ def _dossier_de_ma_societe(dossier_id):
 @bp.route("/")
 @login_required
 def tableau_bord():
-    u = _verifier_profil()
-    return render_template(
-        "industriel/tableau_bord.html", u=u,
-        societe=u.etablissement.raison_sociale if u.etablissement else u.nom_complet,
-        s=esp.synthese(u), recents=esp.dossiers_recents(u),
-        a_renouveler=esp.amm_a_renouveler(u),
-        demandes_inspection=esp.demandes_inspection(u)[:5],
-        STATUTS=wf.STATUTS, TYPES=wf.TYPES_PROCEDURE)
+    """Tableau de bord composé selon le profil de l'opérateur.
+
+    Ouvert à tous les profils externes, et non au seul titulaire d'AMM : un
+    fabricant ou un grossiste n'avait jusqu'ici aucune page d'accueil qui lui
+    parle. La composition vient de tableau_de_bord.COMPOSITION ; cette route
+    ne fait que l'alimenter.
+    """
+    import tableau_de_bord as tdb
+
+    u = current_user()
+    if u is None or not u.est_externe:
+        abort(403)
+    fiche = tdb.composition(u)
+    if fiche is None:
+        abort(403)
+
+    contexte = {
+        "u": u, "fiche": fiche,
+        "societe": (u.etablissement.raison_sociale if u.etablissement
+                    else u.nom_complet),
+        "valeurs": tdb.indicateurs(u),
+        "a_faire": tdb.a_faire(u),
+        "prochaine_action": tdb.prochaine_action,
+        "fenetre": tdb.FENETRE_RECENTS_JOURS,
+        "STATUTS": wf.STATUTS, "TYPES": wf.TYPES_PROCEDURE,
+    }
+    # Chaque section n'est alimentée que si le profil la réclame.
+    if "recents" in fiche["sections"]:
+        contexte["recents"] = tdb.dossiers_recents(u)
+    if "echeances" in fiche["sections"]:
+        contexte["a_renouveler"] = esp.amm_a_renouveler(u)
+    if "agrements" in fiche["sections"]:
+        from models import DemandeLicence
+        etab = u.etablissement_rattachement_id
+        contexte["agrements"] = (
+            DemandeLicence.query.filter_by(etablissement_id=etab)
+            .order_by(DemandeLicence.id.desc()).limit(5).all() if etab else [])
+    if "inspections" in fiche["sections"]:
+        contexte["inspections"] = esp.demandes_inspection(u)[:5]
+    if "protocoles" in fiche["sections"]:
+        from models import ProtocoleEssaiClinique
+        contexte["protocoles"] = (
+            ProtocoleEssaiClinique.query
+            .filter(ProtocoleEssaiClinique.promoteur_id.in_(
+                esp.personnes_de_la_societe(u)))
+            .order_by(ProtocoleEssaiClinique.id.desc()).limit(5).all())
+    if "rappels" in fiche["sections"]:
+        from models import SignalementQualite
+        contexte["rappels"] = (
+            SignalementQualite.query
+            .filter(SignalementQualite.statut == "rappel_engage")
+            .order_by(SignalementQualite.id.desc()).limit(5).all())
+    return render_template("industriel/tableau_bord.html", **contexte)
+
+
+# Tris proposés : (clé, libellé, expression). Déclarés ici pour que l'écran
+# n'invente pas de colonne triable qui n'existe pas côté requête.
+TRIS = {
+    "recent": ("Mouvement le plus récent", DossierAMM.date_maj.desc()),
+    "ancien": ("Mouvement le plus ancien", DossierAMM.date_maj.asc()),
+    "reference": ("Référence", DossierAMM.numero.asc()),
+    "statut": ("Statut", DossierAMM.statut.asc()),
+}
 
 
 @bp.route("/portefeuille")
 @login_required
 def portefeuille():
-    """Tous les dossiers de la société, filtrables."""
-    u = _verifier_profil()
+    """Tous les dossiers valides de la société, avec leur statut courant.
+
+    « Valide » exclut les brouillons : un dossier jamais soumis n'est pas une
+    pièce du portefeuille réglementaire, c'est une saisie en cours. Une case
+    permet de les réintégrer, parce que leur auteur, lui, veut les retrouver.
+    """
+    import matrice_acces
+    import tableau_de_bord as tdb
+
+    u = current_user()
+    if u is None or not u.est_externe:
+        abort(403)
+
+    # Le portefeuille d'un fabricant ou d'un grossiste n'est pas fait de
+    # dossiers d'AMM mais d'agréments : leur servir une liste d'AMM
+    # invariablement vide serait pire que ne rien leur montrer.
+    if not matrice_acces.acte_concerne(u, "homologation"):
+        return _portefeuille_agrements(u)
+
     statut = request.args.get("statut", "").strip()
     type_proc = request.args.get("type", "").strip()
+    recherche = request.args.get("q", "").strip()
+    tri = request.args.get("tri", "recent")
+    if tri not in TRIS:
+        tri = "recent"
+    avec_brouillons = request.args.get("brouillons") == "1"
+
     q = esp.dossiers_de_la_societe(u)
     if statut:
         q = q.filter(DossierAMM.statut == statut)
+    elif not avec_brouillons:
+        q = q.filter(DossierAMM.statut != "brouillon")
     if type_proc:
         q = q.filter(DossierAMM.type_procedure == type_proc)
+    if recherche:
+        motif = f"%{recherche}%"
+        q = (q.outerjoin(Produit, DossierAMM.produit_id == Produit.id)
+             .filter(db.or_(DossierAMM.numero.ilike(motif),
+                            DossierAMM.numero_suivi.ilike(motif),
+                            Produit.nom_commercial.ilike(motif),
+                            Produit.denomination_commune_internationale
+                            .ilike(motif))))
+
+    dossiers = q.order_by(TRIS[tri][1]).all()
     return render_template(
-        "industriel/portefeuille.html", u=u,
-        dossiers=q.order_by(DossierAMM.date_maj.desc()).all(),
-        statut=statut, type_proc=type_proc,
+        "industriel/portefeuille.html", u=u, dossiers=dossiers,
+        statut=statut, type_proc=type_proc, recherche=recherche, tri=tri,
+        avec_brouillons=avec_brouillons, TRIS=TRIS,
+        prochaine_action=tdb.prochaine_action,
         STATUTS=wf.STATUTS, TYPES=wf.TYPES_PROCEDURE)
+
+
+def _portefeuille_agrements(u):
+    """Portefeuille des profils dont l'objet réglementaire est l'agrément."""
+    from models import DemandeLicence
+    import workflow_agrement as wfa
+    import workflow_li as wfli
+
+    etab = u.etablissement_rattachement_id
+    recherche = request.args.get("q", "").strip()
+    statut = request.args.get("statut", "").strip()
+
+    q = DemandeLicence.query.filter(DemandeLicence.etablissement_id == etab)         if etab else DemandeLicence.query.filter(db.text("0"))
+    if statut:
+        q = q.filter(DemandeLicence.statut == statut)
+    if recherche:
+        q = q.filter(DemandeLicence.numero.ilike(f"%{recherche}%"))
+    demandes = q.order_by(DemandeLicence.id.desc()).all()
+
+    return render_template(
+        "industriel/portefeuille_agrements.html", u=u, demandes=demandes,
+        etablissement=u.etablissement, statut=statut, recherche=recherche,
+        intitule=wfa.intitule, STATUTS=wfli.STATUTS_DEMANDE)
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Mon portefeuille — ePharmRegul{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">Mon portefeuille</h1>
+    <p class="text-muted mb-0">
+      {{ demandes|length }} demande(s) d'agrément —
+      {{ etablissement.raison_sociale if etablissement else u.nom_complet }}
+    </p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('demandes.accueil') }}">
+    <i class="bi bi-plus-circle me-1"></i> Demande</a>
+</div>
+
+{% if etablissement %}
+<div class="card mb-3">
+  <div class="card-body py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="small">
+      <span class="text-muted">Agrément de l'établissement :</span>
+      {% if etablissement.statut_licence == 'active' %}
+      <span class="badge bg-success">En vigueur</span>
+      {% elif etablissement.statut_licence == 'suspendue' %}
+      <span class="badge bg-danger">Suspendu</span>
+      {% elif etablissement.statut_licence == 'expiree' %}
+      <span class="badge bg-dark">Expiré</span>
+      {% else %}
+      <span class="badge bg-secondary">En instruction</span>
+      {% endif %}
+      {% if etablissement.date_expiration_licence %}
+      <span class="text-muted ms-2">
+        échéance {{ etablissement.date_expiration_licence.strftime('%d/%m/%Y') }}</span>
+      {% endif %}
+    </div>
+    <div class="small text-muted">{{ etablissement.adresse or '' }}</div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-warning">
+  Votre compte n'est rattaché à aucun établissement : un agrément se demande au
+  nom d'un établissement, jamais d'une personne.
+</div>
+{% endif %}
+
+<div class="card mb-3">
+  <div class="card-body py-2">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-md-5">
+        <label class="form-label small mb-1" for="q">Rechercher</label>
+        <input class="form-control form-control-sm" id="q" name="q"
+               value="{{ recherche }}" autocapitalize="none" spellcheck="false"
+               placeholder="Numéro de demande…">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small mb-1" for="statut">Statut</label>
+        <select class="form-select form-select-sm" id="statut" name="statut">
+          <option value="">Tous</option>
+          {% for code, libelle in STATUTS.items() %}
+          <option value="{{ code }}" {{ 'selected' if statut == code }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-1">
+        <button class="btn btn-sm btn-outline-primary flex-grow-1">Filtrer</button>
+        <a class="btn btn-sm btn-link px-1"
+           href="{{ url_for('industriel.portefeuille') }}">Réinitialiser</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  {% if demandes %}
+  <div class="table-responsive">
+    <table class="table table-sm mb-0 align-middle">
+      <thead><tr>
+        <th>Référence</th><th>Objet</th><th>Statut</th><th>Déposée le</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for d in demandes %}
+        <tr>
+          <td><code>{{ d.numero }}</code></td>
+          <td class="small">{{ intitule(d) }}</td>
+          <td>
+            {% if d.statut == 'approuvee' %}
+            <span class="badge bg-success">{{ STATUTS.get(d.statut, d.statut) }}</span>
+            {% elif d.statut == 'refusee' %}
+            <span class="badge bg-danger">{{ STATUTS.get(d.statut, d.statut) }}</span>
+            {% else %}
+            <span class="badge bg-secondary">{{ STATUTS.get(d.statut, d.statut) }}</span>
+            {% endif %}
+          </td>
+          <td class="small text-muted text-nowrap">
+            {{ d.date_creation.strftime('%d/%m/%Y') if d.date_creation else '—' }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('li.fiche', id=d.id) }}">Ouvrir</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-muted">
+    {% if recherche or statut %}
+    Aucune demande ne correspond à ces critères.
+    <a href="{{ url_for('industriel.portefeuille') }}">Réinitialiser</a>.
+    {% else %}
+    Aucune demande d'agrément déposée.
+    <a href="{{ url_for('demandes.accueil') }}">En déposer une</a>.
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
