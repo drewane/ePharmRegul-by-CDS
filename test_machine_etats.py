@@ -117,7 +117,7 @@ with application.app.app_context():
         ("envoyer_commission", chef, "en_commission"),
         ("retour_service", chef, "retour_homologation"),
         ("valider", directeur, "valide"),
-        ("editer_actes", chef, "amm_a_signer"),
+        ("transmettre_signature", chef, "amm_a_signer"),
         ("enregistrer_signature", chef, "amm_signee"),
     ]
     for action, acteur, attendu in nominal:

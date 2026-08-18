@@ -18,6 +18,62 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
 
+# ---------------------------------------------------------------------------
+# En-tête officiel bilingue
+# ---------------------------------------------------------------------------
+# Les actes de l'administration camerounaise portent les deux langues
+# officielles côte à côte, le français à gauche et l'anglais à droite, chacune
+# descendant de la République au service émetteur. Ce n'est pas une préférence
+# de mise en page : un acte qui ne porte qu'une langue n'a pas la forme d'un
+# acte.
+ENTETE_FR = ("RÉPUBLIQUE DU CAMEROUN",
+             "Paix – Travail – Patrie",
+             "MINISTÈRE DE LA SANTÉ PUBLIQUE",
+             "SECRÉTARIAT GÉNÉRAL",
+             "DIRECTION DE LA PHARMACIE, DU MÉDICAMENT",
+             "ET DES LABORATOIRES")
+
+ENTETE_EN = ("REPUBLIC OF CAMEROON",
+             "Peace – Work – Fatherland",
+             "MINISTRY OF PUBLIC HEALTH",
+             "GENERAL SECRETARIAT",
+             "DEPARTMENT OF PHARMACY, DRUGS",
+             "AND LABORATORIES")
+
+
+def dessiner_entete_bilingue(c, hauteur_reservee=46):
+    """En-tête officiel sur deux colonnes. Retourne l'ordonnée sous le trait."""
+    largeur, hauteur = A4
+    haut = hauteur - 12 * mm
+    colonnes = ((30 * mm, ENTETE_FR), (largeur - 30 * mm, ENTETE_EN))
+
+    for x, lignes in colonnes:
+        y = haut
+        for i, ligne in enumerate(lignes):
+            if i == 0:
+                c.setFont("Helvetica-Bold", 9)
+            elif i == 1:
+                c.setFont("Helvetica-Oblique", 7.5)
+            elif i == 2:
+                c.setFont("Helvetica-Bold", 8)
+            else:
+                c.setFont("Helvetica", 7)
+            c.drawCentredString(x, y, ligne)
+            y -= 4.2 * mm
+
+    # Filet de séparation, et trait vertical entre les deux versions.
+    bas = hauteur - hauteur_reservee * mm
+    c.setStrokeColor(colors.HexColor("#0b3d68"))
+    c.setLineWidth(1.1)
+    c.line(18 * mm, bas + 4 * mm, largeur - 18 * mm, bas + 4 * mm)
+    c.setLineWidth(0.4)
+    c.setStrokeColor(colors.HexColor("#9aa8b5"))
+    c.line(largeur / 2, haut + 3 * mm, largeur / 2, bas + 7 * mm)
+    c.setStrokeColor(colors.black)
+    c.setLineWidth(1)
+    return bas
+
+
 def _dessiner_entete(c, titre_organisme="RÉPUBLIQUE DU CAMEROUN — MINISTÈRE DE LA SANTÉ PUBLIQUE",
                       sous_titre="Direction de la Pharmacie, du Médicament et des Laboratoires (DPML)"):
     largeur, hauteur = A4

@@ -1,0 +1,33 @@
+{# Identification du produit — mêmes rubriques, même ordre sur les deux actes.
+   Les libellés sont bilingues parce que l'acte l'est : un titulaire étranger
+   doit pouvoir lire ce qu'on lui délivre. #}
+<div class="cartouche">
+  <dl>
+    <dt>Nom commercial <span class="en">/ Brand name</span></dt>
+    <dd>{{ produit.nom_commercial or '—' }}</dd>
+
+    <dt>Dénomination commune <span class="en">/ INN</span></dt>
+    <dd>{{ produit.denomination_commune_internationale or '—' }}</dd>
+
+    <dt>Forme pharmaceutique <span class="en">/ Dosage form</span></dt>
+    <dd>{{ produit.forme_pharmaceutique or '—' }}</dd>
+
+    <dt>Dosage <span class="en">/ Strength</span></dt>
+    <dd>{{ produit.dosage or '—' }}</dd>
+
+    <dt>Voie d'administration <span class="en">/ Route</span></dt>
+    <dd>{{ produit.voie_administration or '—' }}</dd>
+
+    <dt>Classe thérapeutique <span class="en">/ ATC class</span></dt>
+    <dd>{{ produit.classe_therapeutique or '—' }}</dd>
+
+    <dt>Conditionnement <span class="en">/ Packaging</span></dt>
+    <dd>{{ produit.conditionnement or '—' }}</dd>
+
+    <dt>Titulaire <span class="en">/ Authorization holder</span></dt>
+    <dd>{{ titulaire }}</dd>
+
+    <dt>Pays d'origine <span class="en">/ Country of origin</span></dt>
+    <dd>{{ produit.pays_origine or '—' }}</dd>
+  </dl>
+</div>

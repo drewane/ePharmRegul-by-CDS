@@ -195,6 +195,10 @@ class DossierAMM(db.Model):
 
     motif_decision = db.Column(db.Text, nullable=True)
     date_validite_amm = db.Column(db.Date, nullable=True)
+    # Numéros propres aux actes délivrés : un certificat et une AMM ne se
+    # citent pas par le numéro du dossier qui les a produits.
+    numero_certificat = db.Column(db.String(30), nullable=True)
+    numero_amm = db.Column(db.String(30), nullable=True)
     date_limite_reponse_complement = db.Column(db.DateTime, nullable=True)
     date_limite_retrait_document = db.Column(db.Date, nullable=True)  # décision favorable uniquement
 

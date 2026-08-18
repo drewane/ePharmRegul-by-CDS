@@ -115,10 +115,25 @@ ADMIN = ("administrateur_dpml",)
 
 
 # ---------------------------------------------------------------------------
+# Effets
+# ---------------------------------------------------------------------------
+# Certaines transitions PRODUISENT quelque chose : la validation du directeur
+# fait naître le certificat et l'AMM. Plutôt que d'importer ici le code
+# documentaire — ce qui ferait dépendre le moteur de ce qu'il déclenche — les
+# modules concernés s'inscrivent, et la transition ne nomme que l'effet.
+EFFETS = {}
+
+
+def enregistrer_effet(nom, fonction):
+    """Rattache une fonction `(dossier, acteur, transition)` à un nom d'effet."""
+    EFFETS[nom] = fonction
+
+
+# ---------------------------------------------------------------------------
 # Transitions
 # ---------------------------------------------------------------------------
 # Chaque entrée : depuis · action · vers · libellé du bouton · rôles ·
-# motif obligatoire · destinataires notifiés · ton du bouton
+# motif obligatoire · destinataires notifiés · ton du bouton · effet éventuel
 TRANSITIONS = [
     {"depuis": "brouillon", "action": "soumettre",
      "vers": "en_attente_confirmation",
@@ -184,11 +199,16 @@ TRANSITIONS = [
      "motif_requis": True, "notifie": ("deposant",), "ton": "outline-warning",
      "aide": "Suspend le délai légal jusqu'à la réponse."},
 
+    # C'est ici que les actes naissent. L'arbitrage retenu veut que la
+    # validation du directeur close la procédure électronique et produise
+    # d'un même geste le certificat et l'AMM : deux gestes séparés, c'est un
+    # dossier validé dont l'acte n'est jamais édité.
     {"depuis": "retour_homologation", "action": "valider",
      "vers": "valide",
      "libelle": "Valider le dossier", "roles": DIRECTION,
      "motif_requis": False,
      "notifie": ("deposant", "chef_service_amm"), "ton": "success",
+     "effet": "generer_actes",
      "aide": "Génère le certificat d'homologation et l'AMM à signer."},
 
     {"depuis": "retour_homologation", "action": "renvoyer_complement",
@@ -203,11 +223,15 @@ TRANSITIONS = [
      "motif_requis": True, "notifie": ("deposant", "chef_service_amm"),
      "ton": "outline-danger", "aide": "Décision défavorable motivée."},
 
-    {"depuis": "valide", "action": "editer_actes",
+    # Les actes existent déjà à ce stade ; ce que le service constate ici,
+    # c'est leur transmission au cabinet. Nommer cette action « éditer »
+    # laisserait croire qu'elle les produit, et l'on chercherait longtemps
+    # pourquoi ils sont datés de la veille.
+    {"depuis": "valide", "action": "transmettre_signature",
      "vers": "amm_a_signer",
-     "libelle": "Éditer le certificat et l'AMM", "roles": SERVICE,
+     "libelle": "Transmettre au cabinet pour signature", "roles": SERVICE,
      "motif_requis": False, "notifie": (), "ton": "primary",
-     "aide": "Documents imprimables à présenter au ministre."},
+     "aide": "Les actes édités sont portés à la signature du ministre."},
 
     {"depuis": "amm_a_signer", "action": "enregistrer_signature",
      "vers": "amm_signee",
@@ -322,6 +346,19 @@ def appliquer_transition(dossier, action, acteur, commentaire=None):
         f"{t['libelle']} — {libelle(ancien)} → {libelle(t['vers'])}",
         acteur, ancien_statut=ancien, nouveau_statut=t["vers"],
         commentaire=motif or None)
+
+    # L'effet s'exécute AVANT la notification, et ses erreurs remontent : on
+    # ne veut pas prévenir un déposant que son AMM est prête si sa génération
+    # a échoué. L'appelant valide la transaction, donc un échec ici annule
+    # aussi le changement d'état.
+    nom_effet = t.get("effet")
+    if nom_effet:
+        effet = EFFETS.get(nom_effet)
+        if effet is None:
+            raise ErreurWorkflow(
+                f"La transition « {t['libelle']} » déclare l'effet "
+                f"« {nom_effet} », qu'aucun module n'a enregistré.")
+        effet(dossier, acteur, t)
 
     _notifier(dossier, t, acteur, motif)
     return t

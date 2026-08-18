@@ -1,0 +1,160 @@
+{# ---------------------------------------------------------------------------
+   Socle des actes imprimables.
+
+   Volontairement HORS de base.html : un acte ne se lit pas dans une coquille
+   d'application. La page ne porte ni menu, ni fil d'Ariane, ni pied de site —
+   à l'écran comme à l'impression, on voit l'acte et rien d'autre. La barre
+   d'actions est le seul élément d'interface, et elle disparaît à l'impression.
+
+   Les gabarits enfants remplissent `corps`.
+   --------------------------------------------------------------------------- #}
+<title>{{ acte.libelle }} {{ numero_acte }} — ePharmRegul by CDS</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/bootstrap.min.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='bootstrap/bootstrap-icons.css') }}">
+<style>
+  :root { --encre: #1a1a1a; --bleu: #0b3d68; --filet: #c8d4e0; }
+
+  body { background: #f0f2f5; color: var(--encre);
+         font-family: Georgia, "Times New Roman", serif; }
+
+  /* La feuille : A4 à l'écran comme au papier, pour que ce qu'on voit soit
+     ce qui sortira de l'imprimante. */
+  .feuille {
+    width: 210mm; min-height: 297mm; padding: 16mm 18mm;
+    margin: 1.5rem auto; background: #fff; position: relative;
+    box-shadow: 0 2px 16px rgba(0,0,0,.15);
+  }
+
+  /* En-tête officiel : deux colonnes, français à gauche, anglais à droite. */
+  .entete { display: grid; grid-template-columns: 1fr 1px 1fr;
+            gap: 0 10mm; text-align: center; }
+  .entete .separateur { background: var(--filet); }
+  .entete p { margin: 0; line-height: 1.35; }
+  .entete .pays { font-weight: 700; font-size: 10.5pt; }
+  .entete .devise { font-style: italic; font-size: 8.5pt; }
+  .entete .ministere { font-weight: 700; font-size: 9.5pt; margin-top: .25rem; }
+  .entete .service { font-size: 8.5pt; }
+  .filet { border: 0; border-top: 1.2pt solid var(--bleu); margin: 6mm 0 8mm; }
+
+  .titre-acte { text-align: center; margin-bottom: 8mm; }
+  .titre-acte h1 { font-size: 16pt; font-weight: 700; letter-spacing: .5px;
+                   margin: 0; }
+  .titre-acte .en { font-style: italic; font-size: 10.5pt; color: #555;
+                    margin: 1mm 0 0; }
+  .titre-acte .numero { font-weight: 700; font-size: 11pt; margin: 3mm 0 0; }
+
+  .visas p { margin: 0 0 1.5mm; font-size: 10pt; }
+  .dispositif { text-align: center; font-weight: 700; font-size: 11pt;
+                margin: 6mm 0; }
+
+  .cartouche { border: 1px solid var(--filet); background: #f6f9fc;
+               padding: 5mm 6mm; margin: 4mm 0 6mm; }
+  .cartouche dl { display: grid; grid-template-columns: 62mm 1fr;
+                  gap: 2mm 4mm; margin: 0; font-size: 9.5pt; }
+  .cartouche dt { font-weight: 700; }
+  .cartouche dd { margin: 0; }
+  .cartouche .en { font-weight: 400; font-style: italic; color: #666; }
+
+  .mentions p { font-size: 9.5pt; margin: 0 0 2mm; }
+
+  .signature { margin-top: 16mm; width: 78mm; margin-left: auto;
+               text-align: center; }
+  .signature .lieu { text-align: center; font-size: 10pt; margin-bottom: 14mm; }
+  .signature .trait { border-top: .8pt solid var(--encre); padding-top: 2mm; }
+  .signature .nom { font-weight: 700; font-size: 10pt; }
+  .signature .qualite { font-size: 8.5pt; color: #444; }
+  .signature .attente { font-style: italic; font-size: 8.5pt; color: #b02a2a;
+                        margin-top: 2mm; }
+
+  .pied { position: absolute; left: 18mm; right: 18mm; bottom: 12mm;
+          border-top: .5pt solid var(--filet); padding-top: 3mm;
+          font-size: 7.5pt; color: #555; font-family: system-ui, sans-serif; }
+
+  /* Le filigrane dit ce que le document est. Il n'est pas décoratif : sans
+     lui, un projet d'AMM se photocopie comme une AMM signée. */
+  .filigrane {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; pointer-events: none;
+    font-family: system-ui, sans-serif; font-weight: 800; font-size: 84pt;
+    color: rgba(176, 42, 42, .12); transform: rotate(-32deg);
+    letter-spacing: 8px;
+  }
+
+  .barre { max-width: 210mm; margin: 1.5rem auto 0;
+           font-family: system-ui, sans-serif; }
+
+  @media print {
+    body { background: #fff; }
+    .barre, .no-print { display: none !important; }
+    .feuille { width: auto; min-height: 0; margin: 0; padding: 0;
+               box-shadow: none; }
+    /* Le filigrane doit survivre à l'impression, or les navigateurs
+       suppriment les fonds par défaut. */
+    .filigrane, .cartouche { -webkit-print-color-adjust: exact;
+                             print-color-adjust: exact; }
+    @page { size: A4; margin: 16mm 18mm; }
+  }
+</style>
+
+<nav class="barre d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <a class="btn btn-sm btn-outline-secondary"
+     href="{{ url_for('dossier.parcours', dossier_id=dossier.id) }}">
+    <i class="bi bi-arrow-left"></i> Retour au dossier</a>
+  <div class="d-flex flex-wrap gap-2 align-items-center">
+    {% if autres_actes %}
+      {% for code, a in autres_actes %}
+      <a class="btn btn-sm btn-outline-secondary"
+         href="{{ url_for('dossier.acte', dossier_id=dossier.id, code=code) }}">
+        {{ a.libelle }}</a>
+      {% endfor %}
+    {% endif %}
+    <button class="btn btn-sm btn-primary" onclick="window.print()">
+      <i class="bi bi-printer"></i> Imprimer</button>
+    {% if peut_telecharger %}
+    <a class="btn btn-sm btn-outline-primary"
+       href="{{ url_for('dossier.acte_pdf', dossier_id=dossier.id, code=code_acte) }}">
+      <i class="bi bi-file-earmark-pdf"></i> Télécharger le PDF</a>
+    {% else %}
+    <span class="badge bg-secondary-subtle text-secondary-emphasis border p-2"
+          title="{{ motif_refus }}">
+      <i class="bi bi-lock"></i> Téléchargement fermé</span>
+    {% endif %}
+  </div>
+</nav>
+{% if motif_refus %}
+<div class="barre alert alert-warning mt-2 py-2 small">{{ motif_refus }}</div>
+{% endif %}
+
+<article class="feuille">
+  {% if projet %}<div class="filigrane">PROJET</div>{% endif %}
+
+  <header class="entete">
+    <div>
+      {% for ligne in entete_fr %}
+      <p class="{{ ['pays','devise','ministere','service','service','service'][loop.index0] }}">{{ ligne }}</p>
+      {% endfor %}
+    </div>
+    <div class="separateur"></div>
+    <div>
+      {% for ligne in entete_en %}
+      <p class="{{ ['pays','devise','ministere','service','service','service'][loop.index0] }}">{{ ligne }}</p>
+      {% endfor %}
+    </div>
+  </header>
+  <hr class="filet">
+
+  <div class="titre-acte">
+    <h1>{{ titre_fr }}</h1>
+    <p class="en">{{ acte.libelle_en | upper }}</p>
+    <p class="numero">N° {{ numero_acte }}</p>
+  </div>
+
+  {% block corps %}{% endblock %}
+
+  <footer class="pied">
+    <div>Dossier de référence : {{ dossier.numero }}{% if dossier.numero_suivi %}
+      · Suivi : {{ dossier.numero_suivi }}{% endif %}</div>
+    <div>{{ mention_pied }}</div>
+    <div>Vérification : {{ url_for('verifier', numero=dossier.numero, _external=True) }}</div>
+  </footer>
+</article>

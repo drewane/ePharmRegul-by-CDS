@@ -1,0 +1,34 @@
+{% extends "actes/_socle.html" %}
+{% block corps %}
+
+<section class="visas">
+  <p>Le Directeur de la Pharmacie, du Médicament et des Laboratoires certifie
+     que le produit désigné ci-après a satisfait à l'évaluation technique et
+     réglementaire prévue par la réglementation pharmaceutique en vigueur en
+     République du Cameroun.</p>
+</section>
+
+{% include "actes/_cartouche.html" %}
+
+<section class="mentions">
+  {% if dossier.date_validite_amm %}
+  <p><strong>Validité <span class="en">/ Validity</span> :</strong>
+     jusqu'au {{ dossier.date_validite_amm.strftime('%d/%m/%Y') }}
+     ({{ duree_annees }} ans à compter de la décision).</p>
+  {% endif %}
+  <p>Le présent certificat atteste de l'homologation du produit. Il ne dispense
+     pas le titulaire de l'obtention de l'autorisation de mise sur le marché
+     signée par le Ministre de la Santé publique.</p>
+</section>
+
+<div class="signature">
+  <p class="lieu">Yaoundé, le
+    {{ (dossier.date_decision or now).strftime('%d/%m/%Y') }}</p>
+  <div class="trait">
+    <div class="nom">{{ signataire.nom_complet if signataire
+                        else 'Le Directeur DPML' }}</div>
+    <div class="qualite">Directeur de la Pharmacie, du Médicament<br>
+      et des Laboratoires</div>
+  </div>
+</div>
+{% endblock %}

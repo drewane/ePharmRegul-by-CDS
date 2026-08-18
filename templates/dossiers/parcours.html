@@ -55,6 +55,31 @@
       </ol>
     </div>
 
+    {# --- Actes délivrés ------------------------------------------------ #}
+    {% if actes_delivres %}
+    <div class="card mb-3 border-success">
+      <div class="card-header bg-success-subtle">Actes délivrés</div>
+      <ul class="list-group list-group-flush">
+        {% for a in actes_delivres %}
+        <li class="list-group-item d-flex justify-content-between
+                   align-items-center gap-2 flex-wrap">
+          <span>
+            <i class="bi bi-file-earmark-text"></i>
+            <span class="fw-semibold">{{ a.libelle }}</span>
+            <code class="ms-1">{{ a.numero }}</code>
+            {% if a.projet %}
+            <span class="badge bg-warning text-dark ms-1">Projet</span>
+            {% endif %}
+          </span>
+          <a class="btn btn-sm btn-outline-primary"
+             href="{{ url_for('dossier.acte', dossier_id=d.id, code=a.code) }}">
+            <i class="bi bi-printer"></i> Ouvrir</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
     {# --- Actions ------------------------------------------------------ #}
     <div class="card mb-3">
       <div class="card-header">Actions disponibles</div>

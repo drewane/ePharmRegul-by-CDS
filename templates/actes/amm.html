@@ -1,0 +1,42 @@
+{% extends "actes/_socle.html" %}
+{% block corps %}
+
+<section class="visas">
+  <p>Le Ministre de la Santé publique,</p>
+  <p>Vu la réglementation pharmaceutique en vigueur en République du Cameroun ;</p>
+  <p>Vu le rapport d'évaluation et le certificat d'homologation
+     n° {{ dossier.numero_certificat or '—' }} de la Direction de la Pharmacie,
+     du Médicament et des Laboratoires ;</p>
+</section>
+
+<p class="dispositif">AUTORISE LA MISE SUR LE MARCHÉ DU PRODUIT DÉSIGNÉ CI-APRÈS</p>
+
+{% include "actes/_cartouche.html" %}
+
+<section class="mentions">
+  {% if dossier.date_validite_amm %}
+  <p>La présente autorisation est valable jusqu'au
+     {{ dossier.date_validite_amm.strftime('%d/%m/%Y') }}, sauf suspension ou
+     retrait prononcé dans les conditions prévues par la réglementation.</p>
+  {% endif %}
+  <p>Elle est délivrée sous réserve du respect, par le titulaire, de ses
+     obligations réglementaires, notamment en matière de pharmacovigilance et
+     de qualité des lots mis sur le marché.</p>
+  <p>Toute modification des éléments figurant au présent acte doit faire
+     l'objet d'une demande de variation préalable auprès de la Direction de la
+     Pharmacie, du Médicament et des Laboratoires.</p>
+</section>
+
+<div class="signature">
+  <p class="lieu">Yaoundé, le
+    {{ (dossier.date_decision or now).strftime('%d/%m/%Y') }}</p>
+  <div class="trait">
+    <div class="nom">Le Ministre de la Santé publique</div>
+    {% if not signee %}
+    {# Le ministre signe hors système : on le dit, plutôt que de laisser
+       croire à une signature qui n'a pas eu lieu. #}
+    <div class="attente">Signature manuscrite en attente</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
