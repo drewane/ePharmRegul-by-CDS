@@ -12,8 +12,25 @@
       {{ TYPES_PROCEDURE.get(d.type_procedure, d.type_procedure) }} · Demandeur : {{ d.demandeur.nom_complet }}
     </div>
   </div>
-  <span class="badge bg-primary badge-statut fs-6">{{ STATUTS.get(d.statut, d.statut) }}</span>
+  <div class="text-end">
+    <span class="badge bg-{{ me.couleur(d.statut) }} badge-statut fs-6">{{ me.libelle(d.statut) }}</span>
+    <div class="small mt-1">
+      <a href="{{ url_for('dossier.parcours', dossier_id=d.id) }}">
+        <i class="bi bi-diagram-3"></i> Parcours et historique</a>
+    </div>
+  </div>
 </div>
+
+{# Actions du dossier, engendrées par la machine à états : la fiche affiche ce
+   que le moteur autorise, et rien d'autre. #}
+{% if actions %}
+<div class="card mb-3 border-primary">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <span class="fw-semibold">Actions&nbsp;:</span>
+    {% include "dossiers/_actions.html" %}
+  </div>
+</div>
+{% endif %}
 
 {% if d.statut in ("approuve", "rejete") %}
 <div class="alert {{ 'alert-success' if d.statut == 'approuve' else 'alert-danger' }} d-flex justify-content-between align-items-center">

@@ -147,6 +147,7 @@ from routes_demandes import bp as demandes_bp  # noqa: E402
 from routes_courriel import bp as courriel_bp  # noqa: E402
 from routes_atu import bp as atu_bp  # noqa: E402
 from routes_voies import bp as voies_bp  # noqa: E402
+from routes_dossier import bp as dossier_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -168,6 +169,7 @@ app.register_blueprint(demandes_bp)
 app.register_blueprint(courriel_bp)
 app.register_blueprint(atu_bp)
 app.register_blueprint(voies_bp)
+app.register_blueprint(dossier_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.
@@ -914,11 +916,16 @@ def dossier_detail(id):
         .filter(DossierAMM.id != d.id).order_by(DossierAMM.date_creation.desc()).all()
     echantillons_lies = Echantillon.query.filter_by(origine="dossier_amm", origine_reference_id=d.id) \
         .order_by(Echantillon.date_reception.desc()).all()
+    import machine_etats as me
     return render_template("dossier_detail.html", d=d, audit_events=audit_events, echantillons_lies=echantillons_lies,
                             peut_agir=wf.peut_agir(d, u), avis=avis, dossiers_lies=dossiers_lies,
                             pieces=lister_pieces(d), paiements=lister_paiements(d),
                             montant_frais_soumission=wf.montant_frais(d.type_procedure),
-                            etapes_suivi=wf.etapes_suivi(d))
+                            etapes_suivi=wf.etapes_suivi(d),
+                            # Les actions du dossier viennent désormais de la machine
+                            # à états : la fiche ne décide plus de ce qu'elle offre.
+                            actions=me.transitions_autorisees(d, u.role_systeme),
+                            me=me)
 
 
 @app.route("/dossiers/<int:id>/documents", methods=["POST"])

@@ -1,0 +1,66 @@
+{# ---------------------------------------------------------------------------
+   Boutons d'action d'un dossier, engendrés par la machine à états.
+
+   Ce fragment ne connaît aucune action par son nom. Il affiche ce que
+   `machine_etats.transitions_autorisees` lui remet, avec le libellé, le ton et
+   l'exigence de motif que la transition déclare. C'est la condition pour que
+   l'écran ne promette jamais ce que le serveur refusera.
+
+   Attend : actions (liste de transitions), d (dossier), retour (url, option.)
+   --------------------------------------------------------------------------- #}
+{% if actions %}
+<div class="d-flex flex-wrap gap-2">
+  {% for t in actions %}
+    {% if t.motif_requis %}
+      {# Un motif obligatoire passe par une boîte de dialogue : le serveur le
+         refuserait vide, autant le demander avant plutôt qu'après. #}
+      <button type="button" class="btn btn-{{ t.ton }}" data-bs-toggle="modal"
+              data-bs-target="#motif-{{ t.action }}">
+        {{ t.libelle }}
+      </button>
+      <div class="modal fade" id="motif-{{ t.action }}" tabindex="-1"
+           aria-labelledby="titre-{{ t.action }}" aria-hidden="true">
+        <div class="modal-dialog">
+          <form method="post"
+                action="{{ url_for('dossier.transition', dossier_id=d.id) }}"
+                class="modal-content">
+            <input type="hidden" name="action" value="{{ t.action }}">
+            {% if retour %}<input type="hidden" name="retour" value="{{ retour }}">{% endif %}
+            <div class="modal-header">
+              <h5 class="modal-title" id="titre-{{ t.action }}">{{ t.libelle }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"
+                      aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+              {% if t.aide %}<p class="text-secondary small">{{ t.aide }}</p>{% endif %}
+              <label class="form-label" for="motif-texte-{{ t.action }}">
+                Motif <span class="text-danger">*</span>
+              </label>
+              <textarea class="form-control" rows="4" required
+                        id="motif-texte-{{ t.action }}" name="commentaire"
+                        placeholder="Ce texte est communiqué au déposant."></textarea>
+              <div class="form-text">
+                Le déposant doit pouvoir agir sur la seule foi de ce message.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary"
+                      data-bs-dismiss="modal">Annuler</button>
+              <button type="submit" class="btn btn-{{ t.ton }}">Confirmer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <form method="post"
+            action="{{ url_for('dossier.transition', dossier_id=d.id) }}"
+            class="d-inline">
+        <input type="hidden" name="action" value="{{ t.action }}">
+        {% if retour %}<input type="hidden" name="retour" value="{{ retour }}">{% endif %}
+        <button type="submit" class="btn btn-{{ t.ton }}"
+                {% if t.aide %}title="{{ t.aide }}"{% endif %}>{{ t.libelle }}</button>
+      </form>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}

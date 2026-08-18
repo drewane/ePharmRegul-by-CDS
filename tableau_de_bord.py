@@ -52,14 +52,32 @@ ACTION_PAR_DEFAUT = ("l'administration", "Instruction en cours")
 
 
 def prochaine_action(dossier):
-    """(acteur attendu, libellé). `acteur` vaut None si le dossier est clos."""
+    """(acteur attendu, libellé). `acteur` vaut None si le dossier est clos.
+
+    Déduite des transitions ouvertes par la machine à états, et non plus d'une
+    table parallèle : deux sources de vérité sur « ce qu'on attend » finissent
+    toujours par se contredire. La table PROCHAINE_ACTION ne sert plus que de
+    formulation plus parlante quand elle en propose une.
+    """
     import amm_signee
+    import machine_etats as me
 
     statut = getattr(dossier, "statut", "") or ""
-    if statut == "approuve" and amm_signee.est_disponible(dossier):
+    if statut in ("approuve", "amm_signee") and amm_signee.est_disponible(dossier):
         return (None, "Autorisation délivrée — téléchargeable")
-    acteur, libelle = PROCHAINE_ACTION.get(statut, ACTION_PAR_DEFAUT)
-    return acteur, libelle
+
+    # Un statut que la machine ne connaît pas — donnée ancienne, import — ne
+    # doit pas se traduire par un message d'erreur affiché au déposant.
+    if me.statut_canonique(statut) not in me.STATUTS:
+        return ACTION_PAR_DEFAUT
+
+    acteur, libelle_transition = me.prochaine_etape(dossier)
+    # Formulation dédiée si l'on en a une ; sinon le libellé de la transition,
+    # qui reste juste puisqu'il vient du même modèle.
+    formulation = PROCHAINE_ACTION.get(statut)
+    if formulation:
+        return acteur, formulation[1]
+    return acteur, libelle_transition
 
 
 def a_vous_de_jouer(dossier):

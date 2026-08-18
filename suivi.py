@@ -115,13 +115,21 @@ def etat_visible(dossier):
     statut = getattr(dossier, "statut", "") or ""
 
     if statut in ("approuve", "octroye", "autorise", "rejete", "irrecevable",
-                  "refuse", "cloture_delai_depasse"):
+                  "refuse", "cloture_delai_depasse",
+                  "valide", "amm_a_signer", "amm_signee"):
         return "decision"
-    if statut in ("complement_requis", "clock_stop"):
+    if statut in ("complement_requis", "clock_stop", "a_completer"):
         return "clock_stop"
+    if statut in ("retour_homologation",):
+        return "validation_hierarchique"
+    if statut == "en_attente_confirmation":
+        return "paiement_valide" if _paiement_valide(dossier) else "soumis"
+    if statut == "en_attente_recevabilite":
+        return "recevabilite"
     if vn.circuit_ouvert(dossier):
         return "validation_hierarchique"
-    if statut in ("evaluation_en_cours", "en_evaluation", "en_analyse", "en_cours"):
+    if statut in ("evaluation_en_cours", "en_evaluation", "en_analyse",
+                  "en_cours", "en_commission"):
         return "evaluation"
     if statut in ("soumis", "recu", "depose", "recevable"):
         return "paiement_valide" if _paiement_valide(dossier) else "soumis"

@@ -28,8 +28,19 @@ from pieces import DOCUMENTS_DIR
 import pdf_gen
 
 
+# Les statuts de la machine à états (machine_etats.py) s'ajoutent aux anciens :
+# les deux vocabulaires coexistent le temps que les dossiers antérieurs
+# s'éteignent. `machine_etats.ALIAS` fait la correspondance en lecture.
 STATUTS = {
     "brouillon": "Brouillon",
+    "en_attente_confirmation": "En attente de confirmation du paiement",
+    "en_attente_recevabilite": "En attente de recevabilité",
+    "a_completer": "À compléter",
+    "en_commission": "En commission",
+    "retour_homologation": "Retour au service d'homologation",
+    "valide": "Validé par la direction",
+    "amm_a_signer": "AMM à signer par le ministre",
+    "amm_signee": "AMM signée",
     "soumis": "Soumis",
     "recevable": "Recevable",
     "irrecevable": "Irrecevable",

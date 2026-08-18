@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Parcours {{ d.numero }} — ePharmRegul by CDS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-1">{{ d.numero }}</h1>
+    <p class="text-muted mb-0">
+      {{ d.produit.libelle if d.produit else '—' }}
+      {%- if d.numero_suivi %} · Suivi <code>{{ d.numero_suivi }}</code>{% endif %}
+      {%- if d.demandeur %} · {{ d.demandeur.nom_complet }}{% endif %}
+    </p>
+  </div>
+  <span class="badge bg-{{ me.couleur(d.statut) }} fs-6">{{ me.libelle(d.statut) }}</span>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+
+    {# --- Parcours ---------------------------------------------------- #}
+    <div class="card mb-3">
+      <div class="card-header">Parcours du dossier</div>
+      <ol class="list-group list-group-flush">
+        {% for e in etapes %}
+        <li class="list-group-item d-flex align-items-start gap-3
+                   {{ 'bg-body-tertiary' if e.courant }}">
+          <span class="mt-1">
+            {% if e.courant %}
+              <i class="bi bi-record-circle text-{{ e.couleur }} fs-5"></i>
+            {% elif e.atteint %}
+              <i class="bi bi-check-circle-fill text-success fs-5"></i>
+            {% else %}
+              <i class="bi bi-circle text-secondary fs-5"></i>
+            {% endif %}
+          </span>
+          <span class="flex-grow-1">
+            <span class="{{ 'fw-semibold' if e.courant }}
+                         {{ 'text-secondary' if not e.atteint and not e.courant }}">
+              {{ e.libelle }}</span>
+            {% if e.date %}
+            <br><span class="small text-muted">
+              {{ e.date.strftime('%d/%m/%Y à %H:%M') }}</span>
+            {% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    {# --- Actions ------------------------------------------------------ #}
+    <div class="card mb-3">
+      <div class="card-header">Actions disponibles</div>
+      <div class="card-body">
+        {% if actions %}
+          {% include "dossiers/_actions.html" %}
+        {% else %}
+          <p class="text-secondary mb-0">
+            {% if me.est_terminal(d) %}
+              Ce dossier est clos : aucune action n'est plus possible.
+            {% else %}
+              Aucune action ne vous revient à ce stade. Le dossier est entre
+              les mains de&nbsp;: {{ me.acteurs_attendus_lisibles(d) | join(', ') }}.
+            {% endif %}
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# --- Historique ------------------------------------------------------ #}
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header">Historique</div>
+      {% if historique %}
+      <ul class="list-group list-group-flush small">
+        {% for h in historique | reverse %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between gap-2">
+            <span class="fw-semibold">{{ h.action }}</span>
+            <span class="text-muted text-nowrap">
+              {{ h.horodatage.strftime('%d/%m/%Y %H:%M') }}</span>
+          </div>
+          <div class="text-muted">
+            {{ h.acteur.nom_complet if h.acteur else 'Système' }}</div>
+          {% if h.commentaire %}
+          <div class="mt-1 fst-italic">« {{ h.commentaire }} »</div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body">
+        <p class="text-secondary mb-0">Aucun changement d'état enregistré.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

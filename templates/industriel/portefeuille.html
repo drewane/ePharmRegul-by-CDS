@@ -124,7 +124,8 @@
             <a class="btn btn-sm btn-outline-secondary"
                href="{{ url_for('industriel.suivi_dossier', dossier_id=d.id) }}">
               Suivre</a>
-            <a class="btn btn-sm btn-outline-secondary" href="/dossiers/{{ d.id }}">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('dossier.parcours', dossier_id=d.id) }}">
               Ouvrir</a>
           </td>
         </tr>
