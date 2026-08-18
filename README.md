@@ -1,6 +1,47 @@
-# SIREPH — Système Intégré de Régulation Pharmaceutique (DPML, Cameroun)
+# ePharmRegul by CDS — régulation pharmaceutique (DPML, Cameroun)
 
-Système Intégré de Régulation Pharmaceutique — République du Cameroun (DPML).
+Application de gestion des demandes d'AMM et des actes réglementaires, pour la
+Direction de la Pharmacie, du Médicament et des Laboratoires du Ministère de la
+Santé publique du Cameroun.
+
+> **Nom.** Le projet s'est d'abord appelé **SIREPH**, nom que portent encore les
+> modules, les scripts et ce dossier. `ePharmRegul by CDS` est le nom de
+> l'application tel qu'il apparaît à l'écran. Les actes officiels, eux, portent
+> l'en-tête bilingue MINSANTE/DPML et rien d'autre.
+
+Flask 3, Jinja2, SQLAlchemy, SQLite. Ni application monopage, ni cadriciel
+JavaScript, ni gestionnaire d'état : huit dépendances en tout, Bootstrap servi
+localement. Le rendu est fait par le serveur, et la seule part de JavaScript
+tient en deux sondes de rafraîchissement d'une vingtaine de lignes.
+
+**1 248 vérifications automatisées, réparties en vingt-deux suites.**
+
+---
+
+## Deux principes directeurs
+
+Tout le reste en découle, et c'est ce qu'il faut avoir en tête avant de lire le
+code.
+
+**Les droits d'accès sont une donnée, pas du code.** `matrice_acces.py` dit qui
+voit quoi ; la navigation se construit en la lisant. Une entrée peut être
+accessible, *indisponible* — grisée, non cliquable, avec le motif en infobulle —
+ou absente. Un test de concordance parcourt tout le menu, pour tous les profils,
+et vérifie que le serveur accorde exactement ce que l'écran promet. Il a trouvé
+trois failles réelles le jour où il a été écrit.
+
+**Le cycle de vie du dossier est une machine à états unique.** `machine_etats.py`
+déclare, par ligne : d'où l'on part, où l'on va, quel rôle a le droit, si un
+motif est obligatoire, qui est prévenu, quel effet est produit. Les boutons, le
+bandeau de statut, la frise et les files d'attente se construisent en la lisant.
+Il n'y a **pas** une route par action : il y en a une, qui reçoit le nom de
+l'action et laisse le moteur décider. Ajouter une transition, c'est ajouter une
+ligne — pas une route, pas un bouton, pas un décorateur.
+
+---
+
+## Socle réglementaire
+
 Les 9 fonctions du Global Benchmarking Tool de l'OMS (RS, MA, VL, RI, LI, LT,
 MC, CT, LR) sont livrées et fonctionnelles.
 
@@ -31,6 +72,119 @@ de priorité du cahier des charges :
   active + résultat de laboratoire conforme et validé, l'un sans l'autre ne
   suffisant jamais) et l'intégration automatique avec MC en cas de rejet
   après distribution partielle.
+
+---
+
+## Le parcours du demandeur — les sept lots
+
+Un second cahier des charges est venu refondre l'expérience du déposant et du
+régulateur par-dessus ce socle. Les sept lots sont livrés.
+
+### 1 · Navigation latérale
+
+Menu en accordéon, engendré par `matrice_acces.NAVIGATION`. Trois états de
+visibilité, dont l'état *indisponible* : une démarche qui ne concerne pas votre
+profil se voit grisée avec son motif, plutôt que de disparaître. On apprend ce
+qui existe sans avoir le droit d'y toucher.
+
+### 2 · Tableau de bord conditionné par le profil
+
+`tableau_de_bord.py` déclare, par profil, les indicateurs, sections et
+raccourcis. Un fabricant ne voit pas le tableau d'un titulaire d'AMM. Les
+indicateurs ne sont calculés que si le profil les affiche.
+
+### 3 · Mon portefeuille
+
+`/industriel/portefeuille` — dossiers d'AMM pour le titulaire, agréments pour
+le fabricant, le grossiste, le pharmacien et le laboratoire privé. Tri,
+recherche sur cinq champs, brouillons exclus par défaut.
+
+### 4 · Formulaire de demande enrichi
+
+`referentiels_pharma.py` porte les référentiels : 72 formes pharmaceutiques
+(EDQM Standard Terms), 24 unités de dosage, 22 voies d'administration, 56
+classes ATC de niveau 2, 39 indications avec les priorités nationales en tête.
+
+`formulaire_demande.py` déclare les champs et leurs règles. Le **type de
+produit** pilote à la fois la variante du formulaire et le dossier technique
+attendu — CTD pour les médicaments conventionnels, variante MTA complète pour la
+pharmacopée traditionnelle améliorée. Composition dynamique jusqu'à 20 principes
+actifs ou 30 constituants. Le dosage est saisi en nombre **et** unité séparés.
+
+Toute la validation est refaite côté serveur : un formulaire HTML se contourne.
+
+### 5 · Machine à états
+
+`machine_etats.py` — 13 statuts, 15 transitions.
+
+```
+brouillon ─soumettre─► en_attente_confirmation ─valider_paiement─► en_attente_recevabilite
+                                               └─rejeter_paiement─► brouillon
+en_attente_recevabilite ├─declarer_recevable──► recevable ─envoyer_commission─► en_commission
+                        ├─demander_complement─► a_completer ──────┐
+                        └─declarer_irrecevable► irrecevable        └► en_attente_recevabilite
+en_commission ─retour_service─► retour_homologation ├─valider─► valide ─► amm_a_signer ─► amm_signee
+                                                    └─rejeter─► rejete
+```
+
+Deux fonctions publiques. `transitions_autorisees(dossier, rôle)` est **pure** :
+elle ne lit que le statut et le rôle, n'écrit rien, ne notifie rien — c'est ce
+qui permet de bâtir l'interface sans effet de bord.
+`appliquer_transition(dossier, action, acteur, commentaire)` contrôle l'état, le
+rôle et le motif, journalise dans `EvenementAudit`, exécute l'effet déclaré,
+puis notifie les seuls destinataires nommés.
+
+Le contrôle des droits est dans le moteur, pas dans la vue : une règle qui ne
+tient qu'à un décorateur tombe au premier script d'import.
+
+**Deux vocabulaires, une seule vérité.** Les dossiers antérieurs portent
+`soumis`, `evaluation_en_cours`, `approuve`. `ALIAS` les lit dans le vocabulaire
+canonique. Aucune donnée n'a été réécrite, aucune suite de tests cassée.
+
+**Chaîne de signature.** Le directeur clôt la validation électronique et produit
+les actes ; le ministre signe **hors système** ; le service enregistre la
+signature. C'est un arbitrage explicite, pas une simplification.
+
+### 6 · Paiement, files d'attente, suivi en direct
+
+Le socle de paiement — quatre fournisseurs (virement, carte, MTN MoMo, Orange
+Money), simulateur, reçu PDF, séparation des tâches — existait mais vivait à
+côté du dossier. `paiements.confirmer` et `paiements.rejeter` passent désormais
+par la machine à états.
+
+`files_attente.py` — **une file ne recopie aucune liste de statuts.** Un dossier
+y figure si, dans son état actuel, une transition est ouverte à l'un de ses
+rôles. Quatre files : financier, homologation, commission, direction.
+L'ancienneté se compte depuis le dernier changement d'état, pas depuis le dépôt :
+un dossier déposé il y a six mois mais traité hier n'est pas en retard.
+
+Une file **informe sans habiliter** : les boutons sont ceux que la machine ouvre
+à l'utilisateur qui regarde, pas à la file qu'il consulte.
+
+Suivi en direct sans cadriciel : deux points d'état légers (`etat.json`,
+`synthese.json`) et une empreinte. La page ne se recharge que si quelque chose a
+bougé, et jamais pendant qu'une boîte de dialogue est ouverte.
+
+### 7 · Certificat d'homologation et AMM
+
+`actes.py` — la validation du directeur ne *permet* pas d'éditer les actes :
+elle les **produit**, les deux d'un seul geste. La machine à états porte pour
+cela un mécanisme d'effet déclaratif : la transition nomme l'effet, le module
+concerné s'y inscrit, et le moteur ignore tout du code documentaire.
+
+Le certificat est définitif dès sa génération — le directeur qui valide est
+celui qui signe. L'AMM est un acte du ministre : ce qui est produit ici en est
+le **projet**, filigrané, jusqu'au dépôt de l'exemplaire signé.
+
+Gabarits imprimables hors de `base.html` — un acte ne se lit pas dans une
+coquille d'application. En-tête officiel bilingue sur deux colonnes, feuille A4
+à l'écran comme au papier, filigrane forcé à survivre à l'impression. Les mêmes
+en-têtes servent aux PDF : deux rédactions finiraient par différer.
+
+Chaque acte a sa propre série de numérotation — `AMM/CMR/2026/00001` ne se
+confond avec aucun numéro de dossier.
+
+---
 
 ## Installation et lancement
 
@@ -197,15 +351,28 @@ poursuite de l'autorisation devant être réexaminée.
 
 ### Deux documents en fin de circuit
 
-À la dernière signature, le système produit un **certificat d'homologation**.
-C'est un support **interne** : tout agent le consulte, à tout échelon, mais il
-n'est jamais remis au titulaire. Un certificat généré, sans signature
-manuscrite ni sceau, se présenterait trop aisément comme l'autorisation
-elle-même auprès d'un douanier ou d'un acheteur.
+À la validation du directeur, le système produit **d'un même geste** le
+**certificat d'homologation** et l'**autorisation de mise sur le marché**. Les
+deux portent la même date : séparer la décision de son édition, c'est accepter
+qu'un dossier reste validé des semaines sans que l'acte existe.
 
-Le chef de service dépose ensuite l'**AMM signée de la main du ministre**
-(scan de l'acte) depuis l'écran du circuit. C'est le seul document que le
-titulaire télécharge, depuis `/industriel/suivi/<id>`.
+Les deux se lisent à l'écran par toute la chaîne — un acte que les échelons qui
+l'ont instruit ne peuvent pas relire n'est pas traçable — et s'impriment depuis
+`/dossiers/<id>/actes/<code>`.
+
+Le certificat est **définitif** dès sa génération : le directeur qui valide est
+celui qui le signe.
+
+L'AMM, elle, est un acte du ministre, qui signe **hors système**. Ce que le
+système produit en est donc le **projet**, marqué comme tel : filigrane
+« PROJET » et mention de pied explicite. Le déposant le consulte mais ne peut
+pas le télécharger — forcer l'URL du PDF renvoie 403, et l'écran lui dit
+pourquoi plutôt que de le laisser deviner. Un projet d'AMM qui ne se
+distinguerait pas d'une AMM signée est une invitation à s'en prévaloir à tort.
+
+Le chef de service dépose ensuite l'**AMM signée de la main du ministre** (scan
+de l'acte) depuis l'écran du circuit. Le filigrane disparaît, et c'est le
+document que le titulaire télécharge, depuis `/industriel/suivi/<id>`.
 
 Le dépôt exige la **durée de validité**. Elle fixe l'échéance de
 l'autorisation et arme les rappels de renouvellement adressés au titulaire à
@@ -377,6 +544,60 @@ Application Form ») et de demandes explicites de suivi/paiement/exceptions.
   `administrateur_dpml` (délivré/refusé). Un demandeur ne peut solliciter un
   visa que pour un produit dont il est identifié comme demandeur d'un dossier
   et dont l'AMM est active (`workflow_visas._demandeur_est_titulaire`).
+
+## Tests
+
+Pas de `pytest` : chaque suite est un script autonome qui s'exécute contre la
+base de démonstration, compte ses vérifications et sort en code 1 au premier
+échec. Chacune prend un instantané des identifiants au démarrage et supprime ce
+qu'elle a créé à la fin, y compris si une vérification lève.
+
+```bash
+venv/Scripts/python test_machine_etats.py     # une suite
+
+for f in test_*.py; do venv/Scripts/python "$f" || echo "ECHEC $f"; done
+```
+
+| Suite | Vérifications | Ce qu'elle établit |
+|---|---:|---|
+| `test_atu_voies` | 108 | ATU nominative et de cohorte, trois voies d'homologation |
+| `test_formulaire_demande` | 108 | référentiels, variantes standard/MTA, validation serveur |
+| `test_tableau_bord` | 81 | composition par profil, prochaine action, échéances |
+| `test_actes` | 74 | certificat et AMM, en-tête bilingue, projet vs signé, droits |
+| `test_taxonomie_demandes` | 74 | arbre des démarches, cloisonnement par profil |
+| `test_machine_etats` | 73 | parcours nominal, rejet, complément, refus, audit, concordance |
+| `test_files_paiement` | 68 | files déduites du modèle, paiement relié au workflow, direct |
+| `test_suivi` | 65 | numéro national, états visibles, Clock Start/Stop |
+| `test_plateforme_paiement` | 62 | quatre fournisseurs, signatures, idempotence, reçus |
+| `test_amm_signee` | 55 | dépôt de l'acte signé, durée de validité, alertes |
+| `test_acces_profils` | 52 | huit niveaux de responsabilité, permissions transversales |
+| `test_separation_financiere` | 51 | celui qui instruit ne constate pas la recette |
+| `test_lot_d` | 50 | circuits de validation, contenu adapté, courriels |
+| `test_industriel_validation` | 48 | chaîne de signature à six échelons |
+| `test_instruction` | 45 | recevabilité, assignation, commissions, rapport |
+| `test_matrice_navigation` | 45 | **le menu ne promet jamais ce que le serveur refuse** |
+| `test_connexion` | 43 | authentification, durcissement, normalisation de la saisie |
+| `test_ctd` | 41 | modules CTD, complétude, preuve de dépôt |
+| `test_dpi` | 41 | déclarations d'intérêt, blocage d'assignation en conflit |
+| `test_chaine_paiement` | 33 | notification, preuve, confirmation, déblocage |
+| `test_reliance` | 31 | reconnaissance ARN de référence, préqualification OMS |
+
+Deux suites méritent d'être lues avant les autres.
+
+`test_matrice_navigation` parcourt le menu entier, pour chaque profil, et
+vérifie que le serveur accorde exactement ce que l'écran offre. Il a mis au jour
+trois failles réelles le jour de son écriture — une route ouverte à un seul
+profil quand le menu la proposait à six, des inspections fermées au fabricant et
+au grossiste, un registre d'essais cliniques fermé à son promoteur.
+
+`test_machine_etats` fait de même sur le workflow : pour chacun des 13 statuts
+et chacun des 6 rôles, ce qui est offert doit être exactement ce que
+`appliquer_transition` accepterait. Il éprouve aussi ce que le moteur doit
+**refuser** — mauvais état, mauvais rôle, motif manquant — y compris quand
+l'appel court-circuite l'interface.
+
+Le nombre de vérifications de `test_files_paiement` varie de une ou deux selon
+le nombre de dossiers présents en file : il boucle sur les lignes réelles.
 
 ## Vérification des critères d'acceptation
 
@@ -733,12 +954,38 @@ workflow_ct.py     machine à états du ProtocoleEssaiClinique — blocage d'aut
                   favorable, amendements et rapports d'étape en jalons
 workflow_lr.py     machine à états de la LiberationLot — double contrôle croisé MA (AMM active) + LT (résultat
                   conforme et validé), intégration réelle avec MC en cas de rejet après distribution partielle
+
+--- ePharmRegul : socle piloté par la donnée -----------------------------------
+matrice_acces.py   QUI VOIT QUOI — source unique du menu et des droits d'écran ;
+                   trois états de visibilité, correspondance des rôles, verifier_matrice()
+machine_etats.py   LE CYCLE DE VIE DU DOSSIER — 13 statuts, 15 transitions, effets déclarés ;
+                   transitions_autorisees() pure, appliquer_transition() journalisée,
+                   ALIAS pour lire l'ancien vocabulaire, verifier_machine()
+files_attente.py   files financier/homologation/commission/direction, DÉDUITES de la machine ;
+                   ancienneté depuis le dernier changement d'état, trois paliers
+tableau_de_bord.py composition du tableau de bord par profil ; prochaine_action() dérivée
+                   des transitions ouvertes, non d'une table parallèle
+actes.py           certificat et AMM : génération d'un seul geste, numérotation par série
+                   propre, droits de consultation et de téléchargement
+pdf_actes.py       gabarits PDF des deux actes, en-tête bilingue, filigrane PROJET
+referentiels_pharma.py  EDQM Standard Terms, unités de dosage, voies, classes ATC, indications
+formulaire_demande.py   champs et règles du formulaire enrichi ; le type de produit pilote
+                   la variante (standard/MTA) et le dossier technique attendu (CTD/MTA)
+workflow_formulaire.py  enregistrement d'une saisie validée en Produit + DossierAMM
+routes_dossier.py  parcours, actes imprimables, point d'état JSON, ROUTE UNIQUE de transition
+routes_files.py    écrans des files d'attente et leur synthèse JSON
+routes_demandes.py taxonomie des démarches et formulaire de demande
+routes_industriel.py  tableau de bord, portefeuille et suivi du déposant
+
+--- socle commun --------------------------------------------------------------
 audit.py          piste d'audit universelle (EvenementAudit)
 notifications.py  notifications in-app
 permissions.py    rôles système et permissions transversales (tous les rôles du cahier des charges sont actifs)
 numerotation.py    génération des numéros de dossier/cas/inspection/demande/échantillon/signalement/protocole/lot
 delais.py          paramètres configurables + vérification des délais (clôture auto, rappels, alertes, expiration)
-pdf_gen.py         génération des certificats AMM et laboratoire (PDF + QR + sceau SHA-256)
+pdf_gen.py         certificats AMM et laboratoire, reçus (PDF + QR + sceau SHA-256) ;
+                   conservé tel quel — des dossiers antérieurs ont été délivrés avec
+                   ses gabarits et doivent rester reproductibles à l'identique
 seed.py            comptes et données de démonstration pour les 8 circuits métier
 seed_comptes.py    un compte actif par rôle du référentiel + annuaire des niveaux d'accès
 seed_scenario_financier.py   dossier de démonstration bloqué en attente d'approbation financière
