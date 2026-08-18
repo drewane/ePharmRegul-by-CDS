@@ -13,8 +13,8 @@ une fois, dans `appliquer_transition`, et non répété — donc oublié — à 
 vue. Le décorateur `@login_required` ne dit ici que « il faut être connecté » ;
 qui peut faire quoi relève du modèle.
 """
-from flask import (Blueprint, abort, flash, redirect, render_template, request,
-                   url_for)
+from flask import (Blueprint, abort, flash, jsonify, redirect,
+                   render_template, request, url_for)
 
 import machine_etats as me
 from auth import current_user, login_required
@@ -57,6 +57,29 @@ def parcours(dossier_id):
         actions=me.transitions_autorisees(d, u.role_systeme),
         historique=me.historique(d),
         me=me)
+
+
+@bp.route("/<int:dossier_id>/etat.json")
+@login_required
+def etat(dossier_id):
+    """État courant du dossier, pour le suivi sans rechargement.
+
+    La page interroge ce point périodiquement et ne se recharge que si
+    `empreinte` a changé. On évite ainsi de reconstruire un écran identique
+    toutes les vingt secondes — et de faire sauter le formulaire que le
+    déposant est peut-être en train de remplir.
+    """
+    _u, d = _dossier_visible(dossier_id)
+    dernier = me.historique(d)
+    return jsonify({
+        "statut": me.statut_canonique(d),
+        "libelle": me.libelle(d),
+        "couleur": me.couleur(d),
+        "termine": me.est_terminal(d),
+        "attendu_de": me.acteurs_attendus_lisibles(d),
+        "empreinte": f"{d.statut}:{len(dernier)}",
+        "maj": (dernier[-1].horodatage.isoformat() if dernier else None),
+    })
 
 
 @bp.route("/<int:dossier_id>/transition", methods=["POST"])

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ entree.libelle }} — ePharmRegul by CDS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+  <div>
+    <h1 class="h4 mb-1"><i class="bi {{ entree.icone }}"></i> {{ entree.libelle }}</h1>
+    <p class="text-muted mb-0">{{ entree.resume }}</p>
+  </div>
+  <div class="text-end">
+    <span class="badge bg-primary fs-6" id="compteur-total">{{ lignes | length }}</span>
+    <div class="small text-muted mt-1" id="etat-rafraichissement">
+      <i class="bi bi-arrow-repeat"></i> Suivi en direct
+    </div>
+  </div>
+</div>
+
+{% if autres %}
+<nav class="mb-3">
+  {% for f in autres %}
+  <a class="btn btn-sm btn-outline-secondary"
+     href="{{ url_for('files.file', code=f.code) }}">{{ f.libelle }}</a>
+  {% endfor %}
+</nav>
+{% else %}
+<div class="mb-3"></div>
+{% endif %}
+
+{% if not lignes %}
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-check2-circle fs-1 text-success"></i>
+    <p class="mt-2 mb-0 text-secondary">Aucun dossier n'attend votre décision.</p>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Dossier</th>
+          <th>Produit</th>
+          <th>Déposant</th>
+          <th>État</th>
+          <th class="text-nowrap">En attente</th>
+          <th class="text-end">Décision</th>
+        </tr>
+      </thead>
+      <tbody>
+        {# Le plus ancien en tête : une file se traite par le bas. #}
+        {% for l in lignes %}
+        {% set d = l.dossier %}
+        <tr class="{{ 'table-danger' if l.palier == 'alerte'
+                      else 'table-warning' if l.palier == 'attention' }}">
+          <td>
+            <a href="{{ url_for('dossier.parcours', dossier_id=d.id) }}"
+               class="fw-semibold text-decoration-none">{{ d.numero }}</a>
+            {% if d.numero_suivi %}
+            <div class="small text-muted">{{ d.numero_suivi }}</div>
+            {% endif %}
+          </td>
+          <td>{{ d.produit.nom_commercial if d.produit else '—' }}</td>
+          <td class="small">{{ d.demandeur.nom_complet if d.demandeur else '—' }}</td>
+          <td><span class="badge bg-{{ l.couleur }}">{{ l.statut }}</span></td>
+          <td class="text-nowrap">
+            {% if l.jours is not none %}
+              <span class="fw-semibold">{{ l.jours }} j</span>
+              {% if l.palier != 'normal' %}
+              <i class="bi bi-exclamation-triangle-fill
+                        text-{{ PALIERS[l.palier][1] }}"
+                 title="{{ PALIERS[l.palier][0] }}"></i>
+              {% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-end">
+            {% if l.actions %}
+              {% set actions = l.actions %}
+              {% set retour = url_for('files.file', code=entree.code) %}
+              {% include "dossiers/_actions.html" %}
+            {% else %}
+              <span class="small text-secondary">Consultation</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# Suivi en direct : on n'interroge que la synthèse, et l'on ne recharge que
+   si la file a réellement changé. Recharger toutes les vingt secondes une
+   page identique ferait disparaître la boîte de dialogue de motif qu'un chef
+   de service est peut-être en train de remplir. #}
+<script>
+(function () {
+  var url = {{ url_for('files.synthese_json', code=entree.code) | tojson }};
+  var empreinte = null;
+  var etat = document.getElementById('etat-rafraichissement');
+  var total = document.getElementById('compteur-total');
+
+  function verifier() {
+    // Une boîte de dialogue ouverte : on ne recharge sous aucun prétexte.
+    if (document.querySelector('.modal.show')) { return; }
+    fetch(url, {headers: {'Accept': 'application/json'}})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (!d) { return; }
+        total.textContent = d.total;
+        if (empreinte === null) { empreinte = d.empreinte; return; }
+        if (d.empreinte !== empreinte) {
+          etat.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Mise à jour…';
+          window.location.reload();
+        }
+      })
+      .catch(function () { /* réseau indisponible : on réessaiera */ });
+  }
+
+  setInterval(verifier, 20000);
+  // On s'aligne dès que l'onglet redevient visible : le régulateur qui revient
+  // sur sa file doit voir l'état du moment, pas celui d'il y a une heure.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { verifier(); }
+  });
+})();
+</script>
+{% endblock %}

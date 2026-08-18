@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Files d'attente — ePharmRegul by CDS{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-1">Files d'attente</h1>
+<p class="text-muted">Charge par service, du dossier le plus ancien.</p>
+
+<div class="row g-3">
+  {% for f in synthese %}
+  <div class="col-md-6 col-xl-3">
+    <div class="card h-100 {{ 'border-danger' if f.alerte
+                              else 'border-warning' if f.attention }}">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h2 class="h6 mb-2"><i class="bi {{ f.icone }}"></i> {{ f.libelle }}</h2>
+          <span class="badge bg-primary fs-6">{{ f.total }}</span>
+        </div>
+        <p class="small text-muted">{{ f.resume }}</p>
+        {% if f.alerte %}
+        <p class="small text-danger mb-1">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          {{ f.alerte }} dossier{{ 's' if f.alerte > 1 }} au-delà de
+          {{ SEUIL_ALERTE }} jours</p>
+        {% elif f.attention %}
+        <p class="small text-warning-emphasis mb-1">
+          <i class="bi bi-clock-history"></i>
+          {{ f.attention }} dossier{{ 's' if f.attention > 1 }} en attente prolongée</p>
+        {% endif %}
+        {# « attend depuis 0 jour » n'apprend rien : on se tait plutôt. #}
+        {% if f.plus_ancien %}
+        <p class="small text-secondary mb-2">
+          Le plus ancien attend depuis {{ f.plus_ancien }} jour{{ 's' if f.plus_ancien > 1 }}.</p>
+        {% endif %}
+        <a class="btn btn-sm btn-outline-primary"
+           href="{{ url_for('files.file', code=f.code) }}">Ouvrir la file</a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

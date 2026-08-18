@@ -148,6 +148,7 @@ from routes_courriel import bp as courriel_bp  # noqa: E402
 from routes_atu import bp as atu_bp  # noqa: E402
 from routes_voies import bp as voies_bp  # noqa: E402
 from routes_dossier import bp as dossier_bp  # noqa: E402
+from routes_files import bp as files_bp  # noqa: E402
 app.register_blueprint(vl_bp)
 app.register_blueprint(ri_bp)
 app.register_blueprint(li_bp)
@@ -170,6 +171,7 @@ app.register_blueprint(courriel_bp)
 app.register_blueprint(atu_bp)
 app.register_blueprint(voies_bp)
 app.register_blueprint(dossier_bp)
+app.register_blueprint(files_bp)
 
 # Fonctions réglementaires du cahier des charges (README §"Ordre de priorité") — MA et VL
 # sont implémentés dans cette livraison ; les autres sont affichées grisées, jamais masquées.

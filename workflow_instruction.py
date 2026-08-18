@@ -124,7 +124,15 @@ def prononcer_recevabilite(dossier, acteur, recevable, motif=None):
     La recevabilité exige que tous les points bloquants soient cochés : le
     contrôle est fait ici, pas seulement dans l'interface.
     """
-    if dossier.statut != "soumis":
+    # Deux vocabulaires mènent ici. L'ancien garde `soumis` du dépôt jusqu'à
+    # la recevabilité, sans distinguer l'avant et l'après-paiement ; la machine
+    # à états sépare les deux et pose `en_attente_recevabilite` dès que le
+    # responsable financier a constaté la recette. C'est pourquoi on ne peut
+    # pas se contenter du statut canonique : `soumis` s'y traduit par
+    # « en attente de confirmation », ce qui est vrai avant le paiement et faux
+    # après. On accepte donc les deux formes, et c'est la liste de contrôle —
+    # qui exige l'attestation de paiement — qui reste le vrai verrou.
+    if dossier.statut not in ("soumis", "en_attente_recevabilite"):
         raise ErreurWorkflow(
             "La recevabilité ne s'examine que sur un dossier soumis "
             f"(statut actuel : {dossier.statut}).")

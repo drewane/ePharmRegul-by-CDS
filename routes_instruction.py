@@ -47,8 +47,13 @@ def _chef():
 @login_required
 def bureau():
     u = _bureau()
-    a_examiner = DossierAMM.query.filter_by(statut="soumis").all()
-    en_evaluation = DossierAMM.query.filter_by(statut="evaluation_en_cours").all()
+    # Les deux vocabulaires cohabitent : un dossier déposé avant la machine à
+    # états porte « soumis », un dossier dont le financier vient de constater
+    # la recette porte « en_attente_recevabilite ». Le bureau doit voir les deux.
+    a_examiner = DossierAMM.query.filter(
+        DossierAMM.statut.in_(("soumis", "en_attente_recevabilite"))).all()
+    en_evaluation = DossierAMM.query.filter(
+        DossierAMM.statut.in_(("evaluation_en_cours", "en_commission"))).all()
     return render_template(
         "instruction/bureau.html", u=u, a_examiner=a_examiner,
         en_evaluation=[(d, wfi.etat_instruction(d)) for d in en_evaluation],

@@ -9,17 +9,22 @@
    Attend : actions (liste de transitions), d (dossier), retour (url, option.)
    --------------------------------------------------------------------------- #}
 {% if actions %}
+{# L'identifiant de la boîte de dialogue est porté par le COUPLE dossier-action.
+   Sur une file qui affiche vingt lignes, un identifiant fondé sur la seule
+   action serait répété vingt fois : le navigateur ouvrirait la première boîte
+   trouvée, et le motif partirait sur le mauvais dossier. #}
 <div class="d-flex flex-wrap gap-2">
   {% for t in actions %}
+    {% set cible = 'motif-' ~ d.id ~ '-' ~ t.action %}
     {% if t.motif_requis %}
       {# Un motif obligatoire passe par une boîte de dialogue : le serveur le
          refuserait vide, autant le demander avant plutôt qu'après. #}
       <button type="button" class="btn btn-{{ t.ton }}" data-bs-toggle="modal"
-              data-bs-target="#motif-{{ t.action }}">
+              data-bs-target="#{{ cible }}">
         {{ t.libelle }}
       </button>
-      <div class="modal fade" id="motif-{{ t.action }}" tabindex="-1"
-           aria-labelledby="titre-{{ t.action }}" aria-hidden="true">
+      <div class="modal fade" id="{{ cible }}" tabindex="-1"
+           aria-labelledby="titre-{{ cible }}" aria-hidden="true">
         <div class="modal-dialog">
           <form method="post"
                 action="{{ url_for('dossier.transition', dossier_id=d.id) }}"
@@ -27,17 +32,17 @@
             <input type="hidden" name="action" value="{{ t.action }}">
             {% if retour %}<input type="hidden" name="retour" value="{{ retour }}">{% endif %}
             <div class="modal-header">
-              <h5 class="modal-title" id="titre-{{ t.action }}">{{ t.libelle }}</h5>
+              <h5 class="modal-title" id="titre-{{ cible }}">{{ t.libelle }}</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal"
                       aria-label="Fermer"></button>
             </div>
             <div class="modal-body">
               {% if t.aide %}<p class="text-secondary small">{{ t.aide }}</p>{% endif %}
-              <label class="form-label" for="motif-texte-{{ t.action }}">
+              <label class="form-label" for="texte-{{ cible }}">
                 Motif <span class="text-danger">*</span>
               </label>
               <textarea class="form-control" rows="4" required
-                        id="motif-texte-{{ t.action }}" name="commentaire"
+                        id="texte-{{ cible }}" name="commentaire"
                         placeholder="Ce texte est communiqué au déposant."></textarea>
               <div class="form-text">
                 Le déposant doit pouvoir agir sur la seule foi de ce message.

@@ -156,6 +156,16 @@ NAVIGATION = [
      "icone": "bi-speedometer2", "endpoint": "dashboard",
      "roles": ("*",), "profils": ("*",)},
 
+    # Pendant régulateur du portefeuille : ce qui attend MA décision. Les
+    # rôles listés ici sont ceux des files déclarées dans files_attente ; la
+    # vérification de cohérence entre les deux est faite par les tests.
+    {"code": "files", "libelle": "Ma file d'attente",
+     "icone": "bi-inboxes", "endpoint": "files.accueil",
+     "roles": ("responsable_financier", "chef_service_amm", "chef_bureau",
+               "membre_commission_specialisee", "directeur_dpml",
+               "administrateur_dpml"),
+     "profils": ()},
+
     # Ouvert à tout opérateur qui détient un objet réglementaire : dossiers
     # d'AMM pour le titulaire, agréments pour le fabricant et le grossiste.
     {"code": "portefeuille", "libelle": "Mon portefeuille",

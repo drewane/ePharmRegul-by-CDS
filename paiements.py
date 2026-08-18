@@ -255,6 +255,9 @@ def rejeter(paiement, acteur, motif):
                  f"Votre preuve de paiement {paiement.numero} a été rejetée : {motif.strip()} "
                  "Merci de déposer une nouvelle preuve.",
                  lien=_lien_entite(paiement))
+    entite = _entite_du_paiement(paiement)
+    if entite is not None and entite.__class__.__name__ == "DossierAMM":
+        _avancer_machine(entite, "rejeter_paiement", acteur, motif.strip())
     return paiement
 
 
@@ -351,7 +354,8 @@ def _apres_approbation(paiement, acteur):
       1. le délai légal démarre (Clock Start) ;
       2. le point « preuve de paiement » de la recevabilité est ATTESTÉ — le
          chef de service n'a plus à le cocher, et ne le peut plus ;
-      3. le service instructeur est averti qu'il peut aller de l'avant.
+      3. le dossier AVANCE dans la machine à états, vers la recevabilité ;
+      4. le service instructeur est averti qu'il peut aller de l'avant.
     """
     _demarrer_delai_legal(paiement, acteur)
 
@@ -361,6 +365,7 @@ def _apres_approbation(paiement, acteur):
 
     import workflow_instruction as wfi
     wfi.attester_paiement(entite, acteur, paiement.numero)
+    _avancer_machine(entite, "valider_paiement", acteur)
 
     reference = getattr(entite, "numero_suivi", None) or entite.numero
     restants = wfi.points_manquants(entite)
@@ -374,6 +379,29 @@ def _apres_approbation(paiement, acteur):
     for role in wfi.ROLES_RECEVABILITE:
         notifier_tous(role, "recette_approuvee", message,
                       lien=f"/instruction/dossiers/{entite.id}")
+
+
+def _avancer_machine(dossier, action, acteur, motif=None):
+    """Répercute une décision financière sur l'état du dossier.
+
+    Le paiement et le dossier avaient jusqu'ici deux vies parallèles : la
+    recette était constatée sans que le dossier bouge, et c'est le chef de
+    service qui devait s'apercevoir qu'il pouvait avancer. On relie les deux —
+    par la machine à états, pas en écrivant `dossier.statut` ici, faute de
+    quoi on recréerait le second workflow qu'on cherche à supprimer.
+
+    Silencieux si la transition n'est pas ouverte : un dossier déjà recevable
+    dont on rapproche un virement tardif ne doit pas reculer, et un paiement
+    portant sur une licence ou un échantillon n'a pas de machine à faire
+    avancer.
+    """
+    import machine_etats as me
+
+    if not any(t["action"] == action
+               for t in me.transitions_autorisees(dossier, acteur.role_systeme)):
+        return False
+    me.appliquer_transition(dossier, action, acteur, motif)
+    return True
 
 
 def _appliquer_resultat(paiement, resultat, acteur, origine):
