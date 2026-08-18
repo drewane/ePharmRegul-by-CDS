@@ -58,12 +58,17 @@ def niveau_requis(minimum):
 
 
 def permission_requise(cle):
-    """Réserve une vue aux titulaires d'une permission transverse (permissions.py)."""
+    """Réserve une vue aux titulaires d'une fonctionnalité (permissions.utilisateur_peut).
+
+    Le décorateur est inchangé ; c'est ce qu'il résout qui change. `cle` peut
+    être un code du catalogue (ex. recevabilite.decider) ou une clé historique
+    encore gérée par le repli de utilisateur_peut.
+    """
     def deco(view):
         @wraps(view)
         def wrapped(*a, **kw):
-            from permissions import a_permission
-            if not a_permission(current_user(), cle):
+            from permissions import utilisateur_peut
+            if not utilisateur_peut(current_user(), cle):
                 abort(403)
             return view(*a, **kw)
         return wrapped

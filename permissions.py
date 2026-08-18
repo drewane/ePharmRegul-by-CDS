@@ -267,3 +267,45 @@ def a_permission(user, cle_permission):
         return True
     minimum = NIVEAU_MINIMAL_CONSULTATION.get(cle_permission)
     return minimum is not None and a_niveau(user, minimum)
+
+
+# ---------------------------------------------------------------------------
+# 5. Résolveur unique d'autorisation (Lot A — gouvernance des accès)
+# ---------------------------------------------------------------------------
+def utilisateur_peut(user, code):
+    """L'utilisateur détient-il la fonctionnalité `code` ?
+
+    Règle, au moindre privilège :
+        défauts du rôle + surcharge accordée − surcharge retirée
+
+    Un compte non actif (en attente, rejeté, suspendu) échoue TOUJOURS. Tant
+    qu'une clé n'est pas portée au catalogue, on RETOMBE sur la logique
+    historique (`a_permission` : liste nominative ou niveau de consultation) :
+    c'est ce qui permet de migrer route par route sans rien casser.
+    """
+    if user is None:
+        return False
+    if getattr(user, "statut_compte", "actif") != "actif":
+        return False
+
+    from models import db, Role, SurchargeFonctionnalite
+
+    # Surcharges par utilisateur : « retire » l'emporte sur « accorde »
+    # (le plus restrictif gagne).
+    sens = {s.sens for s in SurchargeFonctionnalite.query.filter_by(
+        utilisateur_id=user.id, fonctionnalite_code=code).all()}
+    if "retire" in sens:
+        return False
+    if "accorde" in sens:
+        return True
+
+    # Défauts du rôle, lus au catalogue en base.
+    role = db.session.get(Role, user.role_systeme)
+    if role is not None and code in role.fonctionnalites_par_defaut:
+        return True
+
+    # Repli : clé historique non encore migrée au catalogue.
+    if code in PERMISSIONS_TRANSVERSES or code in NIVEAU_MINIMAL_CONSULTATION:
+        return a_permission(user, code)
+
+    return False

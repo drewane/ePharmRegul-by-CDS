@@ -298,6 +298,10 @@
             <i class="bi bi-people"></i> Utilisateurs</a>
         </li>
         <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.path.startswith('/gouvernance') }}" href="{{ url_for('gouvernance.inscriptions') }}">
+            <i class="bi bi-shield-lock"></i> Gouvernance des accès</a>
+        </li>
+        <li class="nav-item">
           <a class="nav-link {{ 'active' if '/admin/base-donnees' in request.path }}" href="{{ url_for('admin_base_donnees') }}">
             <i class="bi bi-database"></i> Base de données</a>
         </li>

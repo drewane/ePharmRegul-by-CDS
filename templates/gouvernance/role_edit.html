@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ role.libelle }} — Rôles{% endblock %}
+{% block content %}
+{% include "gouvernance/_onglets.html" %}
+<div class="d-flex justify-content-between align-items-center">
+  <h5 class="mb-0">{{ role.libelle }} <code class="small text-muted">{{ role.code }}</code></h5>
+  <a href="{{ url_for('gouvernance.roles') }}" class="btn btn-sm btn-outline-secondary">← Tous les rôles</a>
+</div>
+<p class="text-muted small">Catégorie : {{ categorie }}. Fonctionnalités par défaut du rôle — impact global sur tous ses comptes.</p>
+<form method="post" onsubmit="return confirmerSensibles(this);">
+  {% for module, fs in modules.items() %}
+  <div class="card mb-2">
+    <div class="card-header py-1 small fw-semibold text-uppercase text-muted">{{ module }}</div>
+    <div class="card-body py-2">
+      {% for f in fs %}
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="fonctionnalite" value="{{ f.code }}"
+               id="f-{{ f.code }}" {{ 'checked' if f.code in actifs }} data-sensible="{{ '1' if f.sensible else '0' }}">
+        <label class="form-check-label" for="f-{{ f.code }}">
+          {{ f.libelle }} <code class="small text-muted">{{ f.code }}</code>
+          {% if f.sensible %}<span class="badge bg-danger">🔒 sensible</span>{% endif %}</label>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+  <button class="btn btn-primary"><i class="bi bi-save"></i> Enregistrer les défauts</button>
+</form>
+<script>
+function confirmerSensibles(form){
+  var s=[...form.querySelectorAll('input[data-sensible="1"]:checked')];
+  return s.length ? confirm('Ce rôle recevra '+s.length+' fonctionnalité(s) sensible(s) 🔒. Confirmer ?') : true;
+}
+</script>
+{% endblock %}

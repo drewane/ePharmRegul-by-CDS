@@ -1,0 +1,18 @@
+<h4 class="mb-3"><i class="bi bi-shield-lock"></i> Gouvernance des accès</h4>
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <a class="nav-link {{ 'active' if onglet == 'inscriptions' }}" href="{{ url_for('gouvernance.inscriptions') }}">
+      Inscriptions à valider
+      {% if nb_inscriptions %}<span class="badge bg-warning text-dark ms-1">{{ nb_inscriptions }}</span>{% endif %}
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {{ 'active' if onglet == 'roles' }}" href="{{ url_for('gouvernance.roles') }}">Rôles &amp; fonctionnalités</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {{ 'active' if onglet == 'utilisateurs' }}" href="{{ url_for('gouvernance.utilisateurs') }}">Utilisateurs</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {{ 'active' if onglet == 'journal' }}" href="{{ url_for('gouvernance.journal') }}">Journal d'audit</a>
+  </li>
+</ul>

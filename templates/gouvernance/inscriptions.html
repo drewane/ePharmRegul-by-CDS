@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Inscriptions à valider — Gouvernance{% endblock %}
+{% block content %}
+{% include "gouvernance/_onglets.html" %}
+{% if not en_attente %}
+  <div class="alert alert-secondary">Aucune inscription en attente de validation.</div>
+{% else %}
+  {% for p in en_attente %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="mb-1">{{ p.nom_complet }}</h5>
+      <div class="text-muted small mb-2">{{ p.email }}
+        {% if p.etablissement %} · {{ p.etablissement.raison_sociale }}{% endif %}
+        {% if p.date_creation %} · demandé le {{ p.date_creation.strftime('%d/%m/%Y') }}{% endif %}
+        · rôle demandé <code>{{ p.role_systeme }}</code></div>
+      <div class="row g-3">
+        <div class="col-lg-7">
+          <form method="post" action="{{ url_for('gouvernance.valider', id=p.id) }}">
+            <div class="row g-2 align-items-end">
+              <div class="col-sm-7">
+                <label class="form-label small mb-0">Rôle attribué</label>
+                <select name="role_systeme" class="form-select form-select-sm">
+                  {% for code, label in roles_actifs.items() %}
+                  <option value="{{ code }}" {{ 'selected' if code == p.role_systeme }}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-sm-5">
+                <button class="btn btn-success btn-sm w-100"><i class="bi bi-check-lg"></i> Valider</button>
+              </div>
+            </div>
+            <details class="mt-2">
+              <summary class="small text-muted" style="cursor:pointer">Surcharges éventuelles à accorder</summary>
+              <div class="border rounded p-2 mt-2" style="max-height:180px;overflow:auto">
+                {% for module, fs in modules.items() %}
+                <div class="fw-semibold small text-uppercase text-muted mt-2">{{ module }}</div>
+                {% for f in fs %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="surcharge" value="{{ f.code }}" id="s-{{ p.id }}-{{ f.code }}">
+                  <label class="form-check-label small" for="s-{{ p.id }}-{{ f.code }}">
+                    {{ f.libelle }} {% if f.sensible %}<span class="badge bg-danger">🔒</span>{% endif %}</label>
+                </div>
+                {% endfor %}
+                {% endfor %}
+              </div>
+            </details>
+          </form>
+        </div>
+        <div class="col-lg-5">
+          <form method="post" action="{{ url_for('gouvernance.rejeter', id=p.id) }}"
+                onsubmit="return confirm('Rejeter cette inscription ?');">
+            <label class="form-label small mb-0">Motif de rejet (obligatoire)</label>
+            <textarea name="motif" class="form-control form-control-sm" rows="2" required></textarea>
+            <button class="btn btn-outline-danger btn-sm mt-2 w-100"><i class="bi bi-x-lg"></i> Rejeter</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}

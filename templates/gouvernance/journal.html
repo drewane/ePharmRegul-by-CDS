@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Journal d'audit — Gouvernance{% endblock %}
+{% block content %}
+{% include "gouvernance/_onglets.html" %}
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4"><input name="acteur" value="{{ acteur }}" class="form-control form-control-sm" placeholder="Acteur (nom ou e-mail)"></div>
+  <div class="col-md-4"><input name="action" value="{{ action }}" class="form-control form-control-sm" placeholder="Action (ex. REFUS, Inscription)"></div>
+  <div class="col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Filtrer</button></div>
+</form>
+<p class="small text-muted">200 entrées les plus récentes. Les refus apparaissent en rouge.</p>
+<table class="table table-sm align-middle">
+  <thead><tr><th>Horodatage</th><th>Acteur</th><th>Action</th><th>Cible</th><th>Détail</th></tr></thead>
+  <tbody>
+  {% for e in evenements %}
+    <tr class="{{ 'table-danger' if e.action.startswith('REFUS') }}">
+      <td class="small text-nowrap">{{ e.horodatage.strftime('%d/%m/%Y %H:%M') if e.horodatage }}</td>
+      <td class="small">{{ e.acteur.nom_complet if e.acteur else '— (système)' }}</td>
+      <td class="small">{{ e.action }}</td>
+      <td class="small text-muted">{{ e.entite_type }}{% if e.entite_id %}#{{ e.entite_id }}{% endif %}</td>
+      <td class="small">
+        {% if e.ancien_statut or e.nouveau_statut %}<span class="text-muted">{{ e.ancien_statut }} → {{ e.nouveau_statut }}</span>{% endif %}
+        {% if e.commentaire %}<div class="text-muted">{{ e.commentaire }}</div>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

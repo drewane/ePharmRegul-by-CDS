@@ -28,10 +28,17 @@ class Personne(db.Model):
     etablissement_rattachement_id = db.Column(db.Integer, db.ForeignKey("etablissement.id"), nullable=True)
     contact = db.Column(db.String(200))
     statut_compte = db.Column(db.String(20), nullable=False, default="actif")
-    # actif | en_attente_validation (auto-inscription, cf. app.py:inscription_labo) | suspendu
+    # actif | en_attente_validation (auto-inscription, cf. app.py:inscription_labo)
+    # | rejete (inscription refusée, Lot A) | suspendu
     date_creation = db.Column(db.DateTime, default=datetime.utcnow)
+    # Traçabilité de l'inscription et de sa décision (Lot A — gouvernance des accès).
+    date_inscription = db.Column(db.DateTime, nullable=True)
+    date_decision = db.Column(db.DateTime, nullable=True)
+    decide_par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
 
     etablissement = db.relationship("Etablissement", foreign_keys=[etablissement_rattachement_id])
+    decide_par = db.relationship("Personne", remote_side=[id],
+                                 foreign_keys=[decide_par_id])
 
     def set_password(self, pwd):
         self.password_hash = generate_password_hash(pwd)
@@ -1252,3 +1259,71 @@ class Deport(db.Model):
         db.UniqueConstraint("personne_id", "entite_type", "entite_id",
                             name="uq_deport_personne_entite"),
     )
+
+
+# ---------------------------------------------------------------------------
+# Gouvernance des accès (Lot A) — RBAC piloté par la donnée
+# ---------------------------------------------------------------------------
+# Ces quatre tables donnent corps au catalogue de fonctionnalités et aux défauts
+# par rôle. L'AUTORISATION se résout dans permissions.utilisateur_peut, qui
+# interroge ces tables ; ici, on ne déclare que le stockage. Amorcées par
+# seed_gouvernance.py depuis catalogue_fonctionnalites.py.
+class Categorie(db.Model):
+    __tablename__ = "categorie"
+    code = db.Column(db.String(30), primary_key=True)   # regulateur | demandeur | usager
+    libelle = db.Column(db.String(120), nullable=False)
+
+
+class Fonctionnalite(db.Model):
+    __tablename__ = "fonctionnalite"
+    code = db.Column(db.String(60), primary_key=True)   # ex. recevabilite.decider
+    libelle = db.Column(db.String(160), nullable=False)
+    module = db.Column(db.String(40), nullable=False, index=True)
+    description = db.Column(db.Text, nullable=True)
+    sensible = db.Column(db.Boolean, nullable=False, default=False)
+
+
+class Role(db.Model):
+    __tablename__ = "role"
+    code = db.Column(db.String(50), primary_key=True)
+    libelle = db.Column(db.String(160), nullable=False)
+    categorie_code = db.Column(db.String(30), db.ForeignKey("categorie.code"),
+                               nullable=False)
+    # JSON stocké en Text : idiome du projet (aucune colonne JSON native, aucune
+    # dépendance nouvelle). Exposé en listes/dicts Python via les propriétés.
+    _attributs = db.Column("attributs", db.Text, nullable=True)
+    _fonctionnalites = db.Column("fonctionnalites_par_defaut", db.Text, nullable=True)
+
+    @property
+    def attributs(self):
+        return json.loads(self._attributs) if self._attributs else {}
+
+    @attributs.setter
+    def attributs(self, valeur):
+        self._attributs = json.dumps(valeur or {}, ensure_ascii=False)
+
+    @property
+    def fonctionnalites_par_defaut(self):
+        return json.loads(self._fonctionnalites) if self._fonctionnalites else []
+
+    @fonctionnalites_par_defaut.setter
+    def fonctionnalites_par_defaut(self, valeur):
+        self._fonctionnalites = json.dumps(sorted(set(valeur or [])),
+                                           ensure_ascii=False)
+
+
+class SurchargeFonctionnalite(db.Model):
+    __tablename__ = "surcharge_fonctionnalite"
+    id = db.Column(db.Integer, primary_key=True)
+    utilisateur_id = db.Column(db.Integer, db.ForeignKey("personne.id"),
+                               nullable=False, index=True)
+    fonctionnalite_code = db.Column(db.String(60),
+                                    db.ForeignKey("fonctionnalite.code"),
+                                    nullable=False, index=True)
+    sens = db.Column(db.String(10), nullable=False)   # accorde | retire
+    motif = db.Column(db.Text, nullable=True)
+    par_id = db.Column(db.Integer, db.ForeignKey("personne.id"), nullable=True)
+    date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    utilisateur = db.relationship("Personne", foreign_keys=[utilisateur_id])
+    accorde_par = db.relationship("Personne", foreign_keys=[par_id])

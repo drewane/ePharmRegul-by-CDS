@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs — Gouvernance{% endblock %}
+{% block content %}
+{% include "gouvernance/_onglets.html" %}
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4"><input name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Nom ou e-mail"></div>
+  <div class="col-md-3">
+    <select name="role" class="form-select form-select-sm">
+      <option value="">Tous les rôles</option>
+      {% for code, label in roles_actifs.items() %}<option value="{{ code }}" {{ 'selected' if code == role }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select name="statut" class="form-select form-select-sm">
+      <option value="">Tous les statuts</option>
+      {% for s in ["actif","en_attente_validation","rejete","suspendu"] %}<option value="{{ s }}" {{ 'selected' if s == statut }}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-sm btn-outline-primary w-100">Filtrer</button></div>
+</form>
+<table class="table table-sm table-hover align-middle">
+  <thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Statut</th><th></th></tr></thead>
+  <tbody>
+  {% set couleur = {'actif':'success','en_attente_validation':'warning','rejete':'secondary','suspendu':'danger'} %}
+  {% for p in personnes %}
+    <tr>
+      <td>{{ p.nom_complet }}</td>
+      <td class="small text-muted">{{ p.email }}</td>
+      <td><code class="small">{{ p.role_systeme }}</code></td>
+      <td><span class="badge bg-{{ couleur.get(p.statut_compte,'secondary') }}">{{ p.statut_compte }}</span></td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('gouvernance.utilisateur_fiche', id=p.id) }}">Fiche</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

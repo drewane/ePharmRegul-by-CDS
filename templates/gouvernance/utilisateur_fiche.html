@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ p.nom_complet }} — Utilisateur{% endblock %}
+{% block content %}
+{% include "gouvernance/_onglets.html" %}
+<div class="d-flex justify-content-between align-items-center">
+  <h5 class="mb-0">{{ p.nom_complet }}</h5>
+  <a href="{{ url_for('gouvernance.utilisateurs') }}" class="btn btn-sm btn-outline-secondary">← Utilisateurs</a>
+</div>
+<p class="text-muted small mb-3">{{ p.email }} · statut <strong>{{ p.statut_compte }}</strong>
+  {% if dernier_admin %}· <span class="badge bg-info text-dark">dernier super admin actif — non rétrogradable</span>{% endif %}</p>
+<div class="row g-3 mb-3">
+  <div class="col-md-7">
+    <form method="post" action="{{ url_for('gouvernance.utilisateur_role', id=p.id) }}" class="d-flex gap-2 align-items-end">
+      <div class="flex-grow-1">
+        <label class="form-label small mb-0">Rôle</label>
+        <select name="role_systeme" class="form-select form-select-sm">
+          {% for code, label in roles_actifs.items() %}<option value="{{ code }}" {{ 'selected' if code == p.role_systeme }}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-sm btn-outline-primary" {{ 'disabled' if dernier_admin }}>Changer</button>
+    </form>
+  </div>
+  <div class="col-md-5">
+    <form method="post" action="{{ url_for('gouvernance.utilisateur_suspendre', id=p.id) }}"
+          onsubmit="return confirm('Confirmer le changement de statut ?');">
+      {% if p.statut_compte == 'suspendu' %}
+        <button class="btn btn-sm btn-success w-100 mt-4">Réactiver le compte</button>
+      {% else %}
+        <button class="btn btn-sm btn-outline-danger w-100 mt-4" {{ 'disabled' if dernier_admin }}>Suspendre le compte</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+<h6 class="text-uppercase text-muted">Fonctionnalités effectives</h6>
+<p class="small text-muted">Défaut du rôle vs surcharge. « accordée » ajoute au défaut, « retirée » prime dessus.</p>
+{% for module, lignes in par_module.items() %}
+<div class="card mb-2">
+  <div class="card-header py-1 small fw-semibold text-uppercase text-muted">{{ module }}</div>
+  <ul class="list-group list-group-flush">
+    {% for l in lignes %}
+    <li class="list-group-item d-flex justify-content-between align-items-center py-1">
+      <span>
+        {% if l.effective %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}
+        {{ l.libelle }} <code class="small text-muted">{{ l.code }}</code>
+        {% if l.sensible %}<span class="badge bg-danger">🔒</span>{% endif %}
+        {% if l.defaut %}<span class="badge bg-light text-dark border">défaut</span>{% endif %}
+        {% if l.surcharge == 'accorde' %}<span class="badge bg-success">surcharge : accordée</span>{% endif %}
+        {% if l.surcharge == 'retire' %}<span class="badge bg-warning text-dark">surcharge : retirée</span>{% endif %}
+      </span>
+      <span>
+        <form method="post" action="{{ url_for('gouvernance.utilisateur_fonctionnalite', id=p.id) }}" class="d-inline">
+          <input type="hidden" name="code" value="{{ l.code }}">
+          <input type="hidden" name="motif" value="">
+          {% if l.surcharge %}
+            <button name="sens" value="annule" class="btn btn-sm btn-outline-secondary py-0" onclick="return demanderMotif(this);">annuler surcharge</button>
+          {% else %}
+            <button name="sens" value="accorde" class="btn btn-sm btn-outline-success py-0" onclick="return demanderMotif(this);">accorder</button>
+            <button name="sens" value="retire" class="btn btn-sm btn-outline-warning py-0" onclick="return demanderMotif(this);">retirer</button>
+          {% endif %}
+        </form>
+      </span>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endfor %}
+<script>
+function demanderMotif(btn){
+  var m = prompt('Motif de la modification :', 'Ajustement via la fiche utilisateur');
+  if (m === null) return false;
+  btn.form.querySelector('input[name=motif]').value = m || 'Ajustement via la fiche utilisateur';
+  return true;
+}
+</script>
+{% endblock %}
