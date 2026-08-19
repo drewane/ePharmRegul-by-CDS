@@ -20,3 +20,8 @@ instance/*.avant-vidage-*
 
 # Actes générés à la demande : reproductibles depuis la base, jamais versionnés.
 instance/actes/
+
+# Un fichier d identifiants renomme restait versionnable : on couvre le prefixe,
+# pas le nom exact.
+instance/IDENTIFIANTS-PRIVES*
+instance/*.durcie-*
