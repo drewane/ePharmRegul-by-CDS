@@ -130,6 +130,43 @@ def enregistrer_effet(nom, fonction):
 
 
 # ---------------------------------------------------------------------------
+# Gardes
+# ---------------------------------------------------------------------------
+# Un rôle peut avoir le droit d'agir sans que le dossier soit en état de
+# recevoir l'action. Le directeur a bien qualité pour valider — mais pas un
+# dossier vide. La garde exprime cette seconde condition, qui porte sur la
+# CHOSE et non sur la personne.
+#
+# Une garde reçoit le dossier et rend la liste des empêchements, en clair, ou
+# rien. Le message est destiné à l'écran : il doit dire ce qui manque, pas
+# qu'un contrôle a échoué.
+GARDES = {}
+
+
+def enregistrer_garde(nom, fonction):
+    """Rattache une fonction `(dossier) -> [motifs]` à un nom de garde."""
+    GARDES[nom] = fonction
+
+
+def obstacles(dossier, t):
+    """Ce qui empêche cette transition maintenant. Liste vide = rien.
+
+    Fonction pure, comme `transitions_autorisees` : l'interface s'en sert pour
+    griser un bouton et en donner la raison, sans rien modifier.
+    """
+    nom = t.get("garde")
+    if not nom:
+        return []
+    garde = GARDES.get(nom)
+    if garde is None:
+        # Fail-closed : une garde déclarée mais absente bloque, elle n'ouvre
+        # pas. Un contrôle qu'on a oublié de brancher ne doit pas se traduire
+        # par une autorisation délivrée.
+        return [f"Le contrôle « {nom} » n'est pas disponible."]
+    return list(garde(dossier) or [])
+
+
+# ---------------------------------------------------------------------------
 # Transitions
 # ---------------------------------------------------------------------------
 # Chaque entrée : depuis · action · vers · libellé du bouton · rôles ·
@@ -209,6 +246,7 @@ TRANSITIONS = [
      "motif_requis": False,
      "notifie": ("deposant", "chef_service_amm"), "ton": "success",
      "effet": "generer_actes",
+     "garde": "dossier_instruit",
      "aide": "Génère le certificat d'homologation et l'AMM à signer."},
 
     {"depuis": "retour_homologation", "action": "renvoyer_complement",
@@ -330,6 +368,15 @@ def appliquer_transition(dossier, action, acteur, commentaire=None):
         raise ErreurWorkflow(
             f"« {t['libelle']} » doit être motivé : le déposant doit savoir "
             "ce qui lui est reproché ou demandé.")
+
+    # L'acteur a qualité, mais le dossier est-il en état ? Le contrôle est ici
+    # et non dans le gabarit : un garde-fou qui ne tient qu'à un écran ne tient
+    # pas — il tombe au premier appel direct.
+    empechements = obstacles(dossier, t)
+    if empechements:
+        raise ErreurWorkflow(
+            f"« {t['libelle']} » est impossible en l'état : "
+            + " ".join(empechements))
 
     ancien = dossier.statut
     dossier.statut = t["vers"]
@@ -472,6 +519,18 @@ def verifier_machine():
             anomalies.append(f"{t['action']} n'est ouverte à aucun rôle")
         if not t["libelle"]:
             anomalies.append(f"{t['action']} sans libellé")
+
+    for t in TRANSITIONS:
+        nom = t.get("garde")
+        if nom and nom not in GARDES:
+            anomalies.append(
+                f"{t['action']} déclare la garde « {nom} », qu'aucun module "
+                "n'a enregistrée")
+        nom = t.get("effet")
+        if nom and nom not in EFFETS:
+            anomalies.append(
+                f"{t['action']} déclare l'effet « {nom} », qu'aucun module "
+                "n'a enregistré")
 
     # Une même action ne doit pas partir deux fois du même état.
     vus = set()

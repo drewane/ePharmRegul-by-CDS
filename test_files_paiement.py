@@ -50,6 +50,21 @@ def _max_ids():
 
 def _nettoyer(avant):
     Paiement.query.filter(Paiement.id > avant["paiement"]).delete()
+    # Les pièces et les avis se rattachent au dossier par un identifiant nu.
+    # Ne pas les purger, c'est les voir resurgir sur un dossier recyclé du run
+    # suivant — et fausser silencieusement la garde `dossier_instruit`.
+    from models import AvisEvaluationMA, PieceJointe
+
+    survivants = [d.id for d in DossierAMM.query.filter(
+        DossierAMM.id > avant["dossier"]).all()]
+    if survivants:
+        PieceJointe.query.filter(
+            PieceJointe.entite_type == "DossierAMM",
+            PieceJointe.entite_id.in_(survivants)).delete(
+                synchronize_session=False)
+        AvisEvaluationMA.query.filter(
+            AvisEvaluationMA.dossier_id.in_(survivants)).delete(
+                synchronize_session=False)
     EvenementAudit.query.filter(EvenementAudit.id > avant["audit"]).delete()
     Notification.query.filter(Notification.id > avant["notif"]).delete()
     DossierAMM.query.filter(DossierAMM.id > avant["dossier"]).delete()
@@ -299,6 +314,18 @@ with application.app.app_context():
         verifier(inchange["empreinte"] == etat1["empreinte"],
                  "l'empreinte ne bouge pas si rien ne bouge")
 
+        # La garde exige un dossier instruit : on le rend validable, sinon on
+        # n'éprouverait plus le suivi en direct mais la garde elle-même.
+        from models import AvisEvaluationMA, PieceJointe
+        db.session.add(PieceJointe(
+            entite_type="DossierAMM", entite_id=id4,
+            nom_fichier="dossier-technique.pdf",
+            chemin_fichier="/faux/chemin.pdf", type_document="module_ctd_3",
+            televerse_par_id=deposant.id))
+        db.session.add(AvisEvaluationMA(
+            dossier_id=id4, evaluateur_id=chef.id, module_concerne="global",
+            valeur="favorable", commentaire="Conforme."))
+        db.session.commit()
         me.appliquer_transition(db.session.get(DossierAMM, id4), "valider", directeur)
         db.session.commit()
         apres = client.get(f"/dossiers/{id4}/etat.json").get_json()

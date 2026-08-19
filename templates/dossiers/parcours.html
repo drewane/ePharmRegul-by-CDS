@@ -80,10 +80,144 @@
     </div>
     {% endif %}
 
+    {# --- Le dossier ------------------------------------------------------
+       Ce qu'il faut avoir lu avant de décider. Placé AVANT les boutons :
+       l'ordre de lecture n'est pas neutre quand la décision délivre une
+       autorisation de mise sur le marché. #}
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Le dossier</span>
+        {% if d.produit %}
+        <a class="small" href="{{ url_for('ctd.sommaire', dossier_id=d.id) }}">
+          Dossier technique <i class="bi bi-box-arrow-up-right"></i></a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if d.produit %}
+        <dl class="row mb-3 small">
+          <dt class="col-sm-4">Produit</dt>
+          <dd class="col-sm-8">{{ d.produit.nom_commercial or '—' }}</dd>
+          <dt class="col-sm-4">DCI</dt>
+          <dd class="col-sm-8">{{ d.produit.denomination_commune_internationale or '—' }}</dd>
+          <dt class="col-sm-4">Forme · dosage</dt>
+          <dd class="col-sm-8">{{ d.produit.forme_pharmaceutique or '—' }}
+            {%- if d.produit.dosage %} · {{ d.produit.dosage }}{% endif %}</dd>
+          <dt class="col-sm-4">Voie</dt>
+          <dd class="col-sm-8">{{ d.produit.voie_administration or '—' }}</dd>
+          <dt class="col-sm-4">Classe</dt>
+          <dd class="col-sm-8">{{ d.produit.classe_therapeutique or '—' }}</dd>
+          <dt class="col-sm-4">Titulaire</dt>
+          <dd class="col-sm-8">{{ d.produit.titulaire_amm.raison_sociale
+                                  if d.produit.titulaire_amm else '—' }}</dd>
+        </dl>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-3 small">
+          <span>
+            <span class="text-muted">Dossier technique :</span>
+            {% if ctd_complet %}
+              <span class="badge bg-success">complet</span>
+            {% else %}
+              <span class="badge bg-warning text-dark">{{ ctd_faits }}/{{ ctd_total }} modules</span>
+            {% endif %}
+          </span>
+          <span>
+            <span class="text-muted">Redevance :</span>
+            {% set confirme = paiements | selectattr('statut', 'equalto', 'confirme') | list %}
+            {% if confirme %}
+              <span class="badge bg-success">encaissée</span>
+            {% elif paiements %}
+              <span class="badge bg-warning text-dark">en attente</span>
+            {% else %}
+              <span class="badge bg-secondary">aucune</span>
+            {% endif %}
+          </span>
+          <span>
+            <span class="text-muted">Pièces déposées :</span>
+            <span class="badge bg-{{ 'secondary' if not pieces else 'primary' }}">
+              {{ pieces | length }}</span>
+          </span>
+        </div>
+      </div>
+
+      {# --- Avis d'évaluation --- #}
+      {% if avis %}
+      <div class="card-header py-2 small fw-semibold">Avis d'évaluation</div>
+      <ul class="list-group list-group-flush small">
+        {% for a in avis %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between gap-2">
+            <span>
+              {% if a.valeur == 'favorable' %}
+                <span class="badge bg-success">Favorable</span>
+              {% elif a.valeur == 'complement_requis' %}
+                <span class="badge bg-warning text-dark">Complément requis</span>
+              {% else %}
+                <span class="badge bg-danger">Recommandation de rejet</span>
+              {% endif %}
+              <span class="text-muted ms-1">{{ a.module_concerne or 'global' }}</span>
+            </span>
+            <span class="text-muted text-nowrap">
+              {{ a.date_creation.strftime('%d/%m/%Y') }}</span>
+          </div>
+          {% if a.commentaire %}
+          <div class="mt-1">{{ a.commentaire }}</div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {# --- Pièces jointes ---
+         Téléchargeables à tous les échelons : on signe au vu des documents,
+         pas d'un résumé. #}
+      {% if pieces %}
+      <div class="card-header py-2 small fw-semibold">Pièces du dossier</div>
+      <ul class="list-group list-group-flush small">
+        {% for p in pieces %}
+        <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+          <span>
+            <i class="bi bi-paperclip"></i>
+            <a href="{{ url_for('pieces.telecharger', piece_id=p.id) }}">
+              {{ p.nom_fichier }}</a>
+            {% if p.type_document %}
+            <span class="badge bg-light text-dark border ms-1">{{ p.type_document }}</span>
+            {% endif %}
+          </span>
+          <span class="text-muted text-nowrap">
+            {{ p.date_televersement.strftime('%d/%m/%Y') }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body pt-0">
+        <p class="small text-danger mb-0">
+          <i class="bi bi-exclamation-triangle"></i>
+          Aucune pièce n'est jointe à ce dossier.</p>
+      </div>
+      {% endif %}
+    </div>
+
     {# --- Actions ------------------------------------------------------ #}
     <div class="card mb-3">
       <div class="card-header">Actions disponibles</div>
       <div class="card-body">
+        {% set motifs = [] %}
+        {% for t in actions %}{% if empechements.get(t.action) %}
+          {% set _ = motifs.append((t, empechements[t.action])) %}
+        {% endif %}{% endfor %}
+        {% if motifs %}
+        <div class="alert alert-warning py-2 small mb-3">
+          {% for t, raisons in motifs %}
+          <div{% if not loop.first %} class="mt-2"{% endif %}>
+            <strong>« {{ t.libelle }} » est impossible en l'état :</strong>
+            <ul class="mb-0 mt-1">
+              {% for r in raisons %}<li>{{ r }}</li>{% endfor %}
+            </ul>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% if actions %}
           {% include "dossiers/_actions.html" %}
         {% else %}

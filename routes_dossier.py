@@ -17,6 +17,7 @@ from flask import (Blueprint, abort, flash, jsonify, redirect,
                    render_template, request, send_file, url_for)
 
 import actes
+import gardes_dossier  # noqa: F401 — enregistre la garde du moteur
 import machine_etats as me
 from auth import current_user, login_required
 from erreurs import ErreurWorkflow
@@ -51,13 +52,41 @@ def _dossier_visible(dossier_id):
 @bp.route("/<int:dossier_id>/parcours")
 @login_required
 def parcours(dossier_id):
+    """Le dossier, son parcours, et ce qu'il faut pour décider.
+
+    Cette page portait au départ le seul parcours : frise, actions,
+    historique. C'était une faute. On y valide une autorisation de mise sur le
+    marché — le décideur doit avoir sous les yeux le produit, les pièces
+    déposées, l'état du dossier technique, les avis d'évaluation et la
+    situation financière. Signer au vu d'un numéro et d'un statut n'est pas
+    signer.
+    """
+    import modules_ctd as ctd
+    from models import AvisEvaluationMA
+    from paiements import lister_paiements
+    from pieces import lister_pieces
+
     u, d = _dossier_visible(dossier_id)
+
+    faits, total = ctd.progression(d)
     return render_template(
         "dossiers/parcours.html", u=u, d=d,
         etapes=me.etapes(d),
         actions=me.transitions_autorisees(d, u.role_systeme),
+        # Ce qui bloque chaque action, calculé une fois : l'écran grise le
+        # bouton et en donne la raison, plutôt que de laisser cliquer pour
+        # découvrir le refus.
+        empechements={t["action"]: me.obstacles(d, t)
+                      for t in me.transitions_autorisees(d, u.role_systeme)},
         historique=me.historique(d),
         actes_delivres=actes.resume(d),
+        # Le dossier lui-même
+        pieces=lister_pieces(d),
+        paiements=lister_paiements(d),
+        avis=(AvisEvaluationMA.query.filter_by(dossier_id=d.id)
+              .order_by(AvisEvaluationMA.date_creation.desc()).all()),
+        ctd_faits=faits, ctd_total=total,
+        ctd_complet=ctd.dossier_technique_complet(d),
         me=me)
 
 
@@ -136,14 +165,35 @@ def transition(dossier_id):
     action = (request.form.get("action") or "").strip()
     commentaire = request.form.get("commentaire")
 
+    avant = actes.resume(d)
     try:
         t = me.appliquer_transition(d, action, u, commentaire)
         db.session.commit()
         flash(f"{t['libelle']} — le dossier est désormais "
               f"« {me.libelle(t['vers'])} ».", "success")
+        _annoncer_actes(d, avant)
     except ErreurWorkflow as e:
         db.session.rollback()
         flash(str(e), "danger")
+        return redirect(request.form.get("retour")
+                        or url_for("dossier.parcours", dossier_id=d.id))
 
-    retour = request.form.get("retour")
-    return redirect(retour or url_for("dossier.parcours", dossier_id=d.id))
+    # Quand la transition a PRODUIT quelque chose, on ne renvoie pas l'acteur
+    # d'où il venait : la validation du directeur le ramenait à sa file, vide,
+    # sans un mot sur le certificat et l'AMM qui venaient de naître. On le
+    # conduit là où les actes se trouvent.
+    if actes.resume(d) != avant:
+        return redirect(url_for("dossier.parcours", dossier_id=d.id))
+    return redirect(request.form.get("retour")
+                    or url_for("dossier.parcours", dossier_id=d.id))
+
+
+def _annoncer_actes(dossier, avant):
+    """Signale les actes que la transition vient de faire naître."""
+    connus = {a["code"] for a in avant}
+    nouveaux = [a for a in actes.resume(dossier) if a["code"] not in connus]
+    if not nouveaux:
+        return
+    detail = " · ".join(f"{a['libelle']} {a['numero']}" for a in nouveaux)
+    flash(f"Actes édités — {detail}. Ils sont consultables et imprimables "
+          "ci-dessous.", "info")

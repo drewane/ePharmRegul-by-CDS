@@ -76,6 +76,7 @@
           <td class="text-end">
             {% if l.actions %}
               {% set actions = l.actions %}
+              {% set empechements = l.empechements %}
               {% set retour = url_for('files.file', code=entree.code) %}
               {% include "dossiers/_actions.html" %}
             {% else %}

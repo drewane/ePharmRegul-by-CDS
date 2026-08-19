@@ -191,6 +191,10 @@ def contenu(code_file, utilisateur, limite=None):
             "statut": me.libelle(d.statut),
             "couleur": me.couleur(d.statut),
             "actions": me.transitions_autorisees(d, role),
+            # Une file qui offre un bouton refusé au clic fait perdre le temps
+            # qu'elle est censée faire gagner.
+            "empechements": {t["action"]: me.obstacles(d, t)
+                             for t in me.transitions_autorisees(d, role)},
         })
     # Le plus vieux en tête : une file se traite par le bas, pas par le haut.
     lignes.sort(key=lambda l: (l["jours"] is None, -(l["jours"] or 0)))

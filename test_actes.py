@@ -46,6 +46,21 @@ def _max_ids():
 
 
 def _nettoyer(avant, fichiers=()):
+    # Les pièces et les avis se rattachent au dossier par un identifiant nu.
+    # Ne pas les purger, c'est les voir resurgir sur un dossier recyclé du run
+    # suivant — et fausser silencieusement la garde `dossier_instruit`.
+    from models import AvisEvaluationMA, PieceJointe
+
+    survivants = [d.id for d in DossierAMM.query.filter(
+        DossierAMM.id > avant["dossier"]).all()]
+    if survivants:
+        PieceJointe.query.filter(
+            PieceJointe.entite_type == "DossierAMM",
+            PieceJointe.entite_id.in_(survivants)).delete(
+                synchronize_session=False)
+        AvisEvaluationMA.query.filter(
+            AvisEvaluationMA.dossier_id.in_(survivants)).delete(
+                synchronize_session=False)
     EvenementAudit.query.filter(EvenementAudit.id > avant["audit"]).delete()
     Notification.query.filter(Notification.id > avant["notif"]).delete()
     DossierAMM.query.filter(DossierAMM.id > avant["dossier"]).delete()
@@ -66,7 +81,9 @@ def _compte(email):
     return Personne.query.filter_by(email=email).first()
 
 
-def _dossier(deposant, statut="retour_homologation"):
+def _dossier(deposant, statut="retour_homologation", instruit=True):
+    """Dossier de test. `instruit` lui donne pièce et avis favorable, sans quoi
+    la garde `dossier_instruit` refuse la validation."""
     from numerotation import generer_numero
 
     p = Produit(nom_commercial="Actine 100", forme_pharmaceutique="Comprimé",
@@ -83,7 +100,30 @@ def _dossier(deposant, statut="retour_homologation"):
                    date_depot=datetime.utcnow())
     db.session.add(d)
     db.session.flush()
+    if instruit:
+        _instruire(d, _compte("chefservice@dpml.demo"), deposant)
     return d
+
+
+def _instruire(dossier, evaluateur, deposant):
+    """Rend le dossier validable : une pièce et un avis favorable.
+
+    Depuis l'ajout de la garde `dossier_instruit`, on ne valide plus un dossier
+    vide — y compris dans les tests. C'est le comportement voulu : un test qui
+    validerait un dossier sans pièce ni avis ne prouverait plus rien de réel.
+    """
+    from models import AvisEvaluationMA, PieceJointe
+
+    db.session.add(PieceJointe(
+        entite_type="DossierAMM", entite_id=dossier.id,
+        nom_fichier="dossier-technique.pdf",
+        chemin_fichier="/faux/chemin.pdf", type_document="module_ctd_3",
+        televerse_par_id=deposant.id))
+    db.session.add(AvisEvaluationMA(
+        dossier_id=dossier.id, evaluateur_id=evaluateur.id,
+        module_concerne="global", valeur="favorable",
+        commentaire="Évaluation technique conforme."))
+    db.session.flush()
 
 
 with application.app.app_context():

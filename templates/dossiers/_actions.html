@@ -16,7 +16,18 @@
 <div class="d-flex flex-wrap gap-2">
   {% for t in actions %}
     {% set cible = 'motif-' ~ d.id ~ '-' ~ t.action %}
-    {% if t.motif_requis %}
+    {% set bloque = (empechements or {}).get(t.action) %}
+    {% if bloque %}
+      {# Le rôle a qualité, mais le dossier n'est pas en état. On grise plutôt
+         que de masquer : le décideur doit savoir que l'action existe, et ce
+         qui lui manque pour l'exercer. Le serveur refuse de toute façon. #}
+      <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip"
+            title="{{ bloque | join(' ') }}">
+        <button type="button" class="btn btn-{{ t.ton }}" disabled>
+          <i class="bi bi-lock"></i> {{ t.libelle }}
+        </button>
+      </span>
+    {% elif t.motif_requis %}
       {# Un motif obligatoire passe par une boîte de dialogue : le serveur le
          refuserait vide, autant le demander avant plutôt qu'après. #}
       <button type="button" class="btn btn-{{ t.ton }}" data-bs-toggle="modal"
